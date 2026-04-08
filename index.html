@@ -226,9 +226,45 @@ button i{
 
     <div class="label">Balance SDA</div>
     <div class="balance" id="balance">0.00 SDA</div>
+    
+    <div style="margin-top:15px; text-align:center;">
+
+    <!-- QR -->
+    <img id="qrCode"
+         src=""
+         style="width:140px; height:140px; margin-bottom:10px; border-radius:10px; background:#fff; padding:5px;" />
+
+    <!-- ADDRESS + COPY -->
+    <div style="display:flex; gap:8px; align-items:center; background:#1a1a1a; padding:10px; border-radius:10px;">
+
+        <div id="showAddress"
+             style="flex:1; font-size:12px; word-break:break-all; color:#aaa;">
+            -
+        </div>
+
+        <button onclick="copyAddress()"
+                style="width:auto; padding:6px 10px; font-size:12px;">
+            <i class="fa-solid fa-copy"></i>
+        </button>
+    </div>
+
+</div>
 
     <div class="label">Pilih Wallet</div>
     <select id="walletSelect"></select>
+    
+    <div class="actions">
+    <div onclick="renameWallet()">
+        <i class="fa-solid fa-pen"></i><br>Rename
+    </div>
+    
+    <div onclick="deleteWallet()">
+        <i class="fa-solid fa-trash"></i><br>Delete
+    </div>
+    <div onclick="loadBalance()">
+        <i class="fa-solid fa-rotate"></i><br>Refresh
+    </div>
+</div>
 
   <div class="input-group">
     <i class="fa-solid fa-link"></i>
@@ -248,7 +284,7 @@ button i{
     <i class="fa-solid fa-rotate"></i> Cek Balance
 </button>
 
-    <div class="wallet-row" id="activeWallet"></div>
+
 
     <!-- ACTION ICON STYLE -->
     <div class="actions">
@@ -275,7 +311,7 @@ const KEY = "sda_wallets";
 // ELEMENT
 const balanceEl = document.getElementById("balance");
 const selectEl = document.getElementById("walletSelect");
-const activeWalletEl = document.getElementById("activeWallet");
+
 
 // LOAD STORAGE
 function getWallets(){
@@ -343,12 +379,52 @@ function getSelectedWallet(){
     return wallets[index];
 }
 
+function renameWallet(){
+    const wallets = getWallets();
+    const index = selectEl.value;
+
+    if(index === "" || !wallets[index]){
+        return alert("Pilih wallet dulu");
+    }
+
+    const newName = prompt("Masukkan nama baru:", wallets[index].name);
+
+    if(!newName) return;
+
+    wallets[index].name = newName;
+    setWallets(wallets);
+    renderWallets();
+
+    alert("Nama wallet berhasil diubah");
+}
+
+function deleteWallet(){
+    const wallets = getWallets();
+    const index = selectEl.value;
+
+    if(index === "" || !wallets[index]){
+        return alert("Pilih wallet dulu");
+    }
+
+    const confirmDelete = confirm("Hapus wallet ini?");
+
+    if(!confirmDelete) return;
+
+    wallets.splice(index, 1);
+    setWallets(wallets);
+    renderWallets();
+
+    balanceEl.textContent = "0.00 SDA";
+
+    alert("Wallet dihapus");
+}
+
 // LOAD BALANCE SDA
 async function loadBalance(){
     const wallet = getSelectedWallet();
     if(!wallet) return alert("Pilih wallet dulu");
 
-    activeWalletEl.textContent = wallet.address;
+    
 
     balanceEl.textContent = "Loading...";
 
@@ -360,6 +436,49 @@ async function loadBalance(){
         console.error(e);
         balanceEl.textContent = "Error";
     }
+}
+
+function loadBalance(){
+    const wallet = getSelectedWallet();
+    if(!wallet) return;
+
+    balanceEl.textContent = "Loading...";
+
+    // UPDATE ADDRESS
+    document.getElementById("showAddress").textContent = wallet.address;
+
+    provider.getBalance(wallet.address)
+        .then(bal => {
+            const result = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
+            balanceEl.textContent = result + " SDA";
+
+            // QR hanya muncul kalau wallet valid
+            document.getElementById("qrCode").src =
+                "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + wallet.address;
+        })
+        .catch(e => {
+            console.error(e);
+            balanceEl.textContent = "Error";
+
+            // kalau error, kosongkan QR
+            document.getElementById("qrCode").src = "";
+        });
+}
+
+function copyAddress(){
+    const wallet = getSelectedWallet();
+
+    if(!wallet){
+        return alert("Pilih wallet dulu");
+    }
+
+    navigator.clipboard.writeText(wallet.address)
+        .then(() => {
+            alert("Address copied");
+        })
+        .catch(() => {
+            alert("Gagal copy");
+        });
 }
 
 // SPLASH CONTROL
@@ -379,6 +498,25 @@ window.addEventListener("load", ()=>{
 window.onload = ()=>{
     renderWallets();
 };
+
+window.onload = () => {
+    renderWallets();
+
+    const wallets = getWallets();
+
+    if(wallets.length > 0){
+        selectEl.value = 0; // pilih wallet pertama otomatis
+        loadBalance();      // langsung load balance
+    }
+};
+
+selectEl.addEventListener("change", () => {
+    balanceEl.textContent = "Loading...";
+    document.getElementById("qrCode").src = "";
+    document.getElementById("showAddress").textContent = "-";
+
+    loadBalance();
+});
 
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
