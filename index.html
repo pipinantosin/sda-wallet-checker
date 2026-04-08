@@ -201,6 +201,17 @@ button i{
         filter:drop-shadow(0 0 20px rgba(255,122,0,0.8));
     }
 }
+
+@keyframes blinkGlow {
+    0% { box-shadow: 0 0 0 rgba(255,122,0,0); }
+    50% { box-shadow: 0 0 15px rgba(255,122,0,0.9); }
+    100% { box-shadow: 0 0 0 rgba(255,122,0,0); }
+}
+
+.blink {
+    animation: blinkGlow 1s infinite;
+    border:1px solid #ff7a00 !important;
+}
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -243,10 +254,8 @@ button i{
     <!-- QR -->
     <img id="qrCode"
      src=""
-     style="width:130px; height:130px; margin:15px auto; display:block;
-     border-radius:16px; background:#111; padding:8px;
-     box-shadow:0 0 20px rgba(255,122,0,0.2);" />
-
+     style="display:none; width:130px; height:130px; margin:15px auto;
+     border-radius:16px; background:#111; padding:8px;" />
 
 
     <!-- ADDRESS + COPY -->
@@ -495,11 +504,24 @@ async function loadBalance(){
 
 function loadBalance(){
     const wallet = getSelectedWallet();
-    if(!wallet) return;
+
+    const qr = document.getElementById("qrCode");
+
+    // ❌ belum ada wallet
+    if(!wallet){
+        qr.style.display = "none";
+        qr.src = "";
+        document.getElementById("showAddress").textContent = "-";
+        balanceEl.textContent = "0.00 SDA";
+        return;
+    }
 
     balanceEl.textContent = "Loading...";
 
-    // UPDATE ADDRESS
+    // stop blink check
+    checkBtn.classList.remove("blink");
+
+    // tampilkan address
     document.getElementById("showAddress").textContent = wallet.address;
 
     provider.getBalance(wallet.address)
@@ -507,16 +529,17 @@ function loadBalance(){
             const result = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
             balanceEl.textContent = result + " SDA";
 
-            // QR hanya muncul kalau wallet valid
-            document.getElementById("qrCode").src =
-                "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + wallet.address;
+            // ✅ tampilkan QR kalau sukses
+            qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + wallet.address;
+            qr.style.display = "block";
         })
         .catch(e => {
             console.error(e);
             balanceEl.textContent = "Error";
 
-            // kalau error, kosongkan QR
-            document.getElementById("qrCode").src = "";
+            // ❌ hide QR kalau gagal
+            qr.src = "";
+            qr.style.display = "none";
         });
 }
 
@@ -619,29 +642,61 @@ function shareTelegram(){
     window.open(`https://t.me/share/url?url=${text}`, "_blank");
 }
 
-// INIT
-window.onload = ()=>{
-    renderWallets();
-};
 
+
+const addressInput = document.getElementById("address");
+const saveBtn = document.querySelector("button[onclick='saveWallet()']");
+const checkBtn = document.querySelector("button[onclick='loadBalance()']");
+
+// STEP 1
+function startGuide(){
+    addressInput.classList.add("blink");
+}
+
+// jalankan kalau belum ada wallet
+const wallets = getWallets();
+if(wallets.length === 0){
+    startGuide();
+}
+
+addressInput.addEventListener("input", () => {
+    if(addressInput.value.length > 5){
+        addressInput.classList.remove("blink");
+        saveBtn.classList.add("blink");
+    }
+});
+
+addressInput.addEventListener("input", () => {
+    if(addressInput.value.length > 5){
+        addressInput.classList.remove("blink");
+        saveBtn.classList.add("blink");
+    }
+});
+
+saveBtn.addEventListener("click", () => {
+    saveBtn.classList.remove("blink");
+    checkBtn.classList.add("blink");
+});
+
+
+// INIT
 window.onload = () => {
     renderWallets();
 
     const wallets = getWallets();
 
+    // sembunyikan QR di awal
+    document.getElementById("qrCode").style.display = "none";
+
     if(wallets.length > 0){
-        selectEl.value = 0; // pilih wallet pertama otomatis
-        loadBalance();      // langsung load balance
+        selectEl.value = 0;
+        loadBalance();
+    } else {
+        startGuide(); // jalankan blink pertama
     }
 };
 
-selectEl.addEventListener("change", () => {
-    balanceEl.textContent = "Loading...";
-    document.getElementById("qrCode").src = "";
-    document.getElementById("showAddress").textContent = "-";
 
-    loadBalance();
-});
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js")
@@ -664,6 +719,7 @@ if ("serviceWorker" in navigator) {
         })
         .catch(err => console.log("SW error:", err));
 }
+
 </script>
 
 
