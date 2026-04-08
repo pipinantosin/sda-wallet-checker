@@ -302,18 +302,38 @@ function renderWallets(){
 
 // SAVE WALLET
 function saveWallet(){
-    const addr = document.getElementById("address").value.trim();
+    let addr = document.getElementById("address").value.trim().toLowerCase();
     const name = document.getElementById("walletName").value.trim();
 
     if(!addr) return alert("Isi address dulu");
 
+    // VALIDASI BASIC ADDRESS
+    if(!addr.startsWith("0x") || addr.length < 20){
+        return alert("Format address tidak valid");
+    }
+
     const wallets = getWallets();
-    wallets.push({address:addr, name:name});
+
+    // CEGAH DUPLIKAT
+    const isExist = wallets.some(w => w.address.toLowerCase() === addr);
+
+    if(isExist){
+        return alert("Wallet sudah tersimpan");
+    }
+
+    wallets.push({
+        address: addr,
+        name: name || "Wallet"
+    });
 
     setWallets(wallets);
     renderWallets();
 
-    alert("Wallet disimpan");
+    // reset input
+    document.getElementById("address").value = "";
+    document.getElementById("walletName").value = "";
+
+    alert("Wallet berhasil disimpan");
 }
 
 // GET SELECTED
