@@ -376,6 +376,9 @@ const KEY = "sda_wallets";
 const balanceEl = document.getElementById("balance");
 const selectEl = document.getElementById("walletSelect");
 
+selectEl.addEventListener("change", () => {
+    loadBalance();
+});
 
 // LOAD STORAGE
 function getWallets(){
@@ -434,6 +437,15 @@ function saveWallet(){
     document.getElementById("walletName").value = "";
 
     alert("Wallet berhasil disimpan");
+    
+    setWallets(wallets);
+renderWallets();
+
+// 👉 pindah ke wallet terakhir (yang baru disimpan)
+selectEl.value = wallets.length - 1;
+
+// 👉 langsung load wallet baru
+loadBalance();
 }
 
 // GET SELECTED
@@ -475,12 +487,18 @@ function deleteWallet(){
     if(!confirmDelete) return;
 
     wallets.splice(index, 1);
-    setWallets(wallets);
-    renderWallets();
+setWallets(wallets);
+renderWallets();
 
+// 👉 AUTO PILIH WALLET SETELAH DELETE
+if(getWallets().length > 0){
+    selectEl.value = 0;
+    loadBalance();
+} else {
     balanceEl.textContent = "0.00 SDA";
+}
 
-    alert("Wallet dihapus");
+alert("Wallet dihapus");
 }
 
 // LOAD BALANCE SDA
