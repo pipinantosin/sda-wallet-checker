@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDA Wallet Checker</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#0c0c0c;
+    color:#fff;
+    display:flex;
+    justify-content:center;
+    padding:20px;
+}
+
+.app{
+    width:360px;
+}
+
+/* HEADER */
+.header{
+    background:#111;
+    padding:15px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:15px;
+}
+
+.logo{
+    width:40px;
+    height:40px;
+    border-radius:10px;
+    background:#1a1a1a;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 0 10px rgba(255,122,0,0.4);
+    overflow:hidden;
+}
+
+.logo img{
+    width:70%;
+    height:70%;
+    object-fit:contain;
+}
+
+/* CARD */
+.card{
+    background:#111;
+    border-radius:14px;
+    padding:18px;
+    border:1px solid #222;
+}
+
+/* BALANCE */
+.balance{
+    font-size:34px;
+    font-weight:bold;
+    margin:10px 0;
+}
+
+.label{
+    color:#aaa;
+    font-size:14px;
+}
+
+/* INPUT */
+input, select{
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:none;
+    margin-top:10px;
+    background:#1a1a1a;
+    color:#fff;
+}
+
+.input-group{
+    display:flex;
+    align-items:center;
+    background:#1a1a1a;
+    border-radius:10px;
+    padding:0 12px;
+    margin-top:10px;
+    border:1px solid #222;
+}
+
+.input-group i{
+    color:#ff7a00;
+    font-size:14px;
+    margin-right:8px;
+}
+
+.input-group input{
+    flex:1;
+    border:none;
+    background:transparent;
+    padding:12px 0;
+    color:#fff;
+    font-size:14px;
+    outline:none;
+}
+
+/* BUTTON */
+button{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border:none;
+    border-radius:8px;
+    background:#ff7a00;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#e56c00;
+}
+
+button i{
+    margin-right:8px;
+}
+
+/* WALLET ROW */
+.wallet-row{
+    margin-top:10px;
+    font-size:12px;
+    color:#aaa;
+    word-break:break-all;
+}
+
+/* ACTIONS */
+.actions{
+    display:flex;
+    gap:10px;
+    margin-top:15px;
+}
+
+.actions div{
+    flex:1;
+    background:#1a1a1a;
+    padding:12px;
+    border-radius:10px;
+    text-align:center;
+    font-size:12px;
+}
+
+/* SPLASH */
+#splash{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:#000;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+    flex-direction:column;
+}
+
+#splash img{
+    width:90px;
+    animation:zoomIn 1s ease, glow 1.5s infinite alternate;
+}
+
+/* ANIMASI MASUK */
+@keyframes zoomIn{
+    from{
+        transform:scale(0.5);
+        opacity:0;
+    }
+    to{
+        transform:scale(1);
+        opacity:1;
+    }
+}
+
+/* GLOW EFFECT */
+@keyframes glow{
+    from{
+        filter:drop-shadow(0 0 5px rgba(255,122,0,0.3));
+    }
+    to{
+        filter:drop-shadow(0 0 20px rgba(255,122,0,0.8));
+    }
+}
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff7a00">
+
+<!-- PWA support iOS -->
+<link rel="apple-touch-icon" href="img/sda.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+</head>
+<body>
+	
+<!-- SPLASH SCREEN -->
+<div id="splash">
+    <img src="img/sda.png" alt="SDA Logo">
+</div>
+
+<div class="app">
+
+<!-- HEADER -->
+<div class="header">
+    <div class="logo">
+    <img src="img/sda.png" alt="SDA Logo">
+</div>
+    <div><b>Sidra Chain</b></div>
+</div>
+
+<!-- CARD -->
+<div class="card">
+
+    <div class="label">Balance SDA</div>
+    <div class="balance" id="balance">0.00 SDA</div>
+
+    <div class="label">Pilih Wallet</div>
+    <select id="walletSelect"></select>
+
+  <div class="input-group">
+    <i class="fa-solid fa-link"></i>
+    <input type="text" id="address" placeholder="Input Address 0x..." />
+</div>
+
+<div class="input-group">
+    <i class="fa-solid fa-tag"></i>
+    <input type="text" id="walletName" placeholder="Nama Wallet (opsional)" />
+</div>
+
+    <button onclick="saveWallet()">
+    <i class="fa-solid fa-floppy-disk"></i> Simpan Wallet
+</button>
+
+<button onclick="loadBalance()">
+    <i class="fa-solid fa-rotate"></i> Cek Balance
+</button>
+
+    <div class="wallet-row" id="activeWallet"></div>
+
+    <!-- ACTION ICON STYLE -->
+    <div class="actions">
+        <div><i class="fa-solid fa-paper-plane"></i><br>Send</div>
+        <div><i class="fa-solid fa-download"></i><br>Receive</div>
+        <div><i class="fa-solid fa-right-left"></i><br>Swap</div>
+    </div>
+
+</div>
+
+</div>
+
+<!-- ETHERS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+
+<script>
+// CONFIG
+const RPC = "https://node.sidrachain.com/";
+const provider = new ethers.providers.JsonRpcProvider(RPC);
+
+// STORAGE KEY
+const KEY = "sda_wallets";
+
+// ELEMENT
+const balanceEl = document.getElementById("balance");
+const selectEl = document.getElementById("walletSelect");
+const activeWalletEl = document.getElementById("activeWallet");
+
+// LOAD STORAGE
+function getWallets(){
+    return JSON.parse(localStorage.getItem(KEY) || "[]");
+}
+
+// SAVE STORAGE
+function setWallets(data){
+    localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+// RENDER DROPDOWN
+function renderWallets(){
+    const wallets = getWallets();
+    selectEl.innerHTML = "";
+
+    wallets.forEach((w,i)=>{
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = w.name || ("Wallet "+(i+1));
+        selectEl.appendChild(opt);
+    });
+}
+
+// SAVE WALLET
+function saveWallet(){
+    const addr = document.getElementById("address").value.trim();
+    const name = document.getElementById("walletName").value.trim();
+
+    if(!addr) return alert("Isi address dulu");
+
+    const wallets = getWallets();
+    wallets.push({address:addr, name:name});
+
+    setWallets(wallets);
+    renderWallets();
+
+    alert("Wallet disimpan");
+}
+
+// GET SELECTED
+function getSelectedWallet(){
+    const wallets = getWallets();
+    const index = selectEl.value;
+    return wallets[index];
+}
+
+// LOAD BALANCE SDA
+async function loadBalance(){
+    const wallet = getSelectedWallet();
+    if(!wallet) return alert("Pilih wallet dulu");
+
+    activeWalletEl.textContent = wallet.address;
+
+    balanceEl.textContent = "Loading...";
+
+    try{
+        const bal = await provider.getBalance(wallet.address);
+        const result = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
+        balanceEl.textContent = result + " SDA";
+    }catch(e){
+        console.error(e);
+        balanceEl.textContent = "Error";
+    }
+}
+
+// SPLASH CONTROL
+window.addEventListener("load", ()=>{
+    setTimeout(()=>{
+        document.getElementById("splash").style.opacity = "0";
+        document.getElementById("splash").style.transition = "0.5s";
+
+        setTimeout(()=>{
+            document.getElementById("splash").style.display = "none";
+        },500);
+
+    },1500); // durasi splash (1.5 detik)
+});
+
+// INIT
+window.onload = ()=>{
+    renderWallets();
+};
+
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js")
+            .then(() => console.log("Service Worker registered"))
+            .catch(err => console.log("SW error:", err));
+    });
+}
+</script>
+
+
+</body>
+</html>
