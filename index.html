@@ -59,11 +59,18 @@ body{
     border:1px solid #222;
 }
 
+.card > *{
+    margin-bottom:10px;
+}
+
 /* BALANCE */
 .balance{
-    font-size:34px;
+    font-size:36px;
     font-weight:bold;
     margin:10px 0;
+    color:#fff;
+    text-align:center;
+    text-shadow:0 0 10px rgba(255,122,0,0.6);
 }
 
 .label{
@@ -229,24 +236,31 @@ button i{
     
     <div style="margin-top:15px; text-align:center;">
 
+<div style="text-align:center; font-size:12px; color:#888;">
+    Real-time data from Sidra Node
+</div>
+
     <!-- QR -->
     <img id="qrCode"
-         src=""
-         style="width:140px; height:140px; margin-bottom:10px; border-radius:10px; background:#fff; padding:5px;" />
+     src=""
+     style="width:130px; height:130px; margin:15px auto; display:block;
+     border-radius:16px; background:#111; padding:8px;
+     box-shadow:0 0 20px rgba(255,122,0,0.2);" />
+
+
 
     <!-- ADDRESS + COPY -->
-    <div style="display:flex; gap:8px; align-items:center; background:#1a1a1a; padding:10px; border-radius:10px;">
+    <div style="display:flex; gap:8px; align-items:center; background:#1a1a1a; padding:10px; border-radius:12px; margin-top:10px;">
 
-        <div id="showAddress"
-             style="flex:1; font-size:12px; word-break:break-all; color:#aaa;">
-            -
-        </div>
-
-        <button onclick="copyAddress()"
-                style="width:auto; padding:6px 10px; font-size:12px;">
-            <i class="fa-solid fa-copy"></i>
-        </button>
+    <div id="showAddress"
+         style="flex:1; font-size:12px; word-break:break-all; color:#aaa;">
+        -
     </div>
+
+    <button onclick="copyAddress()"
+            style="width:auto; padding:6px 10px; font-size:12px; border-radius:8px;">
+        <i class="fa-solid fa-copy"></i>
+    </button>
 
 </div>
 
@@ -265,6 +279,7 @@ button i{
         <i class="fa-solid fa-rotate"></i><br>Refresh
     </div>
 </div>
+
 
   <div class="input-group">
     <i class="fa-solid fa-link"></i>
@@ -285,17 +300,57 @@ button i{
 </button>
 
 
-
     <!-- ACTION ICON STYLE -->
     <div class="actions">
-        <div><i class="fa-solid fa-paper-plane"></i><br>Send</div>
-        <div><i class="fa-solid fa-download"></i><br>Receive</div>
-        <div><i class="fa-solid fa-right-left"></i><br>Swap</div>
+    <div onclick="showReceive()">
+        <i class="fa-solid fa-download"></i><br>Receive
+    </div>
+
+    <div style="opacity:0.4;">
+        <i class="fa-solid fa-paper-plane"></i><br>Send
+    </div>
+
+    <div style="opacity:0.4;">
+        <i class="fa-solid fa-right-left"></i><br>Swap
+    </div>
+</div>
+
+<div id="receiveBox" style="display:none; margin-top:10px;">
+
+    <div id="receiveForm">
+        <input type="number" id="receiveAmount"
+               placeholder="Jumlah SDA (opsional)"
+               style="margin-bottom:8px;" />
+
+        <button onclick="generateReceiveLink()">
+            Generate Link
+        </button>
+    </div>
+
+    <div id="receiveResult" style="display:none;">
+
+        <input id="receiveLink"
+               readonly
+               style="font-size:11px; margin-top:8px;" />
+
+        <button onclick="copyReceiveLink()">
+            <i class="fa-solid fa-copy"></i> Copy Link
+        </button>
+
+        <div class="actions">
+            <div onclick="shareWA()">
+                <i class="fa-brands fa-whatsapp"></i><br>WA
+            </div>
+
+            <div onclick="shareTelegram()">
+                <i class="fa-brands fa-telegram"></i><br>Telegram
+            </div>
+        </div>
+
     </div>
 
 </div>
 
-</div>
 
 <!-- ETHERS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -493,6 +548,76 @@ window.addEventListener("load", ()=>{
 
     },1500); // durasi splash (1.5 detik)
 });
+
+function showReceive(){
+    const wallet = getSelectedWallet();
+
+    if(!wallet){
+        return alert("Pilih wallet dulu");
+    }
+
+    // tampilkan QR
+    document.getElementById("qrCode").src =
+        "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + wallet.address;
+
+    document.getElementById("showAddress").textContent = wallet.address;
+
+    // tampilkan input receive
+    document.getElementById("receiveBox").style.display = "block";
+}
+
+function generateReceiveLink(){
+    const wallet = getSelectedWallet();
+    const amount = document.getElementById("receiveAmount").value;
+
+    if(!wallet){
+        return alert("Pilih wallet dulu");
+    }
+
+    let link = `https://www.sidrachain.com/wallets/send?to=${wallet.address}&currency=SDA`;
+
+    if(amount && amount > 0){
+        link += `&amount=${amount}`;
+    }
+
+    document.getElementById("receiveLink").value = link;
+
+    window.receiveLink = link;
+
+    // 🔥 HIDE FORM
+    document.getElementById("receiveForm").style.display = "none";
+
+    // 🔥 SHOW RESULT
+    document.getElementById("receiveResult").style.display = "block";
+}
+
+function copyReceiveLink(){
+    if(!window.receiveLink){
+        return alert("Generate link dulu");
+    }
+
+    navigator.clipboard.writeText(window.receiveLink);
+    alert("Link disalin");
+}
+
+
+function shareWA(){
+    if(!window.receiveLink){
+        return alert("Generate link dulu");
+    }
+
+    const text = encodeURIComponent("Kirim SDA ke saya:\n" + window.receiveLink);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+}
+
+function shareTelegram(){
+    if(!window.receiveLink){
+        return alert("Generate link dulu");
+    }
+
+    const text = encodeURIComponent("Kirim SDA ke saya:\n" + window.receiveLink);
+    window.open(`https://t.me/share/url?url=${text}`, "_blank");
+}
 
 // INIT
 window.onload = ()=>{
