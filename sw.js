@@ -1,12 +1,10 @@
-const CACHE_NAME = "sda-wallet-v6";
+const CACHE_NAME = "sda-wallet-v8";
 
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
-  "./img/sda.png",
-  "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css",
-  "https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"
+  "./img/sda.png"
 ];
 
 // INSTALL
