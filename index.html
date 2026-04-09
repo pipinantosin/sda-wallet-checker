@@ -141,6 +141,19 @@ button i{
     margin-right:8px;
 }
 
+button:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+}
+
+.input-valid{
+    border:1px solid #00ff99 !important;
+}
+
+.input-invalid{
+    border:1px solid #ff4d4d !important;
+}
+
 /* WALLET ROW */
 .wallet-row{
     margin-top:10px;
@@ -222,6 +235,7 @@ button i{
     box-shadow: 0 0 10px rgba(255,122,0,0.5);
 }
 
+
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -262,6 +276,9 @@ button i{
      style="width:28px; height:28px; border-radius:50%; background:#111; padding:3px;" />
 
     <div class="balance" id="balance">0.00 SDA</div>
+<div id="cacheLabel" style="font-size:11px; color:#888; text-align:center; display:none;">
+    cached
+</div>
 
 </div>
     
@@ -305,7 +322,15 @@ button i{
 </div>
 
 <div class="label">Pilih Wallet</div>
-<select id="walletSelect"></select>
+
+<div style="display:flex; align-items:center; gap:8px;">
+
+    <i class="fa-solid fa-wallet"
+       style="color:#ff7a00; font-size:16px;"></i>
+
+    <select id="walletSelect" style="flex:1;"></select>
+
+</div>
     
     <div class="actions">
     <div onclick="renameWallet()">
@@ -335,9 +360,7 @@ button i{
     <i class="fa-solid fa-floppy-disk"></i> Simpan Wallet
 </button>
 
-<button onclick="loadBalance()">
-    <i class="fa-solid fa-rotate"></i> Cek Balance
-</button>
+
 
 
     <!-- ACTION ICON STYLE -->
@@ -506,9 +529,12 @@ function saveWallet(){
     setWallets(wallets);
     renderWallets();
 
-    // reset input
-    document.getElementById("address").value = "";
-    document.getElementById("walletName").value = "";
+   // reset input
+document.getElementById("address").value = "";
+document.getElementById("walletName").value = "";
+
+// 🔥 update state tombol
+validateInput();
 
     alert("Wallet berhasil disimpan");
     
@@ -520,6 +546,9 @@ selectEl.value = wallets.length - 1;
 
 // 👉 langsung load wallet baru
 loadBalance();
+
+// 🔥 stop semua blink setelah wallet pertama tersimpan
+document.querySelectorAll(".blink").forEach(el => el.classList.remove("blink"));
 }
 
 // GET SELECTED
@@ -547,6 +576,11 @@ function renameWallet(){
 
     alert("Nama wallet berhasil diubah");
 }
+
+
+
+
+
 
 function deleteWallet(){
     const wallets = getWallets();
@@ -608,9 +642,14 @@ async function loadBalance(){
 
     // 🔥 TAMPILKAN CACHE DULU (kalau ada)
     const cached = localStorage.getItem(cacheKey);
-    if(cached){
-        balanceEl.textContent = cached + " (cached)";
-    }
+    const cacheLabel = document.getElementById("cacheLabel");
+
+if(cached){
+    balanceEl.textContent = cached;
+    cacheLabel.style.display = "block";
+} else {
+    cacheLabel.style.display = "none";
+}
 
     try{
 
@@ -626,6 +665,7 @@ async function loadBalance(){
             ).toFixed(4);
 
             balanceEl.textContent = result + " SDA";
+cacheLabel.style.display = "none";
 
             // 🔥 simpan cache
             localStorage.setItem(cacheKey, result + " SDA");
@@ -663,6 +703,7 @@ async function loadBalance(){
             const final = parseFloat(result).toFixed(4) + " " + token.symbol;
 
             balanceEl.textContent = final;
+cacheLabel.style.display = "none";
 
             // 🔥 simpan cache
             localStorage.setItem(cacheKey, final);
@@ -782,7 +823,30 @@ function shareTelegram(){
 
 const addressInput = document.getElementById("address");
 const saveBtn = document.querySelector("button[onclick='saveWallet()']");
-const checkBtn = document.querySelector("button[onclick='loadBalance()']");
+
+// ==========================
+// VALIDASI INPUT ADDRESS
+// ==========================
+function isValidAddress(addr){
+    return addr.startsWith("0x") && addr.length >= 42;
+}
+
+function validateInput(){
+    const addr = addressInput.value.trim();
+
+    if(isValidAddress(addr)){
+        saveBtn.disabled = false;
+    } else {
+        saveBtn.disabled = true;
+    }
+}
+
+// disable di awal
+saveBtn.disabled = true;
+
+// realtime check
+addressInput.addEventListener("input", validateInput);
+
 
 // STEP 1
 function startGuide(){
@@ -793,14 +857,11 @@ function startGuide(){
 const wallets = getWallets();
 if(wallets.length === 0){
     startGuide();
+} else {
+    document.querySelectorAll(".blink").forEach(el => el.classList.remove("blink"));
 }
 
-addressInput.addEventListener("input", () => {
-    if(addressInput.value.length > 5){
-        addressInput.classList.remove("blink");
-        saveBtn.classList.add("blink");
-    }
-});
+
 
 addressInput.addEventListener("input", () => {
     if(addressInput.value.length > 5){
@@ -811,7 +872,6 @@ addressInput.addEventListener("input", () => {
 
 saveBtn.addEventListener("click", () => {
     saveBtn.classList.remove("blink");
-    checkBtn.classList.add("blink");
 });
 
 
