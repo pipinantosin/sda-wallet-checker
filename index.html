@@ -257,9 +257,9 @@ button i{
 <!-- 🔥 BALANCE + LOGO -->
 <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
 
-    <img id="tokenLogo"
-         src="img/sda.png"
-         style="width:28px; height:28px; border-radius:50%; background:#111; padding:3px;" />
+    <img id="tokenLogoBalance"
+     src="img/sda.png"
+     style="width:28px; height:28px; border-radius:50%; background:#111; padding:3px;" />
 
     <div class="balance" id="balance">0.00 SDA</div>
 
@@ -296,9 +296,9 @@ button i{
     <div class="label">Pilih Token</div>
 <div style="display:flex; align-items:center; gap:8px;">
 
-    <img id="tokenLogo"
-         src="img/sda.png"
-         style="width:24px; height:24px; border-radius:50%; background:#111; padding:2px;" />
+    <img id="tokenLogoDropdown"
+     src="img/sda.png"
+     style="width:24px; height:24px; border-radius:50%; background:#111; padding:2px;" />
 
     <select id="tokenSelect" style="flex:1;"></select>
 
@@ -455,18 +455,23 @@ function renderTokenSelect(){
     });
     
     const tokenSelect = document.getElementById("tokenSelect");
-const tokenLogo = document.getElementById("tokenLogo");
+const tokenLogoBalance = document.getElementById("tokenLogoBalance");
+const tokenLogoDropdown = document.getElementById("tokenLogoDropdown");
 
 tokenSelect.addEventListener("change", () => {
 
     const val = tokenSelect.value;
 
-    if(val === "native"){
-        tokenLogo.src = "img/sda.png";
-    }else{
+    let logo = "img/sda.png";
+
+    if(val !== "native"){
         const token = TOKENS[val];
-        tokenLogo.src = token.logo || "img/default.png";
+        logo = token.logo || "img/default.png";
     }
+
+    //  update keduanya
+    tokenLogoBalance.src = logo;
+    tokenLogoDropdown.src = logo;
 
     loadBalance();
 });
@@ -814,7 +819,8 @@ saveBtn.addEventListener("click", () => {
 window.onload = () => {
     renderWallets();
     renderTokenSelect();
-    tokenLogo.src = "img/sda.png";
+    tokenLogoBalance.src = "img/sda.png";
+tokenLogoDropdown.src = "img/sda.png";
 
     // 🔥 WAJIB: event token change
     document.getElementById("tokenSelect")
@@ -854,6 +860,7 @@ if ("serviceWorker" in navigator) {
         })
         .catch(err => console.log("SW error:", err));
 }
+
 
 </script>
 
