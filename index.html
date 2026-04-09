@@ -65,12 +65,17 @@ body{
 
 /* BALANCE */
 .balance{
-    font-size:36px;
+    font-size:28px;
     font-weight:bold;
     margin:10px 0;
     color:#fff;
     text-align:center;
     text-shadow:0 0 10px rgba(255,122,0,0.6);
+
+    /* 🔥 TAMBAHAN */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .label{
@@ -212,6 +217,11 @@ button i{
     animation: blinkGlow 1s infinite;
     border:1px solid #ff7a00 !important;
 }
+
+#tokenLogo {
+    box-shadow: 0 0 10px rgba(255,122,0,0.5);
+}
+
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -242,8 +252,18 @@ button i{
 <!-- CARD -->
 <div class="card">
 
-    <div class="label">Balance SDA</div>
+   <div class="label">Asset</div>
+
+<!-- 🔥 BALANCE + LOGO -->
+<div style="display:flex; align-items:center; justify-content:center; gap:10px;">
+
+    <img id="tokenLogo"
+         src="img/sda.png"
+         style="width:28px; height:28px; border-radius:50%; background:#111; padding:3px;" />
+
     <div class="balance" id="balance">0.00 SDA</div>
+
+</div>
     
     <div style="margin-top:15px; text-align:center;">
 
@@ -273,8 +293,19 @@ button i{
 
 </div>
 
-    <div class="label">Pilih Wallet</div>
-    <select id="walletSelect"></select>
+    <div class="label">Pilih Token</div>
+<div style="display:flex; align-items:center; gap:8px;">
+
+    <img id="tokenLogo"
+         src="img/sda.png"
+         style="width:24px; height:24px; border-radius:50%; background:#111; padding:2px;" />
+
+    <select id="tokenSelect" style="flex:1;"></select>
+
+</div>
+
+<div class="label">Pilih Wallet</div>
+<select id="walletSelect"></select>
     
     <div class="actions">
     <div onclick="renameWallet()">
@@ -364,6 +395,9 @@ button i{
 <!-- ETHERS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
+<script src="tokenManager.js"></script>
+<script src="main.js"></script>
+
 <script>
 // CONFIG
 const RPC = "https://node.sidrachain.com/";
@@ -379,6 +413,9 @@ const selectEl = document.getElementById("walletSelect");
 selectEl.addEventListener("change", () => {
     loadBalance();
 });
+
+document.getElementById("tokenSelect")
+    .addEventListener("change", loadBalance);
 
 // LOAD STORAGE
 function getWallets(){
@@ -401,6 +438,38 @@ function renderWallets(){
         opt.textContent = w.name || ("Wallet "+(i+1));
         selectEl.appendChild(opt);
     });
+}
+
+function renderTokenSelect(){
+    const select = document.getElementById("tokenSelect");
+
+    select.innerHTML = `
+        <option value="native">SDA</option>
+    `;
+
+    TOKENS.forEach((t,i)=>{
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = t.symbol;
+        select.appendChild(opt);
+    });
+    
+    const tokenSelect = document.getElementById("tokenSelect");
+const tokenLogo = document.getElementById("tokenLogo");
+
+tokenSelect.addEventListener("change", () => {
+
+    const val = tokenSelect.value;
+
+    if(val === "native"){
+        tokenLogo.src = "img/sda.png";
+    }else{
+        const token = TOKENS[val];
+        tokenLogo.src = token.logo || "img/default.png";
+    }
+
+    loadBalance();
+});
 }
 
 // SAVE WALLET
@@ -486,13 +555,23 @@ function deleteWallet(){
 
     if(!confirmDelete) return;
 
-    wallets.splice(index, 1);
+    const deletedIndex = parseInt(index);
+
+wallets.splice(deletedIndex, 1);
 setWallets(wallets);
 renderWallets();
 
-// 👉 AUTO PILIH WALLET SETELAH DELETE
-if(getWallets().length > 0){
-    selectEl.value = 0;
+const total = wallets.length;
+
+if(total > 0){
+    // 👉 pilih index aman
+    let newIndex = deletedIndex - 1;
+
+    if(newIndex < 0){
+        newIndex = 0;
+    }
+
+    selectEl.value = newIndex;
     loadBalance();
 } else {
     balanceEl.textContent = "0.00 SDA";
@@ -503,29 +582,11 @@ alert("Wallet dihapus");
 
 // LOAD BALANCE SDA
 async function loadBalance(){
+
     const wallet = getSelectedWallet();
-    if(!wallet) return alert("Pilih wallet dulu");
-
-    
-
-    balanceEl.textContent = "Loading...";
-
-    try{
-        const bal = await provider.getBalance(wallet.address);
-        const result = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
-        balanceEl.textContent = result + " SDA";
-    }catch(e){
-        console.error(e);
-        balanceEl.textContent = "Error";
-    }
-}
-
-function loadBalance(){
-    const wallet = getSelectedWallet();
-
+    const tokenVal = document.getElementById("tokenSelect").value;
     const qr = document.getElementById("qrCode");
 
-    // ❌ belum ada wallet
     if(!wallet){
         qr.style.display = "none";
         qr.src = "";
@@ -535,30 +596,82 @@ function loadBalance(){
     }
 
     balanceEl.textContent = "Loading...";
-
-    // stop blink check
-    checkBtn.classList.remove("blink");
-
-    // tampilkan address
     document.getElementById("showAddress").textContent = wallet.address;
 
-    provider.getBalance(wallet.address)
-        .then(bal => {
-            const result = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
+    // 🔥 CACHE KEY
+    const cacheKey = wallet.address + "_" + tokenVal;
+
+    // 🔥 TAMPILKAN CACHE DULU (kalau ada)
+    const cached = localStorage.getItem(cacheKey);
+    if(cached){
+        balanceEl.textContent = cached + " (cached)";
+    }
+
+    try{
+
+        // ======================
+        // SDA
+        // ======================
+        if(tokenVal === "native"){
+
+            const bal = await provider.getBalance(wallet.address);
+
+            const result = parseFloat(
+                ethers.utils.formatEther(bal)
+            ).toFixed(4);
+
             balanceEl.textContent = result + " SDA";
 
-            // ✅ tampilkan QR kalau sukses
-            qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + wallet.address;
-            qr.style.display = "block";
-        })
-        .catch(e => {
-            console.error(e);
-            balanceEl.textContent = "Error";
+            // 🔥 simpan cache
+            localStorage.setItem(cacheKey, result + " SDA");
 
-            // ❌ hide QR kalau gagal
-            qr.src = "";
-            qr.style.display = "none";
-        });
+        }else{
+
+            // ======================
+            // TOKEN
+            // ======================
+            const token = TOKENS[tokenVal];
+
+            const abi = [
+                "function balanceOf(address) view returns (uint256)",
+                "function decimals() view returns (uint8)"
+            ];
+
+            const contract = new ethers.Contract(
+                token.address,
+                abi,
+                provider
+            );
+
+            const bal = await contract.balanceOf(wallet.address);
+
+            let decimals = 18;
+
+            try{
+                decimals = await contract.decimals();
+            }catch(e){
+                console.warn("Decimals fallback 18");
+            }
+
+            const result = bal / (10 ** decimals);
+
+            const final = parseFloat(result).toFixed(4) + " " + token.symbol;
+
+            balanceEl.textContent = final;
+
+            // 🔥 simpan cache
+            localStorage.setItem(cacheKey, final);
+        }
+
+        // QR
+        qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + wallet.address;
+        qr.style.display = "block";
+
+    }catch(e){
+        console.error(e);
+        balanceEl.textContent = "Error";
+        qr.style.display = "none";
+    }
 }
 
 function copyAddress(){
@@ -700,20 +813,24 @@ saveBtn.addEventListener("click", () => {
 // INIT
 window.onload = () => {
     renderWallets();
+    renderTokenSelect();
+    tokenLogo.src = "img/sda.png";
+
+    // 🔥 WAJIB: event token change
+    document.getElementById("tokenSelect")
+        .addEventListener("change", loadBalance);
 
     const wallets = getWallets();
 
-    // sembunyikan QR di awal
     document.getElementById("qrCode").style.display = "none";
 
     if(wallets.length > 0){
         selectEl.value = 0;
         loadBalance();
     } else {
-        startGuide(); // jalankan blink pertama
+        startGuide();
     }
 };
-
 
 
 if ("serviceWorker" in navigator) {
