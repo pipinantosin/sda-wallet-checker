@@ -1,7 +1,7 @@
 {
   "name": "SDA Wallet Checker",
   "short_name": "SDA Wallet",
-  "start_url": "./index.html",
+  "start_url": "https://pipinantosin.github.io/sda-wallet-checker/index.html",
   "display": "standalone",
   "background_color": "#0c0c0c",
   "theme_color": "#ff7a00",
