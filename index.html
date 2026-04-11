@@ -26,11 +26,30 @@ body{
 .header{
     background:#111;
     padding:15px;
-    border-radius:12px;
+    border-radius:14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+
+.header-left{
     display:flex;
     align-items:center;
     gap:10px;
-    margin-bottom:15px;
+}
+
+.header-right{
+    display:flex;
+    gap:12px;
+}
+
+.header-right i{
+    font-size:16px;
+    padding:10px;
+    border-radius:10px;
+    background:#1a1a1a;
+    cursor:pointer;
 }
 
 .logo{
@@ -50,6 +69,8 @@ body{
     height:70%;
     object-fit:contain;
 }
+
+
 
 /* CARD */
 .card{
@@ -178,6 +199,33 @@ button:disabled{
     font-size:12px;
 }
 
+
+.card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+}
+
+#activeWalletName{
+    font-size:14px;
+    font-weight:bold;
+    color:#fff;
+}
+
+.card-actions{
+    display:flex;
+    gap:10px;
+}
+
+.card-actions i{
+    background:#1a1a1a;
+    padding:8px;
+    border-radius:8px;
+    font-size:14px;
+    cursor:pointer;
+}
+
 /* SPLASH */
 #splash{
     position:fixed;
@@ -235,7 +283,87 @@ button:disabled{
     box-shadow: 0 0 10px rgba(255,122,0,0.5);
 }
 
+#cacheLabel{
+    opacity:0.7;
+}
 
+.modal{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.7);
+    display:none;
+    justify-content:center;
+    align-items:center;
+    z-index:999;
+}
+
+.modal-content{
+    background:#111;
+    padding:20px;
+    border-radius:14px;
+    width:280px;
+}
+
+.modal-header{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:15px;
+    font-weight:bold;
+}
+
+.modal-header span{
+    cursor:pointer;
+}
+
+.card-actions i:hover,
+.header-right i:hover{
+    background:#ff7a00;
+}
+
+.tabs{
+    display:flex;
+    margin-top:15px;
+    background:#111;
+    border-radius:12px;
+    overflow:hidden;
+}
+
+.tab{
+    flex:1;
+    text-align:center;
+    padding:12px;
+    cursor:pointer;
+    font-size:13px;
+    color:#aaa;
+}
+
+.tab.active{
+    background:#ff7a00;
+    color:#fff;
+}
+
+.tab-content{
+    display:none;
+    background:#111;
+    padding:12px;
+    border-radius:12px;
+    margin-top:10px;
+}
+
+.tab-content.active{
+    display:block;
+}
+
+.asset-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px;
+    border-bottom:1px solid #222;
+}
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -257,16 +385,54 @@ button:disabled{
 
 <!-- HEADER -->
 <div class="header">
-    <div class="logo">
-    <img src="img/sda.png" alt="SDA Logo">
-</div>
-    <div><b>Sidra Chain</b></div>
+    
+    <div class="header-left">
+        <div class="logo">
+            <img src="img/sda.png" alt="SDA Logo">
+        </div>
+        <div class="title">Sidra Chain</div>
+    </div>
+
+    <div class="header-right">
+        <i class="fa-regular fa-bell"></i>
+        <i class="fa-solid fa-bars"></i>
+    </div>
+
 </div>
 
 <!-- CARD -->
 <div class="card">
 
-   <div class="label">Asset</div>
+   <div style="display:flex; justify-content:space-between; align-items:center;">
+
+    <div class="label">Asset</div>
+
+    <div style="display:flex; align-items:center; gap:6px; background:#1a1a1a; padding:5px 10px; border-radius:8px;">
+
+        <img id="tokenLogoDropdown"
+         src="img/sda.png"
+         style="width:18px; height:18px; border-radius:50%;" />
+
+        <select id="tokenSelect" style="background:transparent; border:none; padding:0; font-size:12px;">
+        </select>
+
+    </div>
+
+</div>
+   
+   <!-- CARD HEADER -->
+<div class="card-header">
+
+    <div id="activeWalletName">No Wallet</div>
+
+    <div class="card-actions">
+        <i class="fa-solid fa-rotate" onclick="refreshAll()"></i>
+        <i class="fa-solid fa-gear" onclick="openWalletSetting()"></i>
+    </div>
+
+</div>
+
+
 
 <!-- 🔥 BALANCE + LOGO -->
 <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
@@ -288,39 +454,6 @@ button:disabled{
     Real-time data from Sidra Node
 </div>
 
-    <!-- QR -->
-    <img id="qrCode"
-     src=""
-     style="display:none; width:130px; height:130px; margin:15px auto;
-     border-radius:16px; background:#111; padding:8px;" />
-
-
-    <!-- ADDRESS + COPY -->
-    <div style="display:flex; gap:8px; align-items:center; background:#1a1a1a; padding:10px; border-radius:12px; margin-top:10px;">
-
-    <div id="showAddress"
-         style="flex:1; font-size:12px; word-break:break-all; color:#aaa;">
-        -
-    </div>
-
-    <button onclick="copyAddress()"
-            style="width:auto; padding:6px 10px; font-size:12px; border-radius:8px;">
-        <i class="fa-solid fa-copy"></i>
-    </button>
-
-</div>
-
-    <div class="label">Pilih Token</div>
-<div style="display:flex; align-items:center; gap:8px;">
-
-    <img id="tokenLogoDropdown"
-     src="img/sda.png"
-     style="width:24px; height:24px; border-radius:50%; background:#111; padding:2px;" />
-
-    <select id="tokenSelect" style="flex:1;"></select>
-
-</div>
-
 <div class="label">Pilih Wallet</div>
 
 <div style="display:flex; align-items:center; gap:8px;">
@@ -332,18 +465,29 @@ button:disabled{
 
 </div>
     
-    <div class="actions">
-    <div onclick="renameWallet()">
-        <i class="fa-solid fa-pen"></i><br>Rename
+
+    <!-- QR -->
+    <img id="qrCode"
+     src=""
+     style="display:none; width:130px; height:130px; margin:15px auto;
+     border-radius:16px; background:#111; padding:8px;" />
+
+
+    <!-- ADDRESS + COPY -->
+    <div style="display:flex; gap:8px; align-items:center; background:#1a1a1a; padding:10px; border-radius:12px; margin-top:10px;">
+
+    <div id="showAddress"
+     style="flex:1; font-size:12px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        -
     </div>
-    
-    <div onclick="deleteWallet()">
-        <i class="fa-solid fa-trash"></i><br>Delete
-    </div>
-    <div onclick="loadBalance()">
-        <i class="fa-solid fa-rotate"></i><br>Refresh
-    </div>
+
+    <button onclick="copyAddress()"
+            style="width:auto; padding:6px 10px; font-size:12px; border-radius:8px;">
+        <i class="fa-solid fa-copy"></i>
+    </button>
+
 </div>
+
 
 
   <div class="input-group">
@@ -378,9 +522,57 @@ button:disabled{
     </div>
 </div>
 
-<div id="receiveBox" style="display:none; margin-top:10px;">
 
-    <div id="receiveForm">
+
+   
+
+        
+<!-- MODAL WALLET SETTING -->
+<div id="walletModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+            Edit Wallet
+            <span onclick="closeWalletSetting()">׼/span>
+        </div>
+
+        <!-- INPUT NAMA -->
+        <input type="text" id="editWalletName" placeholder="Nama Wallet"
+               style="margin-bottom:10px;" />
+
+        <!-- SAVE -->
+        <button onclick="saveWalletName()">
+            <i class="fa-solid fa-floppy-disk"></i> Save
+        </button>
+
+        <!-- DELETE -->
+        <button onclick="deleteWallet()" style="background:#ff3b3b;">
+            <i class="fa-solid fa-trash"></i> Delete
+        </button>
+
+    </div>
+
+</div>
+
+<!-- MODAL RECEIVE -->
+<div id="receiveModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+            Receive
+            <span onclick="closeReceiveModal()">׼/span>
+        </div>
+
+        <img id="receiveQR"
+             style="width:140px; display:block; margin:10px auto;
+             border-radius:12px; background:#111; padding:8px;" />
+
+        <div id="receiveAddress"
+             style="font-size:12px; text-align:center; color:#aaa; margin-bottom:10px;">
+        </div>
+
         <input type="number" id="receiveAmount"
                placeholder="Jumlah SDA (opsional)"
                style="margin-bottom:8px;" />
@@ -388,32 +580,57 @@ button:disabled{
         <button onclick="generateReceiveLink()">
             Generate Link
         </button>
-    </div>
 
-    <div id="receiveResult" style="display:none;">
+        <div id="receiveResult" style="display:none;">
 
-        <input id="receiveLink"
-               readonly
-               style="font-size:11px; margin-top:8px;" />
+            <input id="receiveLink"
+                   readonly
+                   style="font-size:11px; margin-top:8px;" />
 
-        <button onclick="copyReceiveLink()">
-            <i class="fa-solid fa-copy"></i> Copy Link
-        </button>
+            <button onclick="copyReceiveLink()">
+                <i class="fa-solid fa-copy"></i> Copy Link
+                
+                <button onclick="shareWA()">
+    <i class="fa-brands fa-whatsapp"></i> WhatsApp
+</button>
 
-        <div class="actions">
-            <div onclick="shareWA()">
-                <i class="fa-brands fa-whatsapp"></i><br>WA
-            </div>
+<button onclick="shareTelegram()">
+    <i class="fa-brands fa-telegram"></i> Telegram
+</button>
+           
 
-            <div onclick="shareTelegram()">
-                <i class="fa-brands fa-telegram"></i><br>Telegram
-            </div>
         </div>
 
     </div>
 
 </div>
 
+<!-- TAB -->
+<div class="tabs">
+
+    <div class="tab active" onclick="switchTab('assets')">Assets</div>
+    <div class="tab" onclick="switchTab('tokens')">Tokens</div>
+
+</div>
+
+<div id="tab-assets" class="tab-content active"></div>
+<div id="tab-tokens" class="tab-content"></div>
+
+
+<div id="toast" style="
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+background:#111;
+color:#fff;
+padding:10px 16px;
+border-radius:8px;
+font-size:12px;
+display:none;
+z-index:9999;
+border:1px solid #333;
+"></div>
 
 <!-- ETHERS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -434,11 +651,11 @@ const balanceEl = document.getElementById("balance");
 const selectEl = document.getElementById("walletSelect");
 
 selectEl.addEventListener("change", () => {
+    updateActiveWalletName();
     loadBalance();
 });
 
-document.getElementById("tokenSelect")
-    .addEventListener("change", loadBalance);
+
 
 // LOAD STORAGE
 function getWallets(){
@@ -578,7 +795,32 @@ function renameWallet(){
 }
 
 
+function saveWalletName(){
+    const wallets = getWallets();
+    const index = selectEl.value;
 
+    if(index === "" || !wallets[index]){
+        return alert("Pilih wallet dulu");
+    }
+
+    const newName = document.getElementById("editWalletName").value.trim();
+
+    if(!newName){
+        return alert("Nama tidak boleh kosong");
+    }
+
+    wallets[index].name = newName;
+
+    setWallets(wallets);
+    renderWallets();
+
+    // update UI
+    updateActiveWalletName();
+
+    closeWalletSetting();
+
+    alert("Nama wallet disimpan");
+}
 
 
 
@@ -619,8 +861,44 @@ if(total > 0){
 alert("Wallet dihapus");
 }
 
+
+function updateActiveWalletName(){
+    const wallet = getSelectedWallet();
+
+    const el = document.getElementById("activeWalletName");
+
+    if(!wallet){
+        el.textContent = "No Wallet";
+        return;
+    }
+
+    el.textContent = wallet.name || "Wallet";
+}
+
+function openWalletSetting(){
+    const wallet = getSelectedWallet();
+
+    if(!wallet){
+        return alert("Pilih wallet dulu");
+    }
+
+    // isi input dengan nama sekarang
+    document.getElementById("editWalletName").value = wallet.name || "";
+
+    document.getElementById("walletModal").style.display = "flex";
+    setTimeout(()=>{
+    document.getElementById("editWalletName").focus();
+},100);
+}
+
+function closeWalletSetting(){
+    document.getElementById("walletModal").style.display = "none";
+}
+
 // LOAD BALANCE SDA
 async function loadBalance(){
+
+    updateActiveWalletName();
 
     const wallet = getSelectedWallet();
     const tokenVal = document.getElementById("tokenSelect").value;
@@ -637,44 +915,36 @@ async function loadBalance(){
     balanceEl.textContent = "Loading...";
     document.getElementById("showAddress").textContent = wallet.address;
 
-    // 🔥 CACHE KEY
+    //  FIX: cache key benar
     const cacheKey = wallet.address + "_" + tokenVal;
 
-    // 🔥 TAMPILKAN CACHE DULU (kalau ada)
-    const cached = localStorage.getItem(cacheKey);
+    const cached = localStorage.getItem(cacheKey) || "...";
     const cacheLabel = document.getElementById("cacheLabel");
 
-if(cached){
-    balanceEl.textContent = cached;
-    cacheLabel.style.display = "block";
-} else {
-    cacheLabel.style.display = "none";
-}
+    if(cached){
+        balanceEl.textContent = cached;
+        cacheLabel.style.display = "block";
+    } else {
+        cacheLabel.style.display = "none";
+    }
 
     try{
 
-        // ======================
-        // SDA
-        // ======================
         if(tokenVal === "native"){
 
             const bal = await provider.getBalance(wallet.address);
 
             const result = parseFloat(
                 ethers.utils.formatEther(bal)
-            ).toFixed(4);
+            ).toFixed(4) + " SDA";
 
-            balanceEl.textContent = result + " SDA";
-cacheLabel.style.display = "none";
+            balanceEl.textContent = result;
+            cacheLabel.style.display = "none";
 
-            // 🔥 simpan cache
-            localStorage.setItem(cacheKey, result + " SDA");
+            localStorage.setItem(cacheKey, result);
 
         }else{
 
-            // ======================
-            // TOKEN
-            // ======================
             const token = TOKENS[tokenVal];
 
             const abi = [
@@ -691,34 +961,94 @@ cacheLabel.style.display = "none";
             const bal = await contract.balanceOf(wallet.address);
 
             let decimals = 18;
-
             try{
                 decimals = await contract.decimals();
-            }catch(e){
-                console.warn("Decimals fallback 18");
-            }
+            }catch{}
 
-            const result = bal / (10 ** decimals);
+            const result = (bal / (10 ** decimals)).toFixed(4) + " " + token.symbol;
 
-            const final = parseFloat(result).toFixed(4) + " " + token.symbol;
+            balanceEl.textContent = result;
+            cacheLabel.style.display = "none";
 
-            balanceEl.textContent = final;
-cacheLabel.style.display = "none";
-
-            // 🔥 simpan cache
-            localStorage.setItem(cacheKey, final);
+            localStorage.setItem(cacheKey, result);
         }
 
-        // QR
         qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + wallet.address;
         qr.style.display = "block";
 
     }catch(e){
         console.error(e);
-        balanceEl.textContent = "Error";
+        balanceEl.textContent = cached || "Error";
         qr.style.display = "none";
     }
 }
+
+
+async function refreshAll(){
+
+    const wallet = getSelectedWallet();
+    if(!wallet) return;
+
+    showToast("Refreshing...");
+
+    // ======================
+    // SDA
+    // ======================
+    try{
+        const bal = await provider.getBalance(wallet.address);
+
+        const result = parseFloat(
+            ethers.utils.formatEther(bal)
+        ).toFixed(4) + " SDA";
+
+        localStorage.setItem(wallet.address + "_native", result);
+
+    }catch(e){}
+
+    // ======================
+    // TOKEN PARALLEL 
+    // ======================
+    const list = (customTokens || []).slice(0,10);
+
+    await Promise.all(list.map(async (token)=>{
+
+        try{
+            const abi = [
+                "function balanceOf(address) view returns (uint256)",
+                "function decimals() view returns (uint8)"
+            ];
+
+            const contract = new ethers.Contract(
+                token.address,
+                abi,
+                provider
+            );
+
+            const [bal, decimalsRaw] = await Promise.all([
+                contract.balanceOf(wallet.address),
+                contract.decimals().catch(()=>18)
+            ]);
+
+            const value = (bal / (10 ** decimalsRaw)).toFixed(4);
+            const final = value + " " + token.symbol;
+
+            localStorage.setItem(
+                wallet.address + "_" + token.address,
+                final
+            );
+
+        }catch(e){
+            console.warn("Token error:", token.symbol);
+        }
+
+    }));
+
+    loadBalance();
+    renderAssets();
+
+    showToast("Refresh selesai");
+}
+
 
 function copyAddress(){
     const wallet = getSelectedWallet();
@@ -756,14 +1086,20 @@ function showReceive(){
         return alert("Pilih wallet dulu");
     }
 
-    // tampilkan QR
-    document.getElementById("qrCode").src =
+    document.getElementById("receiveModal").style.display = "flex";
+
+    // isi data
+    document.getElementById("receiveQR").src =
         "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + wallet.address;
 
-    document.getElementById("showAddress").textContent = wallet.address;
+    document.getElementById("receiveAddress").textContent = wallet.address;
 
-    // tampilkan input receive
-    document.getElementById("receiveBox").style.display = "block";
+    // reset
+    document.getElementById("receiveResult").style.display = "none";
+}
+
+function closeReceiveModal(){
+    document.getElementById("receiveModal").style.display = "none";
 }
 
 function generateReceiveLink(){
@@ -780,44 +1116,245 @@ function generateReceiveLink(){
         link += `&amount=${amount}`;
     }
 
-    document.getElementById("receiveLink").value = link;
-
+    //  simpan global
     window.receiveLink = link;
 
-    // 🔥 HIDE FORM
-    document.getElementById("receiveForm").style.display = "none";
+    document.getElementById("receiveLink").value = link;
 
-    // 🔥 SHOW RESULT
+    //  tampilkan hasil (tanpa error form)
     document.getElementById("receiveResult").style.display = "block";
+
+    showToast("Link berhasil dibuat");
 }
 
 function copyReceiveLink(){
     if(!window.receiveLink){
-        return alert("Generate link dulu");
+        return showToast("Generate link dulu");
     }
 
     navigator.clipboard.writeText(window.receiveLink);
-    alert("Link disalin");
+    showToast("Link disalin");
 }
 
 
 function shareWA(){
     if(!window.receiveLink){
-        return alert("Generate link dulu");
+        return showToast("Generate link dulu");
     }
 
-    const text = encodeURIComponent("Kirim SDA ke saya:\n" + window.receiveLink);
+    const text = encodeURIComponent(
+        "Kirim SDA ke saya:\n" + window.receiveLink
+    );
+
     window.open(`https://wa.me/?text=${text}`, "_blank");
 }
 
 function shareTelegram(){
     if(!window.receiveLink){
-        return alert("Generate link dulu");
+        return showToast("Generate link dulu");
     }
 
-    const text = encodeURIComponent("Kirim SDA ke saya:\n" + window.receiveLink);
-    window.open(`https://t.me/share/url?url=${text}`, "_blank");
+    const text = encodeURIComponent(
+        "Kirim SDA ke saya:\n" + window.receiveLink
+    );
+
+    window.open(`https://t.me/share/url?url=${window.receiveLink}&text=${text}`, "_blank");
 }
+
+
+
+function renderAssets(){
+
+    const container = document.getElementById("tab-assets");
+    const wallet = getSelectedWallet();
+
+    if(!wallet){
+        container.innerHTML = "<div style='color:#888;text-align:center;'>No wallet</div>";
+        return;
+    }
+
+    let html = "";
+
+    // =====================
+    // SDA (CACHE)
+    // =====================
+    const sdaCache = localStorage.getItem(wallet.address + "_native") || "0.00 SDA";
+
+    html += `
+    <div class="asset-item">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <img src="img/sda.png" style="width:32px; height:32px; border-radius:50%;" />
+            <div>
+                <b>SDA</b><br>
+                <small style="color:#888;">Native Token</small>
+            </div>
+        </div>
+        <div>${sdaCache.replace(" SDA","")}</div>
+    </div>
+    `;
+
+    // =====================
+    // TOKEN CUSTOM (MAX 10)
+    // =====================
+    if(!customTokens) customTokens = [];
+
+    const custom = customTokens.slice(0,10);
+
+    custom.forEach(token => {
+
+        //  FIX: pakai address, bukan tokenVal
+        const cacheKey = wallet.address + "_" + token.address;
+
+        const cached = localStorage.getItem(cacheKey) || ("0.00 " + token.symbol);
+
+        html += `
+        <div class="asset-item">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <img src="${token.logo || 'img/default.png'}"
+                     style="width:32px; height:32px; border-radius:50%;" />
+                <div>
+                    <b>${token.symbol}</b><br>
+                    <small style="color:#888;">ERC20</small>
+                </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span>${cached.replace(" "+token.symbol,"")}</span>
+                <button onclick="removeToken('${token.address}')"
+                    style="width:auto; padding:2px 6px;">-</button>
+            </div>
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+
+function renderTokenTab(){
+
+    const container = document.getElementById("tab-tokens");
+
+    let html = "";
+
+    DEFAULT_TOKENS.forEach(token => {
+
+        const isAdded = customTokens.find(t => t.address === token.address);
+
+        html += `
+        <div class="asset-item">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <img src="${token.logo || 'img/default.png'}"
+                     style="width:28px; height:28px; border-radius:50%;" />
+                <div>${token.symbol}</div>
+            </div>
+
+            ${
+                isAdded
+                ? '<span style="color:#888;">Added</span>'
+                : `<button onclick='addTokenFromList(${JSON.stringify(token)})'
+                    style="width:auto;">+</button>`
+            }
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+
+
+async function addTokenFromList(token){
+
+    if(customTokens.length >= 10){
+        return showToast("Max 10 token");
+    }
+
+    const exist = customTokens.find(t => t.address === token.address);
+    if(exist){
+        return showToast("Sudah ditambahkan");
+    }
+
+    customTokens.push(token);
+    TOKENS = [...DEFAULT_TOKENS, ...customTokens];
+
+    saveTokens();
+
+    renderAssets();
+    renderTokenTab();
+    renderTokenSelect();
+
+    showToast("Token ditambahkan");
+
+    //  LANGSUNG FETCH BALANCE TOKEN BARU
+    const wallet = getSelectedWallet();
+    if(!wallet) return;
+
+    try{
+        const abi = [
+            "function balanceOf(address) view returns (uint256)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        const contract = new ethers.Contract(
+            token.address,
+            abi,
+            provider
+        );
+
+        const bal = await contract.balanceOf(wallet.address);
+
+        let decimals = 18;
+        try{
+            decimals = await contract.decimals();
+        }catch{}
+
+        const value = bal / (10 ** decimals);
+
+        const final = parseFloat(value).toFixed(4) + " " + token.symbol;
+
+        //  SIMPAN CACHE BIAR LANGSUNG MUNCUL
+        const cacheKey = wallet.address + "_" + token.address;
+        localStorage.setItem(cacheKey, final);
+
+        //  RENDER ULANG BIAR GA 0.00
+        renderAssets();
+
+    }catch(e){
+        console.warn("Fetch token gagal:", token.symbol);
+    }
+}
+
+
+function removeToken(address){
+
+    customTokens = customTokens.filter(
+        t => t.address.toLowerCase() !== address.toLowerCase()
+    );
+
+    TOKENS = [...DEFAULT_TOKENS, ...customTokens];
+
+    saveTokens();
+
+    renderAssets();
+    renderTokenTab();
+    renderTokenSelect();
+
+    showToast("Token dihapus");
+}
+
+
+function switchTab(tab){
+    document.querySelectorAll(".tab").forEach(el=>el.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(el=>el.classList.remove("active"));
+
+    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add("active");
+    document.getElementById("tab-"+tab).classList.add("active");
+    if(tab === "assets") renderAssets();
+if(tab === "tokens") renderTokenTab();
+}
+
+
 
 
 
@@ -875,14 +1412,30 @@ saveBtn.addEventListener("click", () => {
 });
 
 
+function showToast(msg){
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+
+    setTimeout(()=>{
+        t.style.display = "none";
+    },2000);
+}
+
 // INIT
 window.onload = () => {
+
     renderWallets();
     renderTokenSelect();
-    tokenLogoBalance.src = "img/sda.png";
-tokenLogoDropdown.src = "img/sda.png";
+    renderAssets();
+    renderTokenTab();
 
-    // 🔥 WAJIB: event token change
+    tokenLogoBalance.src = "img/sda.png";
+    tokenLogoDropdown.src = "img/sda.png";
+
+    updateActiveWalletName();
+
+    //  event change token
     document.getElementById("tokenSelect")
         .addEventListener("change", loadBalance);
 
@@ -891,13 +1444,30 @@ tokenLogoDropdown.src = "img/sda.png";
     document.getElementById("qrCode").style.display = "none";
 
     if(wallets.length > 0){
+
         selectEl.value = 0;
+
+        //  tampilkan cache dulu (cepat)
         loadBalance();
+
+        //  AUTO REFRESH SEMUA TOKEN (REAL DATA)
+        setTimeout(()=>{
+            refreshAll();
+        },300);
+
     } else {
         startGuide();
     }
 };
 
+
+// CLOSE MODAL
+window.onclick = function(e){
+    const modal = document.getElementById("walletModal");
+    if(e.target === modal){
+        modal.style.display = "none";
+    }
+}
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js")
