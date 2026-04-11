@@ -651,11 +651,49 @@ const balanceEl = document.getElementById("balance");
 const selectEl = document.getElementById("walletSelect");
 
 selectEl.addEventListener("change", () => {
+
     updateActiveWalletName();
+
+    //  langsung render cache dulu
+    renderAssets();
+
     loadBalance();
+
+    //  auto refresh TANPA DELAY lama
+    setTimeout(()=>{
+        autoRefreshIfNeeded();
+    },100);
 });
 
 
+function autoRefreshIfNeeded(){
+
+    const wallet = getSelectedWallet();
+    if(!wallet) return;
+
+    const address = wallet.address;
+
+    // cek SDA
+    const hasSDA = localStorage.getItem(address + "_native");
+
+    // cek semua token
+    const tokens = (customTokens || []).slice(0,10);
+
+    let missingToken = false;
+
+    tokens.forEach(token=>{
+        const key = address + "_" + token.address;
+        if(!localStorage.getItem(key)){
+            missingToken = true;
+        }
+    });
+
+    //  RULE BARU:
+    // kalau SDA belum ada ATAU ada token yg belum ada cache  refresh
+    if(!hasSDA || missingToken){
+        refreshAll();
+    }
+}
 
 // LOAD STORAGE
 function getWallets(){
@@ -761,6 +799,17 @@ renderWallets();
 // 👉 pindah ke wallet terakhir (yang baru disimpan)
 selectEl.value = wallets.length - 1;
 
+// render dulu (biar ga kosong)
+renderAssets();
+
+// load balance cepat
+loadBalance();
+
+// auto fetch real data
+setTimeout(()=>{
+    autoRefreshIfNeeded();
+},150);
+
 // 👉 langsung load wallet baru
 loadBalance();
 
@@ -853,9 +902,22 @@ if(total > 0){
     }
 
     selectEl.value = newIndex;
-    loadBalance();
+
+// render ulang UI
+renderAssets();
+
+// load balance
+loadBalance();
+
+// auto refresh kalau perlu
+setTimeout(()=>{
+    autoRefreshIfNeeded();
+},150);
+
 } else {
     balanceEl.textContent = "0.00 SDA";
+    document.getElementById("tab-assets").innerHTML =
+        "<div style='text-align:center;color:#888;'>No wallet</div>";
 }
 
 alert("Wallet dihapus");
@@ -989,24 +1051,28 @@ async function refreshAll(){
     const wallet = getSelectedWallet();
     if(!wallet) return;
 
+    const currentAddress = wallet.address; //  lock wallet
+
     showToast("Refreshing...");
 
     // ======================
     // SDA
     // ======================
     try{
-        const bal = await provider.getBalance(wallet.address);
+        const bal = await provider.getBalance(currentAddress);
 
         const result = parseFloat(
             ethers.utils.formatEther(bal)
         ).toFixed(4) + " SDA";
 
-        localStorage.setItem(wallet.address + "_native", result);
+        localStorage.setItem(currentAddress + "_native", result);
 
-    }catch(e){}
+    }catch(e){
+        console.warn("SDA error");
+    }
 
     // ======================
-    // TOKEN PARALLEL 
+    // TOKEN PARALLEL
     // ======================
     const list = (customTokens || []).slice(0,10);
 
@@ -1025,15 +1091,19 @@ async function refreshAll(){
             );
 
             const [bal, decimalsRaw] = await Promise.all([
-                contract.balanceOf(wallet.address),
+                contract.balanceOf(currentAddress),
                 contract.decimals().catch(()=>18)
             ]);
 
-            const value = (bal / (10 ** decimalsRaw)).toFixed(4);
+            //  FIX BigNumber pakai ethers
+            const value = parseFloat(
+                ethers.utils.formatUnits(bal, decimalsRaw)
+            ).toFixed(4);
+
             const final = value + " " + token.symbol;
 
             localStorage.setItem(
-                wallet.address + "_" + token.address,
+                currentAddress + "_" + token.address,
                 final
             );
 
@@ -1043,10 +1113,27 @@ async function refreshAll(){
 
     }));
 
+    //  pastikan wallet belum berubah
+    const latestWallet = getSelectedWallet();
+    if(!latestWallet || latestWallet.address !== currentAddress){
+        return; // stop kalau user ganti wallet saat proses
+    }
+
+    //  render setelah cache siap
     loadBalance();
-    renderAssets();
+
+    setTimeout(()=>{
+        renderAssets();
+    },100);
 
     showToast("Refresh selesai");
+    
+    //  render 2x (instant + final)
+renderAssets();
+
+setTimeout(()=>{
+    renderAssets();
+},200);
 }
 
 
