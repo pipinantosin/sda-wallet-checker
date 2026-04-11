@@ -1235,14 +1235,18 @@ function renderTokenTab(){
 
     const container = document.getElementById("tab-tokens");
 
-    let html = "";
+    let html = `
+        <input type="text" id="searchToken"
+            placeholder="Cari token..."
+            style="margin-bottom:10px;" />
+    `;
 
     DEFAULT_TOKENS.forEach(token => {
 
         const isAdded = customTokens.find(t => t.address === token.address);
 
         html += `
-        <div class="asset-item">
+        <div class="asset-item token-row" data-symbol="${token.symbol.toLowerCase()}">
             <div style="display:flex; align-items:center; gap:10px;">
                 <img src="${token.logo || 'img/default.png'}"
                      style="width:28px; height:28px; border-radius:50%;" />
@@ -1260,6 +1264,9 @@ function renderTokenTab(){
     });
 
     container.innerHTML = html;
+
+    //  aktifkan search
+    initTokenSearch();
 }
 
 
@@ -1275,20 +1282,23 @@ async function addTokenFromList(token){
         return showToast("Sudah ditambahkan");
     }
 
+    //  tambah token
     customTokens.push(token);
     TOKENS = [...DEFAULT_TOKENS, ...customTokens];
 
     saveTokens();
 
-    renderAssets();
-    renderTokenTab();
-    renderTokenSelect();
-
     showToast("Token ditambahkan");
 
-    //  LANGSUNG FETCH BALANCE TOKEN BARU
     const wallet = getSelectedWallet();
-    if(!wallet) return;
+
+    //  langsung pindah tab biar UX cepat
+    switchTab('assets');
+
+    if(!wallet){
+        renderAssets();
+        return;
+    }
 
     try{
         const abi = [
@@ -1310,21 +1320,50 @@ async function addTokenFromList(token){
         }catch{}
 
         const value = bal / (10 ** decimals);
-
         const final = parseFloat(value).toFixed(4) + " " + token.symbol;
 
-        //  SIMPAN CACHE BIAR LANGSUNG MUNCUL
+        //  simpan cache
         const cacheKey = wallet.address + "_" + token.address;
         localStorage.setItem(cacheKey, final);
 
-        //  RENDER ULANG BIAR GA 0.00
-        renderAssets();
-
     }catch(e){
         console.warn("Fetch token gagal:", token.symbol);
+
+        //  fallback biar ga kosong
+        const cacheKey = wallet.address + "_" + token.address;
+        if(!localStorage.getItem(cacheKey)){
+            localStorage.setItem(cacheKey, "0.00 " + token.symbol);
+        }
     }
+
+    //  render terakhir (sekali aja, clean)
+    renderAssets();
+    renderTokenTab();
+    renderTokenSelect();
 }
 
+
+function initTokenSearch(){
+
+    const input = document.getElementById("searchToken");
+
+    input.addEventListener("input", () => {
+
+        const keyword = input.value.toLowerCase();
+
+        document.querySelectorAll(".token-row").forEach(row => {
+
+            const symbol = row.dataset.symbol;
+
+            if(symbol.includes(keyword)){
+                row.style.display = "flex";
+            } else {
+                row.style.display = "none";
+            }
+
+        });
+    });
+}
 
 function removeToken(address){
 
