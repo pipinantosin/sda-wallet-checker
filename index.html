@@ -104,6 +104,81 @@ body{
     font-size:14px;
 }
 
+/* =========================
+   ADDRESS BAR (GLASS STYLE)
+========================= */
+.address-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:12px;
+
+    padding:10px 12px;
+
+    border-radius:16px;
+
+    /* glass */
+    background:rgba(255,255,255,0.03);
+    backdrop-filter: blur(10px);
+
+    border:1px solid rgba(255,255,255,0.05);
+
+    transition:all 0.25s ease;
+}
+
+/* TEXT ADDRESS */
+.address-text{
+    flex:1;
+    font-size:13px;
+    color:#aaa;
+
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/* ICON WRAPPER */
+.address-actions{
+    display:flex;
+    gap:8px;
+    margin-left:10px;
+}
+
+/* ICON STYLE */
+.address-actions i{
+    width:32px;
+    height:32px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:10px;
+
+    /* glass */
+    background:rgba(255,255,255,0.04);
+
+    color:#888;
+
+    cursor:pointer;
+    transition:all 0.25s ease;
+}
+
+/* HOVER ICON */
+.address-actions i:hover{
+    background:rgba(255,122,0,0.15);
+    color:#ff7a00;
+
+    box-shadow:
+        0 0 8px rgba(255,122,0,0.4),
+        inset 0 0 6px rgba(255,122,0,0.2);
+}
+
+/* HOVER BAR */
+.address-bar:hover{
+    border:1px solid rgba(255,122,0,0.2);
+}
+
 /* INPUT */
 input, select{
     width:100%;
@@ -146,25 +221,35 @@ button{
     width:100%;
     padding:12px;
     margin-top:10px;
-    border:none;
-    border-radius:8px;
-    background:#ff7a00;
-    color:#fff;
-    font-weight:bold;
+    border-radius:14px;
+    border:1px solid rgba(255,122,0,0.2);
+
+    /* glass style */
+    background:rgba(255,122,0,0.08);
+    color:#ff7a00;
+
+    font-weight:600;
     cursor:pointer;
+    transition:all 0.25s ease;
+
+    backdrop-filter: blur(8px);
 }
 
+/* HOVER */
 button:hover{
-    background:#e56c00;
+    background:rgba(255,122,0,0.15);
+    color:#fff;
 }
 
+/* DISABLED */
+button:disabled{
+    opacity:0.3;
+    cursor:not-allowed;
+}
+
+/* ICON */
 button i{
     margin-right:8px;
-}
-
-button:disabled{
-    opacity:0.4;
-    cursor:not-allowed;
 }
 
 .input-valid{
@@ -186,17 +271,26 @@ button:disabled{
 /* ACTIONS */
 .actions{
     display:flex;
-    gap:10px;
-    margin-top:15px;
+    justify-content:space-between;
+    margin-top:20px;
 }
 
 .actions div{
-    flex:1;
-    background:#1a1a1a;
-    padding:12px;
-    border-radius:10px;
+    width:60px;
     text-align:center;
     font-size:12px;
+    color:#aaa;
+}
+
+.actions i{
+    width:50px;
+    height:50px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    margin:0 auto 6px;
+    font-size:18px;
 }
 
 
@@ -276,7 +370,15 @@ button:disabled{
 
 .blink {
     animation: blinkGlow 1s infinite;
-    border:1px solid #ff7a00 !important;
+
+    /* ikut style glass */
+    background:rgba(255,122,0,0.18) !important;
+
+    box-shadow:
+        0 0 15px rgba(255,122,0,0.8),
+        inset 0 0 10px rgba(255,122,0,0.4);
+
+    color:#fff !important;
 }
 
 #tokenLogo {
@@ -323,27 +425,27 @@ button:disabled{
     background:#ff7a00;
 }
 
-.tabs{
-    display:flex;
-    margin-top:15px;
-    background:#111;
-    border-radius:12px;
-    overflow:hidden;
-}
+
 
 .tab{
     flex:1;
     text-align:center;
-    padding:12px;
+    padding:10px;
     cursor:pointer;
     font-size:13px;
-    color:#aaa;
+    color:#888;
+    border-radius:10px;
+    transition:all 0.25s ease;
 }
 
-.tab.active{
-    background:#ff7a00;
+/* HOVER */
+.tab:hover{
     color:#fff;
+    background:#1a1a1a;
 }
+
+/* ACTIVE */
+
 
 .tab-content{
     display:none;
@@ -355,6 +457,48 @@ button:disabled{
 
 .tab-content.active{
     display:block;
+}
+
+.tabs{
+    display:flex;
+    margin-top:15px;
+    background:rgba(255,255,255,0.03);
+    border-radius:20px;
+    padding:5px;
+    backdrop-filter: blur(10px);
+    border:1px solid rgba(255,255,255,0.05);
+}
+
+/* TAB NORMAL */
+.tab{
+    flex:1;
+    text-align:center;
+    padding:10px;
+    cursor:pointer;
+    font-size:13px;
+    color:#777;
+    border-radius:16px;
+    transition:all 0.25s ease;
+}
+
+/* HOVER HALUS */
+.tab:hover{
+    color:#fff;
+}
+
+/* TAB AKTIF (INI YANG PENTING) */
+.tab.active{
+    color:#ff7a00;
+
+    /* efek transparan kuning */
+    background:rgba(255,122,0,0.12);
+
+    /* glow tipis */
+    box-shadow:
+        inset 0 0 10px rgba(255,122,0,0.15),
+        0 0 8px rgba(255,122,0,0.25);
+
+    font-weight:600;
 }
 
 .asset-item{
@@ -467,24 +611,21 @@ button:disabled{
     
 
     <!-- QR -->
-    <img id="qrCode"
-     src=""
-     style="display:none; width:130px; height:130px; margin:15px auto;
-     border-radius:16px; background:#111; padding:8px;" />
+   
 
 
     <!-- ADDRESS + COPY -->
-    <div style="display:flex; gap:8px; align-items:center; background:#1a1a1a; padding:10px; border-radius:12px; margin-top:10px;">
+<div class="address-bar">
 
-    <div id="showAddress"
-     style="flex:1; font-size:12px; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-        -
+    <div id="showAddress" class="address-text"></div>
+
+    <div class="address-actions">
+
+        <i class="fa-solid fa-qrcode" onclick="openQRModal()"></i>
+
+        <i class="fa-regular fa-copy" onclick="copyAddress()"></i>
+
     </div>
-
-    <button onclick="copyAddress()"
-            style="width:auto; padding:6px 10px; font-size:12px; border-radius:8px;">
-        <i class="fa-solid fa-copy"></i>
-    </button>
 
 </div>
 
@@ -508,18 +649,29 @@ button:disabled{
 
 
     <!-- ACTION ICON STYLE -->
-    <div class="actions">
+  <div class="actions">
+
+    <div>
+        <i class="fa-solid fa-arrow-up" style="background:#2b1405; color:#ff7a00;"></i>
+        Send
+    </div>
+
     <div onclick="showReceive()">
-        <i class="fa-solid fa-download"></i><br>Receive
+        <i class="fa-solid fa-arrow-down" style="background:#0d1f3a; color:#3aa0ff;"></i>
+        Receive
     </div>
 
-    <div style="opacity:0.4;">
-        <i class="fa-solid fa-paper-plane"></i><br>Send
+    <div>
+        <i class="fa-solid fa-right-left" style="background:#2a123a; color:#c77dff;"></i>
+        Swap
     </div>
 
-    <div style="opacity:0.4;">
-        <i class="fa-solid fa-right-left"></i><br>Swap
+
+    <div>
+        <i class="fa-solid fa-droplet" style="background:#0a2a2a; color:#00e0ff;"></i>
+        Liquidity
     </div>
+
 </div>
 
 
@@ -631,6 +783,46 @@ display:none;
 z-index:9999;
 border:1px solid #333;
 "></div>
+
+<!-- MODAL QR -->
+<div id="qrModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+            <span><i class="fa-solid fa-qrcode"></i> QR Wallet</span>
+            <span onclick="closeQRModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
+        </div>
+
+        <img id="qrModalImg"
+             style="
+             width:170px;
+             display:block;
+             margin:15px auto;
+             border-radius:12px;
+             background:#111;
+             padding:10px;
+             " />
+
+        <div id="qrModalAddress"
+             style="
+             font-size:12px;
+             text-align:center;
+             color:#aaa;
+             word-break:break-all;
+             margin-bottom:10px;
+             ">
+        </div>
+
+        <button onclick="copyAddress()">
+            <i class="fa-solid fa-copy"></i> Copy Address
+        </button>
+
+    </div>
+
+</div>
 
 <!-- ETHERS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -957,6 +1149,30 @@ function closeWalletSetting(){
     document.getElementById("walletModal").style.display = "none";
 }
 
+function shortAddress(addr){
+    if(!addr) return "-";
+    return addr.slice(0,6) + "..." + addr.slice(-4);
+}
+
+function openQRModal(){
+    const wallet = getSelectedWallet();
+
+    if(!wallet){
+        return alert("Pilih wallet dulu");
+    }
+
+    document.getElementById("qrModal").style.display = "flex";
+
+    document.getElementById("qrModalImg").src =
+        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + wallet.address;
+
+    document.getElementById("qrModalAddress").textContent = wallet.address;
+}
+
+function closeQRModal(){
+    document.getElementById("qrModal").style.display = "none";
+}
+
 // LOAD BALANCE SDA
 async function loadBalance(){
 
@@ -964,18 +1180,17 @@ async function loadBalance(){
 
     const wallet = getSelectedWallet();
     const tokenVal = document.getElementById("tokenSelect").value;
-    const qr = document.getElementById("qrCode");
+    // hapus semua penggunaan qrCode
 
     if(!wallet){
-        qr.style.display = "none";
-        qr.src = "";
+        
         document.getElementById("showAddress").textContent = "-";
         balanceEl.textContent = "0.00 SDA";
         return;
     }
 
     balanceEl.textContent = "Loading...";
-    document.getElementById("showAddress").textContent = wallet.address;
+    document.getElementById("showAddress").textContent = shortAddress(wallet.address);
 
     //  FIX: cache key benar
     const cacheKey = wallet.address + "_" + tokenVal;
@@ -1035,13 +1250,12 @@ async function loadBalance(){
             localStorage.setItem(cacheKey, result);
         }
 
-        qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" + wallet.address;
-        qr.style.display = "block";
+        
 
     }catch(e){
         console.error(e);
         balanceEl.textContent = cached || "Error";
-        qr.style.display = "none";
+        
     }
 }
 
@@ -1134,6 +1348,10 @@ renderAssets();
 setTimeout(()=>{
     renderAssets();
 },200);
+
+//  force update UI pakai data terbaru
+loadBalance();
+renderAssets();
 }
 
 
@@ -1153,18 +1371,7 @@ function copyAddress(){
         });
 }
 
-// SPLASH CONTROL
-window.addEventListener("load", ()=>{
-    setTimeout(()=>{
-        document.getElementById("splash").style.opacity = "0";
-        document.getElementById("splash").style.transition = "0.5s";
 
-        setTimeout(()=>{
-            document.getElementById("splash").style.display = "none";
-        },500);
-
-    },1500); // durasi splash (1.5 detik)
-});
 
 function showReceive(){
     const wallet = getSelectedWallet();
@@ -1567,33 +1774,55 @@ window.onload = () => {
 
     const wallets = getWallets();
 
-    document.getElementById("qrCode").style.display = "none";
+    
 
     if(wallets.length > 0){
 
-        selectEl.value = 0;
+    selectEl.value = 0;
 
-        //  tampilkan cache dulu (cepat)
-        loadBalance();
+    updateActiveWalletName(); //  TAMBAH
+    loadBalance();            //  TAMBAH
 
-        //  AUTO REFRESH SEMUA TOKEN (REAL DATA)
-        setTimeout(()=>{
-            refreshAll();
-        },300);
+    refreshAll();
+
+
+
+//  lalu tampilkan (pakai cache yg baru diupdate)
+setTimeout(()=>{
+    loadBalance();
+    renderAssets();
+},300);
 
     } else {
         startGuide();
     }
 };
 
+// SPLASH CONTROL
+window.addEventListener("load", ()=>{
+    setTimeout(()=>{
+        document.getElementById("splash").style.opacity = "0";
+        document.getElementById("splash").style.transition = "0.5s";
+
+        setTimeout(()=>{
+            document.getElementById("splash").style.display = "none";
+        },500);
+
+    },1500); // durasi splash (1.5 detik)
+});
 
 // CLOSE MODAL
 window.onclick = function(e){
-    const modal = document.getElementById("walletModal");
-    if(e.target === modal){
-        modal.style.display = "none";
-    }
+    document.querySelectorAll(".modal").forEach(modal=>{
+        if(e.target === modal){
+            modal.style.display = "none";
+        }
+    });
 }
+
+</script>
+
+<script>
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js")
