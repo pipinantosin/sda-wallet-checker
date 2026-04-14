@@ -1,0 +1,32 @@
+/* =========================
+   ACTION BUTTONS (BOTTOM)
+========================= */
+
+.actions{
+    display:flex;
+    justify-content:space-between;
+    margin-top:20px;
+}
+
+/* ITEM */
+.actions div{
+    width:60px;
+    text-align:center;
+    font-size:12px;
+    color:#aaa;
+    cursor:pointer;
+}
+
+/* ICON */
+.actions i{
+    width:50px;
+    height:50px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:50%;
+    margin:0 auto 6px;
+
+    font-size:18px;
+}
