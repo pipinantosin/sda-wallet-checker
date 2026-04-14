@@ -1,0 +1,73 @@
+{
+  "en": {
+    "app_name": "Sidra Chain",
+
+    "assets": "Assets",
+    "tokens": "Tokens",
+    "lp": "Liquidity",
+
+    "no_wallet": "No Wallet Selected",
+    "select_wallet": "Select Wallet",
+
+    "enter_address": "Enter 0x Address...",
+    "wallet_name": "Wallet Name (optional)",
+    "save_wallet": "Save Wallet",
+
+    "send": "Send",
+    "receive": "Receive",
+    "swap": "Swap",
+    "liquidity": "Liquidity",
+
+    "edit_wallet": "Edit Wallet",
+    "save": "Save",
+    "delete": "Delete",
+
+    "amount_optional": "Amount (optional)",
+    "copy_link": "Copy Link",
+    "copied": "Copied",
+    "copy_address": "Copy Address",
+
+    "wallet_qr": "Wallet QR",
+
+    "cached": "cached",
+    "realtime": "Real-time data from Sidra Node",
+
+    "no_wallet_text": "No wallet available"
+  },
+
+  "id": {
+    "app_name": "Sidra Chain",
+
+    "assets": "Aset",
+    "tokens": "Token",
+    "lp": "Likuiditas",
+
+    "no_wallet": "Tidak ada wallet dipilih",
+    "select_wallet": "Pilih Wallet",
+
+    "enter_address": "Masukkan alamat 0x...",
+    "wallet_name": "Nama Wallet (opsional)",
+    "save_wallet": "Simpan Wallet",
+
+    "send": "Kirim",
+    "receive": "Terima",
+    "swap": "Tukar",
+    "liquidity": "Likuiditas",
+
+    "edit_wallet": "Edit Wallet",
+    "save": "Simpan",
+    "delete": "Hapus",
+
+    "amount_optional": "Jumlah (opsional)",
+    "copy_link": "Salin Link",
+    "copied": "Tersalin",
+    "copy_address": "Salin Alamat",
+
+    "wallet_qr": "QR Wallet",
+
+    "cached": "cache",
+    "realtime": "Data real-time dari Sidra Node",
+
+    "no_wallet_text": "Tidak ada wallet"
+  }
+}
