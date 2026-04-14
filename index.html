@@ -1731,66 +1731,6 @@ function renderAssets(){
     });
 
     container.innerHTML = html;
-
-// ======================
-// LOAD NFT (AUTO)
-/// ======================
-loadNFTs().then(nfts => {
-
-    if(!nfts || nfts.length === 0) return;
-
-    let nftHTML = `
-    <div style="padding:10px; color:#888; font-size:12px;">
-        NFT Liquidity Positions
-    </div>
-    `;
-
-    nfts.forEach(nft => {
-
-    nftHTML += `
-    <div class="asset-item">
-
-        <div style="display:flex; align-items:center; gap:10px;">
-
-            <!-- ICON PAIR -->
-            <div style="display:flex;">
-                <img src="${nft.logo0}"
-                     style="width:24px; height:24px; border-radius:50%; z-index:2;" />
-
-                <img src="${nft.logo1}"
-                     style="width:24px; height:24px; border-radius:50%; margin-left:-8px;" />
-            </div>
-
-            <div>
-                <b>${nft.symbol0} / ${nft.symbol1}</b><br>
-                <small style="color:#888;">
-                    LP NFT #${nft.id}  Fee ${nft.fee}
-                </small><br>
-
-                <small style="color:#aaa;">
-                    Range: ${nft.range}
-                </small><br>
-
-                <small style="
-                    color:${nft.status === 'Active' ? '#00ff99' : '#ff4d4d'};
-                ">
-                    ${nft.status}
-                </small>
-            </div>
-
-        </div>
-
-        <div style="text-align:right; font-size:11px; color:#aaa;">
-            ${nft.amount0} ${nft.symbol0}<br>
-            ${nft.amount1} ${nft.symbol1}
-        </div>
-
-    </div>
-    `;
-});
-
-    container.innerHTML += nftHTML;
-});
 }
 
 
