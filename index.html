@@ -7,508 +7,19 @@
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-<style>
-body{
-    margin:0;
-    font-family:Arial, sans-serif;
-    background:#0c0c0c;
-    color:#fff;
-    display:flex;
-    justify-content:center;
-    padding:20px;
-}
 
-.app{
-    width:360px;
-}
-
-/* HEADER */
-.header{
-    background:#111;
-    padding:15px;
-    border-radius:14px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:15px;
-}
-
-.header-left{
-    display:flex;
-    align-items:center;
-    gap:10px;
-}
-
-.header-right{
-    display:flex;
-    gap:12px;
-}
-
-.header-right i{
-    font-size:16px;
-    padding:10px;
-    border-radius:10px;
-    background:#1a1a1a;
-    cursor:pointer;
-}
-
-.logo{
-    width:40px;
-    height:40px;
-    border-radius:10px;
-    background:#1a1a1a;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    box-shadow:0 0 10px rgba(255,122,0,0.4);
-    overflow:hidden;
-}
-
-.logo img{
-    width:70%;
-    height:70%;
-    object-fit:contain;
-}
-
-
-
-/* CARD */
-.card{
-    background:#111;
-    border-radius:14px;
-    padding:18px;
-    border:1px solid #222;
-}
-
-.card > *{
-    margin-bottom:10px;
-}
-
-/* BALANCE */
-.balance{
-    font-size:28px;
-    font-weight:bold;
-    margin:10px 0;
-    color:#fff;
-    text-align:center;
-    text-shadow:0 0 10px rgba(255,122,0,0.6);
-
-    /* 🔥 TAMBAHAN */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.label{
-    color:#aaa;
-    font-size:14px;
-}
-
-/* =========================
-   ADDRESS BAR (GLASS STYLE)
-========================= */
-.address-bar{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-top:12px;
-
-    padding:10px 12px;
-
-    border-radius:16px;
-
-    /* glass */
-    background:rgba(255,255,255,0.03);
-    backdrop-filter: blur(10px);
-
-    border:1px solid rgba(255,255,255,0.05);
-
-    transition:all 0.25s ease;
-}
-
-/* TEXT ADDRESS */
-.address-text{
-    flex:1;
-    font-size:13px;
-    color:#aaa;
-
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-}
-
-/* ICON WRAPPER */
-.address-actions{
-    display:flex;
-    gap:8px;
-    margin-left:10px;
-}
-
-/* ICON STYLE */
-.address-actions i{
-    width:32px;
-    height:32px;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    border-radius:10px;
-
-    /* glass */
-    background:rgba(255,255,255,0.04);
-
-    color:#888;
-
-    cursor:pointer;
-    transition:all 0.25s ease;
-}
-
-/* HOVER ICON */
-.address-actions i:hover{
-    background:rgba(255,122,0,0.15);
-    color:#ff7a00;
-
-    box-shadow:
-        0 0 8px rgba(255,122,0,0.4),
-        inset 0 0 6px rgba(255,122,0,0.2);
-}
-
-/* HOVER BAR */
-.address-bar:hover{
-    border:1px solid rgba(255,122,0,0.2);
-}
-
-/* INPUT */
-input, select{
-    width:100%;
-    padding:10px;
-    border-radius:8px;
-    border:none;
-    margin-top:10px;
-    background:#1a1a1a;
-    color:#fff;
-}
-
-.input-group{
-    display:flex;
-    align-items:center;
-    background:#1a1a1a;
-    border-radius:10px;
-    padding:0 12px;
-    margin-top:10px;
-    border:1px solid #222;
-}
-
-.input-group i{
-    color:#ff7a00;
-    font-size:14px;
-    margin-right:8px;
-}
-
-.input-group input{
-    flex:1;
-    border:none;
-    background:transparent;
-    padding:12px 0;
-    color:#fff;
-    font-size:14px;
-    outline:none;
-}
-
-/* BUTTON */
-button{
-    width:100%;
-    padding:12px;
-    margin-top:10px;
-    border-radius:14px;
-    border:1px solid rgba(255,122,0,0.2);
-
-    /* glass style */
-    background:rgba(255,122,0,0.08);
-    color:#ff7a00;
-
-    font-weight:600;
-    cursor:pointer;
-    transition:all 0.25s ease;
-
-    backdrop-filter: blur(8px);
-}
-
-/* HOVER */
-button:hover{
-    background:rgba(255,122,0,0.15);
-    color:#fff;
-}
-
-/* DISABLED */
-button:disabled{
-    opacity:0.3;
-    cursor:not-allowed;
-}
-
-/* ICON */
-button i{
-    margin-right:8px;
-}
-
-.input-valid{
-    border:1px solid #00ff99 !important;
-}
-
-.input-invalid{
-    border:1px solid #ff4d4d !important;
-}
-
-/* WALLET ROW */
-.wallet-row{
-    margin-top:10px;
-    font-size:12px;
-    color:#aaa;
-    word-break:break-all;
-}
-
-/* ACTIONS */
-.actions{
-    display:flex;
-    justify-content:space-between;
-    margin-top:20px;
-}
-
-.actions div{
-    width:60px;
-    text-align:center;
-    font-size:12px;
-    color:#aaa;
-}
-
-.actions i{
-    width:50px;
-    height:50px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:50%;
-    margin:0 auto 6px;
-    font-size:18px;
-}
-
-
-.card-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:10px;
-}
-
-#activeWalletName{
-    font-size:14px;
-    font-weight:bold;
-    color:#fff;
-}
-
-.card-actions{
-    display:flex;
-    gap:10px;
-}
-
-.card-actions i{
-    background:#1a1a1a;
-    padding:8px;
-    border-radius:8px;
-    font-size:14px;
-    cursor:pointer;
-}
-
-/* SPLASH */
-#splash{
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:#000;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    z-index:9999;
-    flex-direction:column;
-}
-
-#splash img{
-    width:90px;
-    animation:zoomIn 1s ease, glow 1.5s infinite alternate;
-}
-
-/* ANIMASI MASUK */
-@keyframes zoomIn{
-    from{
-        transform:scale(0.5);
-        opacity:0;
-    }
-    to{
-        transform:scale(1);
-        opacity:1;
-    }
-}
-
-/* GLOW EFFECT */
-@keyframes glow{
-    from{
-        filter:drop-shadow(0 0 5px rgba(255,122,0,0.3));
-    }
-    to{
-        filter:drop-shadow(0 0 20px rgba(255,122,0,0.8));
-    }
-}
-
-@keyframes blinkGlow {
-    0% { box-shadow: 0 0 0 rgba(255,122,0,0); }
-    50% { box-shadow: 0 0 15px rgba(255,122,0,0.9); }
-    100% { box-shadow: 0 0 0 rgba(255,122,0,0); }
-}
-
-.blink {
-    animation: blinkGlow 1s infinite;
-
-    /* ikut style glass */
-    background:rgba(255,122,0,0.18) !important;
-
-    box-shadow:
-        0 0 15px rgba(255,122,0,0.8),
-        inset 0 0 10px rgba(255,122,0,0.4);
-
-    color:#fff !important;
-}
-
-#tokenLogo {
-    box-shadow: 0 0 10px rgba(255,122,0,0.5);
-}
-
-#cacheLabel{
-    opacity:0.7;
-}
-
-.modal{
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    background:rgba(0,0,0,0.7);
-    display:none;
-    justify-content:center;
-    align-items:center;
-    z-index:999;
-}
-
-.modal-content{
-    background:#111;
-    padding:20px;
-    border-radius:14px;
-    width:280px;
-}
-
-.modal-header{
-    display:flex;
-    justify-content:space-between;
-    margin-bottom:15px;
-    font-weight:bold;
-}
-
-.modal-header span{
-    cursor:pointer;
-}
-
-.card-actions i:hover,
-.header-right i:hover{
-    background:#ff7a00;
-}
-
-
-
-.tab{
-    flex:1;
-    text-align:center;
-    padding:10px;
-    cursor:pointer;
-    font-size:13px;
-    color:#888;
-    border-radius:10px;
-    transition:all 0.25s ease;
-}
-
-/* HOVER */
-.tab:hover{
-    color:#fff;
-    background:#1a1a1a;
-}
-
-/* ACTIVE */
-
-
-.tab-content{
-    display:none;
-    background:#111;
-    padding:12px;
-    border-radius:12px;
-    margin-top:10px;
-}
-
-.tab-content.active{
-    display:block;
-}
-
-.tabs{
-    display:flex;
-    margin-top:15px;
-    background:rgba(255,255,255,0.03);
-    border-radius:20px;
-    padding:5px;
-    backdrop-filter: blur(10px);
-    border:1px solid rgba(255,255,255,0.05);
-}
-
-/* TAB NORMAL */
-.tab{
-    flex:1;
-    text-align:center;
-    padding:10px;
-    cursor:pointer;
-    font-size:13px;
-    color:#777;
-    border-radius:16px;
-    transition:all 0.25s ease;
-}
-
-/* HOVER HALUS */
-.tab:hover{
-    color:#fff;
-}
-
-/* TAB AKTIF (INI YANG PENTING) */
-.tab.active{
-    color:#ff7a00;
-
-    /* efek transparan kuning */
-    background:rgba(255,122,0,0.12);
-
-    /* glow tipis */
-    box-shadow:
-        inset 0 0 10px rgba(255,122,0,0.15),
-        0 0 8px rgba(255,122,0,0.25);
-
-    font-weight:600;
-}
-
-.asset-item{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:12px;
-    border-bottom:1px solid #222;
-}
 </style>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/header.css">
+<link rel="stylesheet" href="css/card.css">
+<link rel="stylesheet" href="css/form.css">
+<link rel="stylesheet" href="css/button.css">
+<link rel="stylesheet" href="css/address.css">
+<link rel="stylesheet" href="css/actions.css">
+<link rel="stylesheet" href="css/tabs.css">
+<link rel="stylesheet" href="css/modal.css">
+<link rel="stylesheet" href="css/animation.css">
+<link rel="stylesheet" href="css/components.css">
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff7a00">
@@ -529,18 +40,34 @@ button i{
 
 <!-- HEADER -->
 <div class="header">
-    
+
     <div class="header-left">
         <div class="logo">
             <img src="img/sda.png" alt="SDA Logo">
         </div>
-        <div class="title">Sidra Chain</div>
+        <div class="title">SDA Wallet Checker</div>
     </div>
 
     <div class="header-right">
-        <i class="fa-regular fa-bell"></i>
-        <i class="fa-solid fa-bars"></i>
+
+    <i class="fa-regular fa-bell"></i>
+
+    <div class="menu-wrapper">
+        <div class="menu-wrapper">
+
+    <i class="fa-solid fa-globe" onclick="toggleMenu()"></i>
+
+   <div id="menuDropdown" class="menu-dropdown">
+
+    <div class="lang-item" onclick="setLanguage('id')"> Indonesia</div>
+    <div class="lang-item" onclick="setLanguage('en')"> English</div>
+
+</div>
+
+</div>
     </div>
+
+</div>
 
 </div>
 
@@ -549,13 +76,13 @@ button i{
 
    <div style="display:flex; justify-content:space-between; align-items:center;">
 
-    <div class="label">Asset</div>
+    <div class="label" data-lang="assets">Assets</div>
 
-    <div style="display:flex; align-items:center; gap:6px; background:#1a1a1a; padding:5px 10px; border-radius:8px;">
+    <div class="token-dropdown">
 
         <img id="tokenLogoDropdown"
          src="img/sda.png"
-         style="width:18px; height:18px; border-radius:50%;" />
+         class="token-logo" />
 
         <select id="tokenSelect" style="background:transparent; border:none; padding:0; font-size:12px;">
         </select>
@@ -564,10 +91,12 @@ button i{
 
 </div>
    
-   <!-- CARD HEADER -->
+<!-- CARD HEADER -->
 <div class="card-header">
 
-    <div id="activeWalletName">No Wallet</div>
+    <div id="activeWalletName">
+    No Wallet Selected
+</div>
 
     <div class="card-actions">
         <i class="fa-solid fa-rotate" onclick="refreshAll()"></i>
@@ -576,29 +105,30 @@ button i{
 
 </div>
 
-
-
-<!-- 🔥 BALANCE + LOGO -->
+<!-- BALANCE + LOGO -->
 <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
 
     <img id="tokenLogoBalance"
      src="img/sda.png"
-     style="width:28px; height:28px; border-radius:50%; background:#111; padding:3px;" />
+     class="token-logo" />
 
     <div class="balance" id="balance">0.00 SDA</div>
-<div id="cacheLabel" style="font-size:11px; color:#888; text-align:center; display:none;">
-    cached
-</div>
+
+    <div id="cacheLabel"
+         style="font-size:11px; color:#888; text-align:center; display:none;"
+         data-lang="cached">
+        cached
+    </div>
 
 </div>
-    
-    <div style="margin-top:15px; text-align:center;">
 
-<div style="text-align:center; font-size:12px; color:#888;">
+<div style="margin-top:15px; text-align:center;">
+
+<div class="text-center-small" data-lang="realtime">
     Real-time data from Sidra Node
 </div>
 
-<div class="label">Pilih Wallet</div>
+<div class="label" data-lang="select_wallet">Select Wallet</div>
 
 <div style="display:flex; align-items:center; gap:8px;">
 
@@ -608,13 +138,8 @@ button i{
     <select id="walletSelect" style="flex:1;"></select>
 
 </div>
-    
 
-    <!-- QR -->
-   
-
-
-    <!-- ADDRESS + COPY -->
+<!-- ADDRESS + COPY -->
 <div class="address-bar">
 
     <div id="showAddress" class="address-text"></div>
@@ -629,91 +154,89 @@ button i{
 
 </div>
 
-
-
-  <div class="input-group">
+<div class="input-group">
     <i class="fa-solid fa-link"></i>
-    <input type="text" id="address" placeholder="Input Address 0x..." />
+    <input type="text"
+           id="address"
+           data-lang-placeholder="enter_address"
+           placeholder="Enter 0x Address..." />
 </div>
 
 <div class="input-group">
     <i class="fa-solid fa-tag"></i>
-    <input type="text" id="walletName" placeholder="Nama Wallet (opsional)" />
+    <input type="text"
+           id="walletName"
+           data-lang-placeholder="wallet_name"
+           placeholder="Wallet Name (optional)" />
 </div>
 
-    <button onclick="saveWallet()">
-    <i class="fa-solid fa-floppy-disk"></i> Simpan Wallet
+<button onclick="saveWallet()">
+    <i class="fa-solid fa-floppy-disk"></i>
+    <span data-lang="save_wallet">Save Wallet</span>
 </button>
 
-
-
-
-    <!-- ACTION ICON STYLE -->
-  <div class="actions">
+<!-- ACTION ICONS -->
+<div class="actions">
 
     <div>
         <i class="fa-solid fa-arrow-up" style="background:#2b1405; color:#ff7a00;"></i>
-        Send
+        <span data-lang="send">Send</span>
     </div>
 
     <div onclick="showReceive()">
         <i class="fa-solid fa-arrow-down" style="background:#0d1f3a; color:#3aa0ff;"></i>
-        Receive
+        <span data-lang="receive">Receive</span>
     </div>
 
     <div>
         <i class="fa-solid fa-right-left" style="background:#2a123a; color:#c77dff;"></i>
-        Swap
+        <span data-lang="swap">Swap</span>
     </div>
-
 
     <div>
         <i class="fa-solid fa-droplet" style="background:#0a2a2a; color:#00e0ff;"></i>
-        Liquidity
+        <span data-lang="liquidity">Liquidity</span>
     </div>
 
 </div>
 
-
-
-   
-
-        
-<!-- MODAL WALLET SETTING -->
+<!-- WALLET MODAL -->
 <div id="walletModal" class="modal">
 
     <div class="modal-content">
 
         <div class="modal-header">
-            Edit Wallet
+            <span data-lang="edit_wallet">Edit Wallet</span>
             <span onclick="closeWalletSetting()">׼/span>
         </div>
 
-        <!-- INPUT NAMA -->
-        <input type="text" id="editWalletName" placeholder="Nama Wallet"
+        <input type="text"
+               id="editWalletName"
+               data-lang-placeholder="wallet_name"
+               placeholder="Wallet Name"
                style="margin-bottom:10px;" />
 
-        <!-- SAVE -->
         <button onclick="saveWalletName()">
-            <i class="fa-solid fa-floppy-disk"></i> Save
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span data-lang="save">Save</span>
         </button>
 
-        <!-- DELETE -->
         <button onclick="deleteWallet()" style="background:#ff3b3b;">
-            <i class="fa-solid fa-trash"></i> Delete
+            <i class="fa-solid fa-trash"></i>
+            <span data-lang="delete">Delete</span>
         </button>
 
     </div>
 
 </div>
 
-<!-- MODAL RECEIVE -->
+<!-- RECEIVE MODAL -->
 <div id="receiveModal" class="modal">
 
     <div class="modal-content">
 
         <div class="modal-header">
-            Receive
+            <span data-lang="receive">Receive</span>
             <span onclick="closeReceiveModal()">׼/span>
         </div>
 
@@ -725,13 +248,11 @@ button i{
              style="font-size:12px; text-align:center; color:#aaa; margin-bottom:10px;">
         </div>
 
-        <input type="number" id="receiveAmount"
-               placeholder="Jumlah SDA (opsional)"
+        <input type="number"
+               id="receiveAmount"
+               data-lang-placeholder="amount_optional"
+               placeholder="Amount (optional)"
                style="margin-bottom:8px;" />
-
-        <button onclick="generateReceiveLink()">
-            Generate Link
-        </button>
 
         <div id="receiveResult" style="display:none;">
 
@@ -740,16 +261,17 @@ button i{
                    style="font-size:11px; margin-top:8px;" />
 
             <button onclick="copyReceiveLink()">
-                <i class="fa-solid fa-copy"></i> Copy Link
-                
-                <button onclick="shareWA()">
-    <i class="fa-brands fa-whatsapp"></i> WhatsApp
-</button>
+                <i class="fa-solid fa-copy"></i>
+                <span data-lang="copy_link">Copy Link</span>
+            </button>
 
-<button onclick="shareTelegram()">
-    <i class="fa-brands fa-telegram"></i> Telegram
-</button>
-           
+            <button onclick="shareWA()">
+                <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </button>
+
+            <button onclick="shareTelegram()">
+                <i class="fa-brands fa-telegram"></i> Telegram
+            </button>
 
         </div>
 
@@ -757,12 +279,12 @@ button i{
 
 </div>
 
-<!-- TAB -->
+<!-- TABS -->
 <div class="tabs">
 
-    <div class="tab active" onclick="switchTab('assets')">Assets</div>
-    <div class="tab" onclick="switchTab('tokens')">Tokens</div>
-    <div class="tab" onclick="switchTab('lp')">LP</div>
+    <div class="tab active" onclick="switchTab('assets')" data-lang="assets">Assets</div>
+    <div class="tab" onclick="switchTab('tokens')" data-lang="tokens">Tokens</div>
+    <div class="tab" onclick="switchTab('lp')" data-lang="lp">LP</div>
 
 </div>
 
@@ -770,7 +292,7 @@ button i{
 <div id="tab-tokens" class="tab-content"></div>
 <div id="tab-lp" class="tab-content"></div>
 
-
+<!-- TOAST -->
 <div id="toast" style="
 position:fixed;
 bottom:20px;
@@ -786,13 +308,13 @@ z-index:9999;
 border:1px solid #333;
 "></div>
 
-<!-- MODAL QR -->
+<!-- QR MODAL -->
 <div id="qrModal" class="modal">
 
     <div class="modal-content">
 
         <div class="modal-header">
-            <span><i class="fa-solid fa-qrcode"></i> QR Wallet</span>
+            <span><i class="fa-solid fa-qrcode"></i> Wallet QR</span>
             <span onclick="closeQRModal()">
                 <i class="fa-solid fa-xmark"></i>
             </span>
@@ -829,1432 +351,36 @@ border:1px solid #333;
 <!-- ETHERS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
-<script src="tokenManager.js"></script>
-<script src="main.js"></script>
+<script src="js/config.js"></script>
+<script src="js/storage.js"></script>
+
+
+<script src="js/wallet.js"></script>
+<script src="js/tokens.js"></script>
+<script src="js/tokenManager.js"></script>
+<script src="js/lp.js"></script>
+<script src="js/balance.js"></script>
+
+<script src="js/ui-core.js"></script>
+<script src="js/ui.js"></script>
+
+<script src="js/lang.js"></script>
+<script src="js/app.js"></script>
+
+<script src="sw.js"></script>
 
 <script>
-// CONFIG
-const RPC = "https://node.sidrachain.com/";
-const provider = new ethers.providers.JsonRpcProvider(RPC);
-
-// STORAGE KEY
-const KEY = "sda_wallets";
-
-// ELEMENT
-const balanceEl = document.getElementById("balance");
-const selectEl = document.getElementById("walletSelect");
-
-selectEl.addEventListener("change", () => {
-
-    updateActiveWalletName();
-
-    //  langsung render cache dulu
-    renderAssets();
-
-    loadBalance();
-
-    //  auto refresh TANPA DELAY lama
-    setTimeout(()=>{
-        autoRefreshIfNeeded();
-    },100);
-});
-
-
-function getAmounts(liquidity, sqrtPrice, sqrtLower, sqrtUpper){
-
-    //  JANGAN formatUnits
-    const L = parseFloat(liquidity.toString());
-
-    if(!L || L === 0){
-        return { amount0: 0, amount1: 0 };
-    }
-
-    if(sqrtPrice <= sqrtLower){
-        return {
-            amount0: L * (sqrtUpper - sqrtLower) / (sqrtLower * sqrtUpper),
-            amount1: 0
-        };
-    }
-
-    if(sqrtPrice < sqrtUpper){
-        return {
-            amount0: L * (sqrtUpper - sqrtPrice) / (sqrtPrice * sqrtUpper),
-            amount1: L * (sqrtPrice - sqrtLower)
-        };
-    }
-
-    return {
-        amount0: 0,
-        amount1: L * (sqrtUpper - sqrtLower)
-    };
-}
-
-async function getPoolAddress(token0, token1, fee){
-
-    const FACTORY = "0xCFE41fb5dA87916D84E7F22889087b4Ff7163cDE"; //  ganti sesuai DEX
-
-    const factoryAbi = [
-        "function getPool(address,address,uint24) view returns (address)"
-    ];
-
-    const factory = new ethers.Contract(FACTORY, factoryAbi, provider);
-
-    return await factory.getPool(token0, token1, fee);
-}
-
-// ======================
-// LOAD NFT LP (TEMP SIMPLE)
-// ======================
-async function loadNFTs(){
-
-    const wallet = getSelectedWallet();
-    if(!wallet) return [];
-
-    try{
-
-        const NFT_CONTRACT = "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
-
-        const abi = [
-            "function balanceOf(address owner) view returns (uint256)",
-            "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-            "function positions(uint256 tokenId) view returns (uint96 nonce,address operator,address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint128 liquidity,uint256 feeGrowthInside0LastX128,uint256 feeGrowthInside1LastX128,uint128 tokensOwed0,uint128 tokensOwed1)"
-        ];
-
-        const POOL_ABI = [
-            "function slot0() view returns (uint160 sqrtPriceX96,int24,int24,int24,int24,int24,int24)"
-        ];
-
-        const contract = new ethers.Contract(NFT_CONTRACT, abi, provider);
-
-        const balance = await contract.balanceOf(wallet.address);
-
-        const list = [];
-
-        for(let i = 0; i < balance; i++){
-
-            const tokenId = await contract.tokenOfOwnerByIndex(wallet.address, i);
-            const pos = await contract.positions(tokenId);
-
-            // =========================
-            // BASIC DATA
-            // =========================
-            const token0 = pos.token0;
-            const token1 = pos.token1;
-            const fee = pos.fee; //  FIX (dipindah ke atas)
-            const tickLower = pos.tickLower;
-            const tickUpper = pos.tickUpper;
-            const liquidity = pos.liquidity;
-
-            // =========================
-            // POOL
-            // =========================
-            const poolAddress = await getPoolAddress(token0, token1, fee);
-
-            if(!poolAddress || poolAddress === ethers.constants.AddressZero){
-                continue;
-            }
-
-            const pool = new ethers.Contract(poolAddress, POOL_ABI, provider);
-
-            const slot0 = await pool.slot0();
-
-const sqrtPrice = parseFloat(
-    ethers.utils.formatUnits(slot0.sqrtPriceX96, 96)
-);
-
-            // =========================
-            // PRICE RANGE
-            // =========================
-            const priceLower = Math.pow(1.0001, tickLower);
-            const priceUpper = Math.pow(1.0001, tickUpper);
-
-            let rangeText = "";
-
-            const isFullRange =
-                tickLower <= -887000 && tickUpper >= 887000;
-
-            const isExtremePrice =
-                priceLower < 1e-8 && priceUpper > 1e10;
-
-            if(isFullRange || isExtremePrice){
-                rangeText = "Full Range";
-            }else{
-                rangeText =
-                    priceLower.toFixed(5) + "  " +
-                    priceUpper.toFixed(5);
-            }
-
-            // =========================
-            // STATUS
-            // =========================
-            const currentPrice = sqrtPrice * sqrtPrice; //  FIX
-
-            let status = "Active";
-
-            if(currentPrice < priceLower || currentPrice > priceUpper){
-                status = "Out of Range";
-            }
-
-            // =========================
-            // TOKEN INFO
-            // =========================
-            const t0 = TOKENS.find(t => t.address.toLowerCase() === token0.toLowerCase());
-            const t1 = TOKENS.find(t => t.address.toLowerCase() === token1.toLowerCase());
-
-            const symbol0 = t0?.symbol || "T0";
-            const symbol1 = t1?.symbol || "T1";
-
-            const logo0 = t0?.logo || "img/default.png";
-            const logo1 = t1?.logo || "img/default.png";
-
-            // =========================
-            // AMOUNT CALC
-            // =========================
-            const sqrtLower = Math.sqrt(priceLower);
-            const sqrtUpper = Math.sqrt(priceUpper);
-
-            const amounts = getAmounts(
-                liquidity,
-                sqrtPrice,
-                sqrtLower,
-                sqrtUpper
-            );
-
-            // =========================
-            // PUSH DATA
-            // =========================
-            list.push({
-                id: tokenId.toString(),
-
-                token0,
-                token1,
-
-                fee: (fee / 10000) + "%",
-                range: rangeText,
-                status,
-
-                symbol0,
-                symbol1,
-                logo0,
-                logo1,
-
-                amount0: amounts.amount0 > 0
-                    ? amounts.amount0.toFixed(4)
-                    : "-",
-
-                amount1: amounts.amount1 > 0
-                    ? amounts.amount1.toFixed(4)
-                    : "-",
-
-                liquidity: liquidity.toString(),
-
-                tickLower,
-                tickUpper
-            });
-        }
-
-        return list;
-
-    }catch(e){
-        console.warn("NFT load error", e);
-        return [];
-    }
-}
-
-function formatPrice(p){
-    if(p < 0.000001) return "0";
-    if(p > 1e9) return "";
-    return p.toFixed(5);
-}
-
-function autoRefreshIfNeeded(){
-
-    const wallet = getSelectedWallet();
-    if(!wallet) return;
-
-    const address = wallet.address;
-
-    // cek SDA
-    const hasSDA = localStorage.getItem(address + "_native");
-
-    // cek semua token
-    const tokens = (customTokens || []).slice(0,10);
-
-    let missingToken = false;
-
-    tokens.forEach(token=>{
-        const key = address + "_" + token.address;
-        if(!localStorage.getItem(key)){
-            missingToken = true;
-        }
-    });
-
-    //  RULE BARU:
-    // kalau SDA belum ada ATAU ada token yg belum ada cache  refresh
-    if(!hasSDA || missingToken){
-        refreshAll();
-    }
-}
-
-// LOAD STORAGE
-function getWallets(){
-    return JSON.parse(localStorage.getItem(KEY) || "[]");
-}
-
-// SAVE STORAGE
-function setWallets(data){
-    localStorage.setItem(KEY, JSON.stringify(data));
-}
-
-// RENDER DROPDOWN
-function renderWallets(){
-    const wallets = getWallets();
-    selectEl.innerHTML = "";
-
-    wallets.forEach((w,i)=>{
-        const opt = document.createElement("option");
-        opt.value = i;
-        opt.textContent = w.name || ("Wallet "+(i+1));
-        selectEl.appendChild(opt);
-    });
-}
-
-function renderTokenSelect(){
-    const select = document.getElementById("tokenSelect");
-
-    select.innerHTML = `
-        <option value="native">SDA</option>
-    `;
-
-    TOKENS.forEach((t,i)=>{
-        const opt = document.createElement("option");
-        opt.value = i;
-        opt.textContent = t.symbol;
-        select.appendChild(opt);
-    });
-    
-    const tokenSelect = document.getElementById("tokenSelect");
-const tokenLogoBalance = document.getElementById("tokenLogoBalance");
-const tokenLogoDropdown = document.getElementById("tokenLogoDropdown");
-
-tokenSelect.addEventListener("change", () => {
-
-    const val = tokenSelect.value;
-
-    let logo = "img/sda.png";
-
-    if(val !== "native"){
-        const token = TOKENS[val];
-        logo = token.logo || "img/default.png";
-    }
-
-    //  update keduanya
-    tokenLogoBalance.src = logo;
-    tokenLogoDropdown.src = logo;
-
-    loadBalance();
-});
-}
-
-// SAVE WALLET
-function saveWallet(){
-    let addr = document.getElementById("address").value.trim().toLowerCase();
-    const name = document.getElementById("walletName").value.trim();
-
-    if(!addr) return alert("Isi address dulu");
-
-    // VALIDASI BASIC ADDRESS
-    if(!addr.startsWith("0x") || addr.length < 20){
-        return alert("Format address tidak valid");
-    }
-
-    const wallets = getWallets();
-
-    // CEGAH DUPLIKAT
-    const isExist = wallets.some(w => w.address.toLowerCase() === addr);
-
-    if(isExist){
-        return alert("Wallet sudah tersimpan");
-    }
-
-    wallets.push({
-        address: addr,
-        name: name || "Wallet"
-    });
-
-    setWallets(wallets);
-    renderWallets();
-
-   // reset input
-document.getElementById("address").value = "";
-document.getElementById("walletName").value = "";
-
-// 🔥 update state tombol
-validateInput();
-
-    alert("Wallet berhasil disimpan");
-    
-    setWallets(wallets);
-renderWallets();
-
-// 👉 pindah ke wallet terakhir (yang baru disimpan)
-selectEl.value = wallets.length - 1;
-
-// render dulu (biar ga kosong)
-renderAssets();
-
-// load balance cepat
-loadBalance();
-
-// auto fetch real data
-setTimeout(()=>{
-    autoRefreshIfNeeded();
-},150);
-
-// 👉 langsung load wallet baru
-loadBalance();
-
-// 🔥 stop semua blink setelah wallet pertama tersimpan
-document.querySelectorAll(".blink").forEach(el => el.classList.remove("blink"));
-}
-
-// GET SELECTED
-function getSelectedWallet(){
-    const wallets = getWallets();
-    const index = selectEl.value;
-    return wallets[index];
-}
-
-function renameWallet(){
-    const wallets = getWallets();
-    const index = selectEl.value;
-
-    if(index === "" || !wallets[index]){
-        return alert("Pilih wallet dulu");
-    }
-
-    const newName = prompt("Masukkan nama baru:", wallets[index].name);
-
-    if(!newName) return;
-
-    wallets[index].name = newName;
-    setWallets(wallets);
-    renderWallets();
-
-    alert("Nama wallet berhasil diubah");
+function toggleMenu(){
+    const menu = document.getElementById("menuDropdown");
+    menu.style.display =
+        menu.style.display === "flex" ? "none" : "flex";
 }
 
 
-function saveWalletName(){
-    const wallets = getWallets();
-    const index = selectEl.value;
+</script>
 
-    if(index === "" || !wallets[index]){
-        return alert("Pilih wallet dulu");
-    }
-
-    const newName = document.getElementById("editWalletName").value.trim();
-
-    if(!newName){
-        return alert("Nama tidak boleh kosong");
-    }
-
-    wallets[index].name = newName;
-
-    setWallets(wallets);
-    renderWallets();
-
-    // update UI
-    updateActiveWalletName();
-
-    closeWalletSetting();
-
-    alert("Nama wallet disimpan");
-}
-
-
-
-function deleteWallet(){
-    const wallets = getWallets();
-    const index = selectEl.value;
-
-    if(index === "" || !wallets[index]){
-        return alert("Pilih wallet dulu");
-    }
-
-    const confirmDelete = confirm("Hapus wallet ini?");
-
-    if(!confirmDelete) return;
-
-    const deletedIndex = parseInt(index);
-
-wallets.splice(deletedIndex, 1);
-setWallets(wallets);
-renderWallets();
-
-const total = wallets.length;
-
-if(total > 0){
-    // 👉 pilih index aman
-    let newIndex = deletedIndex - 1;
-
-    if(newIndex < 0){
-        newIndex = 0;
-    }
-
-    selectEl.value = newIndex;
-
-// render ulang UI
-renderAssets();
-
-// load balance
-loadBalance();
-
-// auto refresh kalau perlu
-setTimeout(()=>{
-    autoRefreshIfNeeded();
-},150);
-
-} else {
-    balanceEl.textContent = "0.00 SDA";
-    document.getElementById("tab-assets").innerHTML =
-        "<div style='text-align:center;color:#888;'>No wallet</div>";
-}
-
-alert("Wallet dihapus");
-}
-
-
-function updateActiveWalletName(){
-    const wallet = getSelectedWallet();
-
-    const el = document.getElementById("activeWalletName");
-
-    if(!wallet){
-        el.textContent = "No Wallet";
-        return;
-    }
-
-    el.textContent = wallet.name || "Wallet";
-}
-
-function openWalletSetting(){
-    const wallet = getSelectedWallet();
-
-    if(!wallet){
-        return alert("Pilih wallet dulu");
-    }
-
-    // isi input dengan nama sekarang
-    document.getElementById("editWalletName").value = wallet.name || "";
-
-    document.getElementById("walletModal").style.display = "flex";
-    setTimeout(()=>{
-    document.getElementById("editWalletName").focus();
-},100);
-}
-
-function closeWalletSetting(){
-    document.getElementById("walletModal").style.display = "none";
-}
-
-function shortAddress(addr){
-    if(!addr) return "-";
-    return addr.slice(0,6) + "..." + addr.slice(-4);
-}
-
-function openQRModal(){
-    const wallet = getSelectedWallet();
-
-    if(!wallet){
-        return alert("Pilih wallet dulu");
-    }
-
-    document.getElementById("qrModal").style.display = "flex";
-
-    document.getElementById("qrModalImg").src =
-        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + wallet.address;
-
-    document.getElementById("qrModalAddress").textContent = wallet.address;
-}
-
-function closeQRModal(){
-    document.getElementById("qrModal").style.display = "none";
-}
-
-// LOAD BALANCE SDA
-async function loadBalance(){
-
-    updateActiveWalletName();
-
-    const wallet = getSelectedWallet();
-    const tokenVal = document.getElementById("tokenSelect").value;
-    // hapus semua penggunaan qrCode
-
-    if(!wallet){
-        
-        document.getElementById("showAddress").textContent = "-";
-        balanceEl.textContent = "0.00 SDA";
-        return;
-    }
-
-    balanceEl.textContent = "Loading...";
-    document.getElementById("showAddress").textContent = shortAddress(wallet.address);
-
-    //  FIX: cache key benar
-    const cacheKey = wallet.address + "_" + tokenVal;
-
-    const cached = localStorage.getItem(cacheKey) || "...";
-    const cacheLabel = document.getElementById("cacheLabel");
-
-    if(cached){
-        balanceEl.textContent = cached;
-        cacheLabel.style.display = "block";
-    } else {
-        cacheLabel.style.display = "none";
-    }
-
-    try{
-
-        if(tokenVal === "native"){
-
-            const bal = await provider.getBalance(wallet.address);
-
-            const result = parseFloat(
-                ethers.utils.formatEther(bal)
-            ).toFixed(4) + " SDA";
-
-            balanceEl.textContent = result;
-            cacheLabel.style.display = "none";
-
-            localStorage.setItem(cacheKey, result);
-
-        }else{
-
-            const token = TOKENS[tokenVal];
-
-            const abi = [
-                "function balanceOf(address) view returns (uint256)",
-                "function decimals() view returns (uint8)"
-            ];
-
-            const contract = new ethers.Contract(
-                token.address,
-                abi,
-                provider
-            );
-
-            const bal = await contract.balanceOf(wallet.address);
-
-            let decimals = 18;
-            try{
-                decimals = await contract.decimals();
-            }catch{}
-
-            const result = (bal / (10 ** decimals)).toFixed(4) + " " + token.symbol;
-
-            balanceEl.textContent = result;
-            cacheLabel.style.display = "none";
-
-            localStorage.setItem(cacheKey, result);
-        }
-
-        
-
-    }catch(e){
-        console.error(e);
-        balanceEl.textContent = cached || "Error";
-        
-    }
-}
-
-
-async function refreshAll(){
-
-    const wallet = getSelectedWallet();
-    if(!wallet) return;
-
-    const currentAddress = wallet.address; //  lock wallet
-
-    showToast("Refreshing...");
-
-    // ======================
-    // SDA
-    // ======================
-    try{
-        const bal = await provider.getBalance(currentAddress);
-
-        const result = parseFloat(
-            ethers.utils.formatEther(bal)
-        ).toFixed(4) + " SDA";
-
-        localStorage.setItem(currentAddress + "_native", result);
-
-    }catch(e){
-        console.warn("SDA error");
-    }
-
-    // ======================
-    // TOKEN PARALLEL
-    // ======================
-    const list = (customTokens || []).slice(0,10);
-
-    await Promise.all(list.map(async (token)=>{
-
-        try{
-            const abi = [
-                "function balanceOf(address) view returns (uint256)",
-                "function decimals() view returns (uint8)"
-            ];
-
-            const contract = new ethers.Contract(
-                token.address,
-                abi,
-                provider
-            );
-
-            const [bal, decimalsRaw] = await Promise.all([
-                contract.balanceOf(currentAddress),
-                contract.decimals().catch(()=>18)
-            ]);
-
-            //  FIX BigNumber pakai ethers
-            const value = parseFloat(
-                ethers.utils.formatUnits(bal, decimalsRaw)
-            ).toFixed(4);
-
-            const final = value + " " + token.symbol;
-
-            localStorage.setItem(
-                currentAddress + "_" + token.address,
-                final
-            );
-
-        }catch(e){
-            console.warn("Token error:", token.symbol);
-        }
-
-    }));
-
-    //  pastikan wallet belum berubah
-    const latestWallet = getSelectedWallet();
-    if(!latestWallet || latestWallet.address !== currentAddress){
-        return; // stop kalau user ganti wallet saat proses
-    }
-
-    //  render setelah cache siap
-    loadBalance();
-
-    setTimeout(()=>{
-        renderAssets();
-    },100);
-
-    showToast("Refresh selesai");
-    
-    //  render 2x (instant + final)
-renderAssets();
-
-setTimeout(()=>{
-    renderAssets();
-},200);
-
-//  force update UI pakai data terbaru
-loadBalance();
-renderAssets();
-}
-
-
-function copyAddress(){
-    const wallet = getSelectedWallet();
-
-    if(!wallet){
-        return alert("Pilih wallet dulu");
-    }
-
-    navigator.clipboard.writeText(wallet.address)
-        .then(() => {
-            alert("Address copied");
-        })
-        .catch(() => {
-            alert("Gagal copy");
-        });
-}
-
-
-
-function showReceive(){
-    const wallet = getSelectedWallet();
-
-    if(!wallet){
-        return alert("Pilih wallet dulu");
-    }
-
-    document.getElementById("receiveModal").style.display = "flex";
-
-    // isi data
-    document.getElementById("receiveQR").src =
-        "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + wallet.address;
-
-    document.getElementById("receiveAddress").textContent = wallet.address;
-
-    // reset
-    document.getElementById("receiveResult").style.display = "none";
-}
-
-function closeReceiveModal(){
-    document.getElementById("receiveModal").style.display = "none";
-}
-
-function generateReceiveLink(){
-    const wallet = getSelectedWallet();
-    const amount = document.getElementById("receiveAmount").value;
-
-    if(!wallet){
-        return alert("Pilih wallet dulu");
-    }
-
-    let link = `https://www.sidrachain.com/wallets/send?to=${wallet.address}&currency=SDA`;
-
-    if(amount && amount > 0){
-        link += `&amount=${amount}`;
-    }
-
-    //  simpan global
-    window.receiveLink = link;
-
-    document.getElementById("receiveLink").value = link;
-
-    //  tampilkan hasil (tanpa error form)
-    document.getElementById("receiveResult").style.display = "block";
-
-    showToast("Link berhasil dibuat");
-}
-
-function copyReceiveLink(){
-    if(!window.receiveLink){
-        return showToast("Generate link dulu");
-    }
-
-    navigator.clipboard.writeText(window.receiveLink);
-    showToast("Link disalin");
-}
-
-
-function shareWA(){
-    if(!window.receiveLink){
-        return showToast("Generate link dulu");
-    }
-
-    const text = encodeURIComponent(
-        "Kirim SDA ke saya:\n" + window.receiveLink
-    );
-
-    window.open(`https://wa.me/?text=${text}`, "_blank");
-}
-
-function shareTelegram(){
-    if(!window.receiveLink){
-        return showToast("Generate link dulu");
-    }
-
-    const text = encodeURIComponent(
-        "Kirim SDA ke saya:\n" + window.receiveLink
-    );
-
-    window.open(`https://t.me/share/url?url=${window.receiveLink}&text=${text}`, "_blank");
-}
-
-
-
-function renderAssets(){
-
-    const container = document.getElementById("tab-assets");
-    const wallet = getSelectedWallet();
-
-    if(!wallet){
-        container.innerHTML = "<div style='color:#888;text-align:center;'>No wallet</div>";
-        return;
-    }
-
-    let html = "";
-
-    // =====================
-    // SDA (CACHE)
-    // =====================
-    const sdaCache = localStorage.getItem(wallet.address + "_native") || "0.00 SDA";
-
-    html += `
-    <div class="asset-item">
-        <div style="display:flex; align-items:center; gap:10px;">
-            <img src="img/sda.png" style="width:32px; height:32px; border-radius:50%;" />
-            <div>
-                <b>SDA</b><br>
-                <small style="color:#888;">Native Token</small>
-            </div>
-        </div>
-        <div>${sdaCache.replace(" SDA","")}</div>
-    </div>
-    `;
-
-    // =====================
-    // TOKEN CUSTOM (MAX 10)
-    // =====================
-    if(!customTokens) customTokens = [];
-
-    const custom = customTokens.slice(0,10);
-
-    custom.forEach(token => {
-
-        //  FIX: pakai address, bukan tokenVal
-        const cacheKey = wallet.address + "_" + token.address;
-
-        const cached = localStorage.getItem(cacheKey) || ("0.00 " + token.symbol);
-
-        html += `
-        <div class="asset-item">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <img src="${token.logo || 'img/default.png'}"
-                     style="width:32px; height:32px; border-radius:50%;" />
-                <div>
-                    <b>${token.symbol}</b><br>
-                    <small style="color:#888;">ERC20</small>
-                </div>
-            </div>
-
-            <div style="display:flex; align-items:center; gap:6px;">
-                <span>${cached.replace(" "+token.symbol,"")}</span>
-                <button onclick="removeToken('${token.address}')"
-                    style="width:auto; padding:2px 6px;">-</button>
-            </div>
-        </div>
-        `;
-    });
-
-    container.innerHTML = html;
-}
-
-
-function renderTokenTab(){
-
-    const container = document.getElementById("tab-tokens");
-
-    let html = `
-        <input type="text" id="searchToken"
-            placeholder="Cari token..."
-            style="margin-bottom:10px;" />
-    `;
-
-    DEFAULT_TOKENS.forEach(token => {
-
-        const isAdded = customTokens.find(t => t.address === token.address);
-
-        html += `
-        <div class="asset-item token-row" data-symbol="${token.symbol.toLowerCase()}">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <img src="${token.logo || 'img/default.png'}"
-                     style="width:28px; height:28px; border-radius:50%;" />
-                <div>${token.symbol}</div>
-            </div>
-
-            ${
-                isAdded
-                ? '<span style="color:#888;">Added</span>'
-                : `<button onclick='addTokenFromList(${JSON.stringify(token)})'
-                    style="width:auto;">+</button>`
-            }
-        </div>
-        `;
-    });
-
-    container.innerHTML = html;
-
-    //  aktifkan search
-    initTokenSearch();
-}
-
-
-
-async function addTokenFromList(token){
-
-    if(customTokens.length >= 10){
-        return showToast("Max 10 token");
-    }
-
-    const exist = customTokens.find(t => t.address === token.address);
-    if(exist){
-        return showToast("Sudah ditambahkan");
-    }
-
-    //  tambah token
-    customTokens.push(token);
-    TOKENS = [...DEFAULT_TOKENS, ...customTokens];
-
-    saveTokens();
-
-    showToast("Token ditambahkan");
-
-    const wallet = getSelectedWallet();
-
-    //  langsung pindah tab biar UX cepat
-    switchTab('assets');
-
-    if(!wallet){
-        renderAssets();
-        return;
-    }
-
-    try{
-        const abi = [
-            "function balanceOf(address) view returns (uint256)",
-            "function decimals() view returns (uint8)"
-        ];
-
-        const contract = new ethers.Contract(
-            token.address,
-            abi,
-            provider
-        );
-
-        const bal = await contract.balanceOf(wallet.address);
-
-        let decimals = 18;
-        try{
-            decimals = await contract.decimals();
-        }catch{}
-
-        const value = bal / (10 ** decimals);
-        const final = parseFloat(value).toFixed(4) + " " + token.symbol;
-
-        //  simpan cache
-        const cacheKey = wallet.address + "_" + token.address;
-        localStorage.setItem(cacheKey, final);
-
-    }catch(e){
-        console.warn("Fetch token gagal:", token.symbol);
-
-        //  fallback biar ga kosong
-        const cacheKey = wallet.address + "_" + token.address;
-        if(!localStorage.getItem(cacheKey)){
-            localStorage.setItem(cacheKey, "0.00 " + token.symbol);
-        }
-    }
-
-    //  render terakhir (sekali aja, clean)
-    renderAssets();
-    renderTokenTab();
-    renderTokenSelect();
-}
-
-
-function initTokenSearch(){
-
-    const input = document.getElementById("searchToken");
-
-    input.addEventListener("input", () => {
-
-        const keyword = input.value.toLowerCase();
-
-        document.querySelectorAll(".token-row").forEach(row => {
-
-            const symbol = row.dataset.symbol;
-
-            if(symbol.includes(keyword)){
-                row.style.display = "flex";
-            } else {
-                row.style.display = "none";
-            }
-
-        });
-    });
-}
-
-function removeToken(address){
-
-    customTokens = customTokens.filter(
-        t => t.address.toLowerCase() !== address.toLowerCase()
-    );
-
-    TOKENS = [...DEFAULT_TOKENS, ...customTokens];
-
-    saveTokens();
-
-    renderAssets();
-    renderTokenTab();
-    renderTokenSelect();
-
-    showToast("Token dihapus");
-}
-
-
-function switchTab(tab){
-    document.querySelectorAll(".tab").forEach(el=>el.classList.remove("active"));
-    document.querySelectorAll(".tab-content").forEach(el=>el.classList.remove("active"));
-
-    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add("active");
-    document.getElementById("tab-"+tab).classList.add("active");
-    if(tab === "assets") renderAssets();
-if(tab === "tokens") renderTokenTab();
-if(tab === "lp") renderLP();
-}
-
-
-function getTokenData(addr){
-
-    const token = TOKENS.find(
-        t => t.address.toLowerCase() === addr.toLowerCase()
-    );
-
-    if(token){
-        return {
-            symbol: token.symbol,
-            logo: token.logo || "img/default.png"
-        };
-    }
-
-    return {
-        symbol: addr.slice(0,6)+"...",
-        logo: "img/default.png"
-    };
-}
-
-function getAmounts(liquidity, sqrtPrice, sqrtLower, sqrtUpper){
-
-    const L = parseFloat(liquidity.toString()); //  FIX
-
-    if(!L || L === 0){
-        return { amount0: 0, amount1: 0 };
-    }
-
-    if(sqrtPrice <= sqrtLower){
-        return {
-            amount0: L * (sqrtUpper - sqrtLower) / (sqrtLower * sqrtUpper),
-            amount1: 0
-        };
-    }
-
-    if(sqrtPrice < sqrtUpper){
-        return {
-            amount0: L * (sqrtUpper - sqrtPrice) / (sqrtPrice * sqrtUpper),
-            amount1: L * (sqrtPrice - sqrtLower)
-        };
-    }
-
-    return {
-        amount0: 0,
-        amount1: L * (sqrtUpper - sqrtLower)
-    };
-}
-
-function tickToPrice(tick){
-    return Math.pow(1.0001, tick);
-}
-
-function renderLP(){
-
-    const container = document.getElementById("tab-lp");
-    const wallet = getSelectedWallet();
-
-    if(!wallet){
-        container.innerHTML =
-        "<div style='text-align:center;color:#888;'>No wallet</div>";
-        return;
-    }
-
-    container.innerHTML = "Loading LP...";
-
-    loadNFTs().then(list => {
-
-        if(!list || list.length === 0){
-            container.innerHTML =
-            "<div style='text-align:center;color:#888;'>No LP found</div>";
-            return;
-        }
-
-        let html = "";
-
-        list.forEach(lp => {
-
-            const t0 = getTokenData(lp.token0);
-            const t1 = getTokenData(lp.token1);
-
-            //  convert tick  price
-            const priceMin = tickToPrice(lp.tickLower);
-            const priceMax = tickToPrice(lp.tickUpper);
-
-            //  format
-            let rangeText;
-
-const isFullRange =
-    lp.tickLower <= -887000 && lp.tickUpper >= 887000;
-
-if(isFullRange){
-    rangeText = "Full Range";
-}else{
-    rangeText =
-        priceMin.toFixed(5) + "  " +
-        priceMax.toFixed(5);
-}
-
-            //  dummy status (bisa upgrade nanti)
-            const status = "Active";
-
-            html += `
-            <div class="asset-item" style="flex-direction:column; align-items:flex-start; gap:8px;">
-
-                <!-- TOKEN ICON -->
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <img src="${t0.logo}" style="width:22px;height:22px;border-radius:50%;">
-                    <img src="${t1.logo}" style="width:22px;height:22px;border-radius:50%; margin-left:-8px;">
-                    
-                    <b>${t0.symbol} / ${t1.symbol}</b>
-                </div>
-
-                <!-- LP ID -->
-                <div style="font-size:12px;color:#888;">
-                    LP NFT #${lp.id}
-                </div>
-
-                <!-- FEE -->
-                <div style="font-size:12px;color:#aaa;">
-                    Fee: ${lp.fee}
-                </div>
-
-                <!-- RANGE -->
-                <div style="font-size:12px;color:#aaa;">
-                    Range:<br>
-                    ${rangeText}
-                </div>
-
-                <!-- STATUS -->
-                <div style="font-size:12px;color:${status==='Active'?'#00ff99':'#ff4d4d'};">
-                    ${status}
-                </div>
-
-                <!-- LIQ -->
-                <div style="font-size:11px;color:#888;">
-                    <small style="color:#555;">LP Position</small>
-                </div>
-
-            </div>
-            `;
-        });
-
-        container.innerHTML = html;
-    });
-}
-
-function getLPs(){
-    const wallet = getSelectedWallet();
-    if(!wallet) return [];
-
-    const key = wallet.address + "_lp";
-    return JSON.parse(localStorage.getItem(key) || "[]");
-}
-
-function setLPs(data){
-    const wallet = getSelectedWallet();
-    if(!wallet) return;
-
-    const key = wallet.address + "_lp";
-    localStorage.setItem(key, JSON.stringify(data));
-}
-
-function addLPManual(){
-
-    const input = document.getElementById("lpIdInput");
-    const id = input.value.trim();
-
-    if(!id) return alert("Isi NFT ID");
-
-    let list = getLPs();
-
-    if(list.includes(id)){
-        return alert("Sudah ada");
-    }
-
-    list.push(id);
-    setLPs(list);
-
-    input.value = "";
-
-    renderLPList();
-}
-
-function renderLPList(){
-
-    const container = document.getElementById("lpList");
-    const list = getLPs();
-
-    if(list.length === 0){
-        container.innerHTML =
-        "<div style='text-align:center;color:#888;'>No LP added</div>";
-        return;
-    }
-
-    let html = "";
-
-    list.forEach(id=>{
-
-        html += `
-        <div class="asset-item">
-            <div>
-                <b>LP Position</b><br>
-                <small style="color:#888;">NFT ID: #${id}</small>
-            </div>
-
-            <div>
-                <button onclick="removeLP('${id}')" style="width:auto;">
-                    Remove
-                </button>
-            </div>
-        </div>
-        `;
-    });
-
-    container.innerHTML = html;
-}
-
-function removeLP(id){
-
-    let list = getLPs();
-
-    list = list.filter(x => x !== id);
-
-    setLPs(list);
-
-    renderLPList();
-}
-
-
-const addressInput = document.getElementById("address");
-const saveBtn = document.querySelector("button[onclick='saveWallet()']");
-
-// ==========================
-// VALIDASI INPUT ADDRESS
-// ==========================
-function isValidAddress(addr){
-    return addr.startsWith("0x") && addr.length >= 42;
-}
-
-function validateInput(){
-    const addr = addressInput.value.trim();
-
-    if(isValidAddress(addr)){
-        saveBtn.disabled = false;
-    } else {
-        saveBtn.disabled = true;
-    }
-}
-
-// disable di awal
-saveBtn.disabled = true;
-
-// realtime check
-addressInput.addEventListener("input", validateInput);
-
-
-// STEP 1
-function startGuide(){
-    addressInput.classList.add("blink");
-}
-
-// jalankan kalau belum ada wallet
-const wallets = getWallets();
-if(wallets.length === 0){
-    startGuide();
-} else {
-    document.querySelectorAll(".blink").forEach(el => el.classList.remove("blink"));
-}
-
-
-
-addressInput.addEventListener("input", () => {
-    if(addressInput.value.length > 5){
-        addressInput.classList.remove("blink");
-        saveBtn.classList.add("blink");
-    }
-});
-
-saveBtn.addEventListener("click", () => {
-    saveBtn.classList.remove("blink");
-});
-
-
-function showToast(msg){
-    const t = document.getElementById("toast");
-    t.textContent = msg;
-    t.style.display = "block";
-
-    setTimeout(()=>{
-        t.style.display = "none";
-    },2000);
-}
-
-// INIT
-window.onload = () => {
-
-    renderWallets();
-    renderTokenSelect();
-    renderAssets();
-    renderTokenTab();
-
-    tokenLogoBalance.src = "img/sda.png";
-    tokenLogoDropdown.src = "img/sda.png";
-
-    updateActiveWalletName();
-
-    //  event change token
-    document.getElementById("tokenSelect")
-        .addEventListener("change", loadBalance);
-
-    const wallets = getWallets();
-
-    
-
-    if(wallets.length > 0){
-
-    selectEl.value = 0;
-
-    updateActiveWalletName(); //  TAMBAH
-    loadBalance();            //  TAMBAH
-
-    refreshAll();
-
-
-
-//  lalu tampilkan (pakai cache yg baru diupdate)
-setTimeout(()=>{
-    loadBalance();
-    renderAssets();
-},300);
-
-    } else {
-        startGuide();
-    }
-};
-
-// SPLASH CONTROL
-window.addEventListener("load", ()=>{
-    setTimeout(()=>{
-        document.getElementById("splash").style.opacity = "0";
-        document.getElementById("splash").style.transition = "0.5s";
-
-        setTimeout(()=>{
-            document.getElementById("splash").style.display = "none";
-        },500);
-
-    },1500); // durasi splash (1.5 detik)
-});
-
-// CLOSE MODAL
-window.onclick = function(e){
-    document.querySelectorAll(".modal").forEach(modal=>{
-        if(e.target === modal){
-            modal.style.display = "none";
-        }
-    });
-}
-
+<script>
+loadLang();
 </script>
 
 <script>
