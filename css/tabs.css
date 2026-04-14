@@ -1,0 +1,69 @@
+/* =========================
+   TABS CONTAINER
+========================= */
+
+.tabs{
+    display:flex;
+    margin-top:15px;
+
+    /* glass style */
+    background:rgba(255,255,255,0.03);
+    border-radius:20px;
+    padding:5px;
+    backdrop-filter: blur(10px);
+    border:1px solid rgba(255,255,255,0.05);
+}
+
+/* =========================
+   TAB ITEM
+========================= */
+
+.tab{
+    flex:1;
+    text-align:center;
+    padding:10px;
+    cursor:pointer;
+
+    font-size:13px;
+    color:#777;
+
+    border-radius:16px;
+    transition:all 0.25s ease;
+}
+
+/* HOVER (COMBINED) */
+.tab:hover{
+    color:#fff;
+    background:#1a1a1a; /* dari kode kamu */
+}
+
+/* ACTIVE TAB */
+.tab.active{
+    color:#ff7a00;
+
+    /* glass highlight */
+    background:rgba(255,122,0,0.12);
+
+    box-shadow:
+        inset 0 0 10px rgba(255,122,0,0.15),
+        0 0 8px rgba(255,122,0,0.25);
+
+    font-weight:600;
+}
+
+/* =========================
+   TAB CONTENT
+========================= */
+
+.tab-content{
+    display:none;
+    background:#111;
+    padding:12px;
+    border-radius:12px;
+    margin-top:10px;
+}
+
+/* ACTIVE CONTENT */
+.tab-content.active{
+    display:block;
+}
