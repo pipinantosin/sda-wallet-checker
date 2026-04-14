@@ -1,0 +1,83 @@
+/* =========================
+   ADDRESS BAR (GLASS UI)
+========================= */
+
+.address-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:12px;
+
+    padding:10px 12px;
+    border-radius:16px;
+
+    /* glass */
+    background:rgba(255,255,255,0.03);
+    backdrop-filter: blur(10px);
+
+    border:1px solid rgba(255,255,255,0.05);
+
+    transition:all 0.25s ease;
+}
+
+/* HOVER BAR */
+.address-bar:hover{
+    border:1px solid rgba(255,122,0,0.2);
+}
+
+/* =========================
+   TEXT ADDRESS
+========================= */
+
+.address-text{
+    flex:1;
+    font-size:13px;
+    color:#aaa;
+
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/* =========================
+   ACTION ICON WRAPPER
+========================= */
+
+.address-actions{
+    display:flex;
+    gap:8px;
+    margin-left:10px;
+}
+
+/* =========================
+   ICON STYLE
+========================= */
+
+.address-actions i{
+    width:32px;
+    height:32px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:10px;
+
+    /* glass */
+    background:rgba(255,255,255,0.04);
+
+    color:#888;
+
+    cursor:pointer;
+    transition:all 0.25s ease;
+}
+
+/* HOVER ICON */
+.address-actions i:hover{
+    background:rgba(255,122,0,0.15);
+    color:#ff7a00;
+
+    box-shadow:
+        0 0 8px rgba(255,122,0,0.4),
+        inset 0 0 6px rgba(255,122,0,0.2);
+}
