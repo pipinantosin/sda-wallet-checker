@@ -232,6 +232,8 @@ async function refreshAll() {
     }
 
     if (typeof showToast === "function") {
-        showToast("Refresh selesai");
-    }
+    showToast(
+        LANG?.[CURRENT_LANG]?.refresh_done || "Refresh selesai"
+    );
+}
 }
