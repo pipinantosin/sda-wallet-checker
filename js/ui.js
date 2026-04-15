@@ -1,23 +1,12 @@
-
 // ==========================
-// ELEMENT (SAFE ACCESS)
+// HELPER LANG
 // ==========================
-
-// NOTE: jangan ambil DOM di global langsung (biar tidak "undefined order issue")
-function getBalanceEl() {
-    return document.getElementById("balance");
-}
-
-function getSelectEl() {
-    return document.getElementById("walletSelect");
-}
-
-function getAddressInput() {
-    return document.getElementById("address");
-}
-
-function getSaveBtn() {
-    return document.querySelector("button[onclick='saveWallet()']");
+function t(key){
+    try{
+        return LANG?.[CURRENT_LANG]?.[key] || key;
+    }catch{
+        return key;
+    }
 }
 
 
@@ -31,21 +20,16 @@ function renderAssets() {
     const container = document.getElementById("tab-assets");
     if (!container) return;
 
-    const wallet = typeof getSelectedWallet === "function"
-        ? getSelectedWallet()
-        : null;
+    const wallet = getSelectedWallet?.();
 
     if (!wallet) {
         container.innerHTML =
-            "<div style='color:#888;text-align:center;'>No wallet</div>";
+            `<div style="color:#888;text-align:center;">${t("no_wallet_text")}</div>`;
         return;
     }
 
     let html = "";
 
-    // ======================
-    // SDA CACHE SAFE
-    // ======================
     const sdaCache =
         localStorage.getItem(wallet.address + "_native") ||
         "0.00 SDA";
@@ -63,9 +47,6 @@ function renderAssets() {
         </div>
     `;
 
-    // ======================
-    // CUSTOM TOKENS SAFE MODE
-    // ======================
     const tokens = Array.isArray(window.customTokens)
         ? window.customTokens
         : [];
@@ -112,17 +93,17 @@ function renderTokenTab() {
 
     let html = `
         <input type="text" id="searchToken"
-               placeholder="Cari token..."
+               placeholder="${t("search_token") || 'Search token...'}"
                style="margin-bottom:10px;">
     `;
 
     DEFAULT_TOKENS.forEach(token => {
 
         const customTokens =
-    JSON.parse(localStorage.getItem("customTokens") || "[]");
+            JSON.parse(localStorage.getItem("customTokens") || "[]");
 
-const isAdded = customTokens
-    .some(t => t.address === token.address);
+        const isAdded = customTokens
+            .some(tk => tk.address === token.address);
 
         const tokenData =
             encodeURIComponent(JSON.stringify(token));
@@ -139,7 +120,7 @@ const isAdded = customTokens
 
                 ${
                     isAdded
-                    ? `<span style="color:#888;">Added</span>`
+                    ? `<span style="color:#888;">${t("added") || 'Added'}</span>`
                     : `<button onclick='addTokenFromList(JSON.parse(decodeURIComponent("${tokenData}")))'
                                style="width:auto;">+</button>`
                 }
@@ -191,14 +172,14 @@ function switchTab(tab) {
         `.tab[onclick="switchTab('${tab}')"]`
     );
 
-    if (tabBtn) tabBtn.classList.add("active");
+    tabBtn?.classList.add("active");
 
     const tabContent = document.getElementById("tab-" + tab);
-    if (tabContent) tabContent.classList.add("active");
+    tabContent?.classList.add("active");
 
     if (tab === "assets") renderAssets();
     if (tab === "tokens") renderTokenTab();
-    if (tab === "lp") renderLP();
+    if (tab === "lp") renderLP?.();
 }
 
 
@@ -208,11 +189,11 @@ function switchTab(tab) {
 function renderLPList() {
 
     const container = document.getElementById("lpList");
-    const list = getLPs();
+    const list = getLPs?.();
 
     if (!list || list.length === 0) {
         container.innerHTML =
-            "<div style='text-align:center;color:#888;'>No LP added</div>";
+            `<div style='text-align:center;color:#888;'>${t("no_lp") || "No LP added"}</div>`;
         return;
     }
 
@@ -230,7 +211,7 @@ function renderLPList() {
                 <div>
                     <button onclick="removeLP('${id}')"
                             style="width:auto;">
-                        Remove
+                        ${t("remove") || "Remove"}
                     </button>
                 </div>
             </div>
@@ -238,4 +219,8 @@ function renderLPList() {
     });
 
     container.innerHTML = html;
+}
+
+function toggleAddress(el){
+    el.classList.toggle("address-full");
 }
