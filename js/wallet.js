@@ -21,12 +21,15 @@ function saveWallet() {
     // VALIDATION
     // ==========================
     if (!addr) {
-        return alert(LANG?.[CURRENT_LANG]?.enter_address || "Enter address");
+        return showToast(LANG?.[CURRENT_LANG]?.enter_address || "Enter address");
     }
 
     if (!addr.startsWith("0x") || addr.length < 42) {
-        return alert("Format address tidak valid");
-    }
+    return showToast(
+        LANG?.[CURRENT_LANG]?.invalid_address || "Format address tidak valid",
+        "error"
+    );
+}
 
     const wallets = getWallets();
 
@@ -35,8 +38,11 @@ function saveWallet() {
     );
 
     if (isExist) {
-        return alert("Wallet sudah tersimpan");
-    }
+    return showToast(
+        LANG?.[CURRENT_LANG]?.wallet_exists || "Wallet sudah tersimpan",
+        "error"
+    );
+}
 
     // ==========================
     // SAVE
@@ -74,7 +80,10 @@ function saveWallet() {
 
     validateInput();
 
-    alert("Wallet berhasil disimpan");
+    showToast(
+    LANG?.[CURRENT_LANG]?.wallet_saved || "Wallet berhasil disimpan",
+    "success"
+);
 
     setTimeout(() => {
         autoRefreshIfNeeded();
@@ -104,31 +113,65 @@ function getSelectedWallet() {
 }
 
 // ==========================
-// RENAME WALLET
+// RENAME WALLET (LANG SUPPORT + TOAST)
 // ==========================
 function renameWallet() {
 
     const wallets = getWallets();
     const index = selectEl?.value;
 
-    if (!wallets[index]) return alert("Pilih wallet dulu");
+    // ==========================
+    // NO WALLET SELECTED
+    // ==========================
+    if (!wallets[index]) {
+        return showToast(
+            LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
+            "error"
+        );
+    }
 
-    const newName = prompt("Nama baru:", wallets[index].name);
-    if (!newName) return;
+    // ==========================
+    // INPUT NEW NAME (still prompt browser)
+    // ==========================
+    showPrompt(
+    LANG?.[CURRENT_LANG]?.enter_new_name || "Nama baru:",
+    wallets[index].name,
+    function (newName) {
 
-    wallets[index].name = newName;
+        if (!newName || !newName.trim()) return;
+
+        wallets[index].name = newName.trim();
+
+        setWallets(wallets);
+        renderWallets();
+
+        updateActiveWalletName?.();
+
+        showToast(
+            LANG?.[CURRENT_LANG]?.wallet_renamed || "Nama wallet diubah",
+            "success"
+        );
+    }
+);
+
+    if (!newName || !newName.trim()) return;
+
+    wallets[index].name = newName.trim();
 
     setWallets(wallets);
     renderWallets();
 
-    updateActiveWalletName();
+    updateActiveWalletName?.();
 
-    alert("Nama wallet diubah");
+    showToast(
+        LANG?.[CURRENT_LANG]?.wallet_renamed || "Nama wallet diubah",
+        "success"
+    );
 }
 
 
 // ==========================
-// SAVE NAME EDIT
+// SAVE NAME EDIT (LANG + TOAST)
 // ==========================
 function saveWalletName() {
 
@@ -139,53 +182,131 @@ function saveWalletName() {
         .getElementById("editWalletName")
         ?.value?.trim();
 
-    if (!wallets[index]) return alert("Pilih wallet dulu");
-    if (!newName) return alert("Nama tidak boleh kosong");
+    // ==========================
+    // NO WALLET SELECTED
+    // ==========================
+    if (!wallets[index]) {
+        return showToast(
+            LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
+            "error"
+        );
+    }
 
+    // ==========================
+    // EMPTY NAME
+    // ==========================
+    if (!newName) {
+        return showToast(
+            LANG?.[CURRENT_LANG]?.wallet_name_empty || "Nama tidak boleh kosong",
+            "error"
+        );
+    }
+
+    // ==========================
+    // SAVE
+    // ==========================
     wallets[index].name = newName;
 
     setWallets(wallets);
     renderWallets();
 
-    updateActiveWalletName();
-    closeWalletSetting();
+    updateActiveWalletName?.();
+    closeWalletSetting?.();
 
-    alert("Nama disimpan");
+    showToast(
+        LANG?.[CURRENT_LANG]?.wallet_saved_name || "Nama disimpan",
+        "success"
+    );
 }
-
-
 // ==========================
-// DELETE WALLET
+// DELETE WALLET (CUSTOM MODAL CONFIRM + FULL SAFE)
 // ==========================
 function deleteWallet() {
 
     const wallets = getWallets();
     const index = parseInt(selectEl?.value);
 
-    if (!wallets[index]) return alert("Pilih wallet dulu");
-
-    if (!confirm("Hapus wallet ini?")) return;
-
-    wallets.splice(index, 1);
-    setWallets(wallets);
-    renderWallets();
-
-    if (wallets.length > 0) {
-        selectEl.value = Math.max(0, index - 1);
-        renderAssets();
-        loadBalance();
-
-        setTimeout(() => {
-            autoRefreshIfNeeded();
-        }, 150);
-
-    } else {
-        balanceEl.textContent = "0.00 SDA";
-        document.getElementById("tab-assets").innerHTML =
-            "<div style='text-align:center;color:#888;'>No wallet</div>";
+    // ==========================
+    // NO WALLET SELECTED
+    // ==========================
+    if (!wallets[index]) {
+        showToast(
+            LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
+            "error"
+        );
+        return;
     }
 
-    alert("Wallet dihapus");
+    // ==========================
+    // CUSTOM CONFIRM MODAL (NO BROWSER CONFIRM)
+    // ==========================
+    showConfirm(
+        LANG?.[CURRENT_LANG]?.delete_wallet_confirm || "Hapus wallet ini?",
+        function () {
+
+            // ==========================
+            // REMOVE WALLET
+            // ==========================
+            wallets.splice(index, 1);
+            setWallets(wallets);
+            renderWallets();
+
+            // ==========================
+            // CLOSE ALL RELATED MODALS
+            // ==========================
+            closeWalletSetting?.();
+            closeQRModal?.();
+            closeReceiveModal?.();
+
+            // ==========================
+            // IF STILL HAS WALLET
+            // ==========================
+            if (wallets.length > 0) {
+
+                const newIndex = Math.max(0, index - 1);
+                selectEl.value = String(newIndex);
+
+                updateActiveWalletName?.();
+                updateAddressUI?.();
+                renderAssets();
+                loadBalance();
+
+                setTimeout(() => {
+                    autoRefreshIfNeeded?.();
+                }, 150);
+
+            } else {
+
+                // ==========================
+                // RESET UI FULL STATE
+                // ==========================
+                if (balanceEl) balanceEl.textContent = "0.00 SDA";
+
+                const tabAssets = document.getElementById("tab-assets");
+                if (tabAssets) {
+                    tabAssets.innerHTML =
+                        "<div style='text-align:center;color:#888;'>No wallet</div>";
+                }
+
+                const activeName = document.getElementById("activeWalletName");
+                if (activeName) {
+                    activeName.textContent =
+                        LANG?.[CURRENT_LANG]?.no_wallet || "No Wallet Selected";
+                }
+
+                // restart guide
+                startGuide?.();
+            }
+
+            // ==========================
+            // SUCCESS TOAST
+            // ==========================
+            showToast(
+                LANG?.[CURRENT_LANG]?.wallet_deleted || "Wallet dihapus",
+                "success"
+            );
+        }
+    );
 }
 
 
@@ -213,7 +334,7 @@ function updateActiveWalletName(){
 function openWalletSetting() {
 
     const wallet = getSelectedWallet();
-    if (!wallet) return alert("Pilih wallet dulu");
+    if (!wallet) return showToast("Pilih wallet dulu");
 
     document.getElementById("editWalletName").value = wallet.name;
     document.getElementById("walletModal").style.display = "flex";
@@ -238,7 +359,7 @@ function shortAddress(addr) {
 function openQRModal() {
 
     const wallet = getSelectedWallet();
-    if (!wallet) return alert("Pilih wallet dulu");
+    if (!wallet) return showToast("Pilih wallet dulu");
 
     document.getElementById("qrModal").style.display = "flex";
 
@@ -261,11 +382,11 @@ function closeQRModal() {
 function copyAddress() {
 
     const wallet = getSelectedWallet();
-    if (!wallet) return alert("Pilih wallet dulu");
+    if (!wallet) return showToast("Pilih wallet dulu");
 
     navigator.clipboard.writeText(wallet.address)
-        .then(() => alert("Copied"))
-        .catch(() => alert("Gagal copy"));
+        .then(() => showToast("Copied"))
+        .catch(() => showToast("Gagal copy"));
 }
 
 
@@ -275,7 +396,7 @@ function copyAddress() {
 function showReceive() {
 
     const wallet = getSelectedWallet();
-    if (!wallet) return alert("Pilih wallet dulu");
+    if (!wallet) return showToast("Pilih wallet dulu");
 
     const modal = document.getElementById("receiveModal");
     modal.style.display = "flex";
@@ -385,19 +506,3 @@ function startGuide() {
     }
 }
 
-
-// ==========================
-// TOAST
-// ==========================
-function showToast(msg) {
-
-    const t = document.getElementById("toast");
-    if (!t) return;
-
-    t.textContent = msg;
-    t.style.display = "block";
-
-    setTimeout(() => {
-        t.style.display = "none";
-    }, 2000);
-}
