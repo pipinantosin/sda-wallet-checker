@@ -59,8 +59,8 @@
 
    <div id="menuDropdown" class="menu-dropdown">
 
-    <div class="lang-item" onclick="setLanguage('id')"> Indonesia</div>
-    <div class="lang-item" onclick="setLanguage('en')"> English</div>
+    <div class="lang-item" onclick="setLanguage('id')">🇮🇩 Indonesia</div>
+    <div class="lang-item" onclick="setLanguage('en')">🇺🇲 English</div>
 
 </div>
 
@@ -205,22 +205,30 @@
 
     <div class="modal-content">
 
+        <!-- HEADER -->
         <div class="modal-header">
             <span data-lang="edit_wallet">Edit Wallet</span>
-            <span onclick="closeWalletSetting()">�</span>
+
+            <!-- CLOSE ICON (FIXED) -->
+            <span onclick="closeWalletSetting()" style="cursor:pointer;">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
         </div>
 
+        <!-- INPUT -->
         <input type="text"
                id="editWalletName"
                data-lang-placeholder="wallet_name"
                placeholder="Wallet Name"
                style="margin-bottom:10px;" />
 
+        <!-- SAVE BUTTON -->
         <button onclick="saveWalletName()">
             <i class="fa-solid fa-floppy-disk"></i>
             <span data-lang="save">Save</span>
         </button>
 
+        <!-- DELETE BUTTON -->
         <button onclick="deleteWallet()" style="background:#ff3b3b;">
             <i class="fa-solid fa-trash"></i>
             <span data-lang="delete">Delete</span>
@@ -235,25 +243,37 @@
 
     <div class="modal-content">
 
+        <!-- HEADER -->
         <div class="modal-header">
-            <span data-lang="receive">Receive</span>
-            <span onclick="closeReceiveModal()">�</span>
+
+            <span>
+                <i class="fa-solid fa-arrow-down"></i>
+                <span data-lang="receive">Receive</span>
+            </span>
+
+            <span class="modal-close" onclick="closeReceiveModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
+
         </div>
 
+        <!-- QR -->
         <img id="receiveQR"
-             style="width:140px; display:block; margin:10px auto;
-             border-radius:12px; background:#111; padding:8px;" />
+             class="qr-style" />
 
+        <!-- ADDRESS -->
         <div id="receiveAddress"
-             style="font-size:12px; text-align:center; color:#aaa; margin-bottom:10px;">
+             class="address-modal"
+             onclick="toggleAddress(this)">
         </div>
 
+        <!-- AMOUNT -->
         <input type="number"
                id="receiveAmount"
                data-lang-placeholder="amount_optional"
-               placeholder="Amount (optional)"
-               style="margin-bottom:8px;" />
+               placeholder="Amount (optional)" />
 
+        <!-- RESULT -->
         <div id="receiveResult" style="display:none;">
 
             <input id="receiveLink"
@@ -293,33 +313,56 @@
 <div id="tab-lp" class="tab-content"></div>
 
 <!-- TOAST -->
-<div id="toast" style="
-position:fixed;
-bottom:20px;
-left:50%;
-transform:translateX(-50%);
-background:#111;
-color:#fff;
-padding:10px 16px;
-border-radius:8px;
-font-size:12px;
-display:none;
-z-index:9999;
-border:1px solid #333;
-"></div>
+<div id="toast" class="toast"></div>
 
 <!-- QR MODAL -->
 <div id="qrModal" class="modal">
 
     <div class="modal-content">
 
-        <div class="modal-header">
-            <span><i class="fa-solid fa-qrcode"></i> Wallet QR</span>
-            <span onclick="closeQRModal()">
-                <i class="fa-solid fa-xmark"></i>
-            </span>
+        <!-- HEADER -->
+        <div class="modal-header" style="align-items:flex-start; gap:10px;">
+
+    <!-- LEFT -->
+    <div style="display:flex; gap:10px; align-items:flex-start;">
+
+        <i class="fa-solid fa-qrcode"
+           style="font-size:18px; color:#ff7a00; margin-top:3px;"></i>
+
+        <div>
+
+            <div style="font-size:14px; font-weight:600;"
+                 data-lang="wallet_qr">
+                Wallet QR Code
+            </div>
+
+            <div style="font-size:11px; color:#888; margin-top:2px; line-height:1.4;"
+                 data-lang="qr_desc">
+                Scan this QR code to add this wallet to your wallet app.
+            </div>
+
         </div>
 
+    </div>
+
+    <!-- CLOSE ICON -->
+    <i class="fa-solid fa-xmark"
+       onclick="closeQRModal()"
+       style="
+       font-size:16px;
+       padding:8px;
+       border-radius:10px;
+       background:#1a1a1a;
+       cursor:pointer;
+       transition:0.2s;
+       "
+       onmouseover="this.style.background='#ff7a00'; this.style.color='#fff'"
+       onmouseout="this.style.background='#1a1a1a'; this.style.color='#fff'"
+    ></i>
+
+</div>
+
+        <!-- QR IMAGE -->
         <img id="qrModalImg"
              style="
              width:170px;
@@ -330,16 +373,13 @@ border:1px solid #333;
              padding:10px;
              " />
 
-        <div id="qrModalAddress"
-             style="
-             font-size:12px;
-             text-align:center;
-             color:#aaa;
-             word-break:break-all;
-             margin-bottom:10px;
-             ">
-        </div>
+        <!-- ADDRESS -->
+<div id="qrModalAddress"
+     class="address-text"
+     onclick="toggleAddress(this)">
+</div>
 
+        <!-- BUTTON -->
         <button onclick="copyAddress()">
             <i class="fa-solid fa-copy"></i> Copy Address
         </button>
@@ -348,6 +388,66 @@ border:1px solid #333;
 
 </div>
 
+
+<!-- CONFIRM MODAL -->
+<div id="confirmModal" class="modal">
+
+    <div class="modal-content confirm-box">
+
+        <div class="modal-header">
+            <span id="confirmTitle">Confirm</span>
+            <span onclick="closeConfirmModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
+        </div>
+
+        <div id="confirmMessage" class="confirm-message"></div>
+
+        <div class="confirm-actions">
+
+            <button onclick="confirmYes()" class="btn-confirm-yes">
+                <i class="fa-solid fa-check"></i>
+                <span id="confirmYesText">OK</span>
+            </button>
+
+            <button onclick="closeConfirmModal()" class="btn-confirm-no">
+                <i class="fa-solid fa-xmark"></i>
+                <span id="confirmNoText">Cancel</span>
+            </button>
+
+        </div>
+
+    </div>
+</div>
+
+<!-- PROMPT MODAL -->
+<div id="promptModal" class="modal">
+    <div class="modal-content">
+
+        <div class="modal-header">
+            <span data-lang="edit_wallet">Input</span>
+            <span onclick="document.getElementById('promptModal').style.display='none'">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
+        </div>
+
+        <div id="promptMessage" style="margin-bottom:10px;color:#aaa;font-size:12px;"></div>
+
+        <input id="promptInput" type="text"
+               style="margin-bottom:10px;" />
+
+        <button id="promptOk">
+            <i class="fa-solid fa-check"></i>
+            <span data-lang="save">OK</span>
+        </button>
+
+        <button id="promptCancel" style="background:#444;">
+            <i class="fa-solid fa-xmark"></i>
+            <span data-lang="delete">Cancel</span>
+        </button>
+
+    </div>
+</div>
 <!--- ETHERS --->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
