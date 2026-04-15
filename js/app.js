@@ -170,28 +170,87 @@ function syncTokenState() {
 
 
 // ==========================
-// REMOVE TOKEN (SAFE FALLBACK)
+// REMOVE TOKEN (FINAL FIX - LANG + MODAL + TOAST)
 // ==========================
-window.removeToken = function(address) {
+window.removeToken = function (address) {
 
-    if (typeof window.__removeToken === "function") {
-        window.__removeToken(address);
-        return;
+    if (!address) return;
+
+    const runRemove = () => {
+
+        let customTokens = getCustomTokens?.() || [];
+
+        // ==========================
+        // FILTER TOKEN
+        // ==========================
+        customTokens = customTokens.filter(
+            t => t.address.toLowerCase() !== address.toLowerCase()
+        );
+
+        // ==========================
+        // SAVE BACK
+        // ==========================
+        localStorage.setItem(
+            "customTokens",
+            JSON.stringify(customTokens)
+        );
+
+        // ==========================
+        // SYNC GLOBAL TOKENS
+        // ==========================
+        if (typeof DEFAULT_TOKENS !== "undefined") {
+            window.TOKENS = [
+                ...DEFAULT_TOKENS,
+                ...customTokens
+            ];
+        } else {
+            window.TOKENS = customTokens;
+        }
+
+        // ==========================
+        // CLEAN CACHE BALANCE
+        // ==========================
+        const wallet = getSelectedWallet?.();
+        if (wallet) {
+            localStorage.removeItem(
+                wallet.address + "_" + address
+            );
+        }
+
+        // ==========================
+        // REFRESH UI SAFELY
+        // ==========================
+        renderAssets?.();
+        renderTokenTab?.();
+        renderTokenSelect?.();
+
+        if (typeof refreshAll === "function") {
+            refreshAll();
+        }
+
+        // ==========================
+        // TOAST SUCCESS
+        // ==========================
+        showToast?.(
+            LANG?.[CURRENT_LANG]?.token_removed || "Token dihapus",
+            "success"
+        );
+    };
+
+    // ==========================
+    // CONFIRM MODAL (LANG SUPPORT)
+    // ==========================
+    const message =
+        LANG?.[CURRENT_LANG]?.remove_token_confirm ||
+        "Hapus token ini?";
+
+    if (typeof showConfirm === "function") {
+        showConfirm(message, runRemove);
+    } else {
+        // fallback kalau modal belum ready
+        runRemove();
     }
-
-    let customTokens = JSON.parse(localStorage.getItem("customTokens") || "[]");
-
-    customTokens = customTokens.filter(
-        t => t.address.toLowerCase() !== address.toLowerCase()
-    );
-
-    localStorage.setItem("customTokens", JSON.stringify(customTokens));
-
-    renderAssets?.();
-    renderTokenTab?.();
-    renderTokenSelect?.();
 };
-
 
 // ==========================
 // MENU LANGUAGE
