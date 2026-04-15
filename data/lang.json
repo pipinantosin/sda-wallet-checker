@@ -78,7 +78,13 @@
 "copy_failed": "Copy failed",
 
 "no_wallet_available": "No wallet available",
-"refresh_done": "Refresh completed"
+"refresh_done": "Refresh completed",
+
+  "max_token": "Max 10 tokens allowed",
+  "token_exists": "Token already added",
+  "token_added": "Token added successfully",
+  "token_removed": "Token removed",
+  "remove_token_confirm": "Remove this token?"
   },
 
   "id": {
@@ -160,6 +166,12 @@
 "copy_failed": "Gagal menyalin",
 
 "no_wallet_available": "Tidak ada wallet",
-"refresh_done": "Refresh selesai"
+"refresh_done": "Refresh selesai",
+
+"max_token": "Max 10 token",
+"token_exists": "Sudah ditambahkan",
+"token_added": "Token ditambahkan",
+"token_removed": "Token dihapus",
+"remove_token_confirm": "Hapus token ini?"
   }
 }
