@@ -66,37 +66,56 @@ function renderTokenSelect() {
 
 
 // ==========================
-// ADD TOKEN
+// ADD TOKEN (LANG + SAFE)
 // ==========================
 async function addTokenFromList(token) {
 
     let customTokens = getCustomTokens();
 
+    // ==========================
+    // MAX LIMIT
+    // ==========================
     if (customTokens.length >= 10) {
-        return showToast("Max 10 token");
+        return showToast(
+            LANG?.[CURRENT_LANG]?.max_token || "Max 10 token",
+            "error"
+        );
     }
 
+    // ==========================
+    // DUPLICATE CHECK
+    // ==========================
     const exist = customTokens.find(
         t => t.address.toLowerCase() === token.address.toLowerCase()
     );
 
     if (exist) {
-        return showToast("Sudah ditambahkan");
+        return showToast(
+            LANG?.[CURRENT_LANG]?.token_exists || "Sudah ditambahkan",
+            "error"
+        );
     }
 
+    // ==========================
+    // ADD TOKEN
+    // ==========================
     customTokens.push(token);
-
     saveCustomTokens(customTokens);
 
     TOKENS = [...DEFAULT_TOKENS, ...customTokens];
 
-    showToast("Token ditambahkan");
+    showToast(
+        LANG?.[CURRENT_LANG]?.token_added || "Token ditambahkan",
+        "success"
+    );
 
     const wallet = getSelectedWallet?.();
 
     switchTab?.("assets");
 
+    // ==========================
     // FETCH BALANCE
+    // ==========================
     if (wallet) {
 
         try {
@@ -138,7 +157,9 @@ async function addTokenFromList(token) {
         }
     }
 
-    // REFRESH UI (WAJIB URUTAN)
+    // ==========================
+    // REFRESH UI
+    // ==========================
     renderAssets?.();
     renderTokenTab?.();
     renderTokenSelect?.();
@@ -146,34 +167,8 @@ async function addTokenFromList(token) {
 
 
 // ==========================
-// REMOVE TOKEN (FIXED TOTAL SYNC)
+// REMOVE TOKEN (ada di app.js)
 // ==========================
-function removeToken(address) {
-
-    let customTokens = getCustomTokens();
-
-    customTokens = customTokens.filter(
-        t => t.address.toLowerCase() !== address.toLowerCase()
-    );
-
-    saveCustomTokens(customTokens);
-
-    TOKENS = [...DEFAULT_TOKENS, ...customTokens];
-
-    // FORCE CLEAR CACHE LABEL (biar tidak ghost)
-    const wallet = getSelectedWallet?.();
-
-    if (wallet) {
-        localStorage.removeItem(wallet.address + "_" + address);
-    }
-
-    // REFRESH ALL UI
-    renderAssets?.();
-    renderTokenTab?.();
-    renderTokenSelect?.();
-
-    showToast("Token dihapus");
-}
 
 
 // ==========================
