@@ -11,20 +11,38 @@ async function loadLang(){
 // apply ke UI
 function applyLang(){
 
-    const dict = LANG[CURRENT_LANG];
-    if(!dict) return;
+    const langData = LANG[CURRENT_LANG];
+    if(!langData) return;
 
-    // text
-    document.querySelectorAll("[data-lang]").forEach(el=>{
+    // ======================
+    // TEXT
+    // ======================
+    document.querySelectorAll("[data-lang]").forEach(el => {
+
+        //  skip dynamic element
+        if (el.id === "activeWalletName") return;
+
         const key = el.getAttribute("data-lang");
-        if(dict[key]) el.innerText = dict[key];
+
+        if(langData[key]){
+            el.textContent = langData[key];
+        }
+
     });
 
-    // placeholder
-    document.querySelectorAll("[data-lang-placeholder]").forEach(el=>{
+    // ======================
+    // PLACEHOLDER
+    // ======================
+    document.querySelectorAll("[data-lang-placeholder]").forEach(el => {
+
         const key = el.getAttribute("data-lang-placeholder");
-        if(dict[key]) el.placeholder = dict[key];
+
+        if(langData[key]){
+            el.placeholder = langData[key];
+        }
+
     });
+
 }
 
 // ganti bahasa
@@ -33,41 +51,45 @@ function setLanguage(lang){
     CURRENT_LANG = lang;
     localStorage.setItem("lang", lang);
 
+    // apply text static
     applyLang();
 
-    updateActiveWalletName?.();
+    // ==========================
+    // FIX: RE-RENDER UI DINAMIS
+    // ==========================
     renderAssets?.();
-    loadBalance?.();
+    renderTokenTab?.();
+    renderLP?.();
 
-    // 🔥 SET ACTIVE MENU
+    // update nama wallet biar ga ke overwrite
+    updateActiveWalletName?.();
+
+    // ==========================
+    // UPDATE ACTIVE MENU
+    // ==========================
     document.querySelectorAll(".lang-item").forEach(el => {
         el.classList.remove("active");
     });
 
-    const activeItem = document.querySelector(`.lang-item[onclick="setLanguage('${lang}')"]`);
+    const activeItem = document.querySelector(`[data-lang-select="${lang}"]`);
     if(activeItem){
         activeItem.classList.add("active");
     }
 
-    // tutup menu
-    const menu = document.getElementById("menuDropdown");
-    if(menu) menu.style.display = "none";
-
-    showToast?.(
+    // ==========================
+    // TOAST
+    // ==========================
+    showToast(
         lang === "id"
-            ? "Bahasa diubah ke Indonesia"
-            : "Language changed to English"
+        ? "Bahasa diubah"
+        : "Language changed"
     );
-}
 
-// set active language saat load
-const savedLang = localStorage.getItem("lang") || "id";
-
-document.querySelectorAll(".lang-item").forEach(el => {
-    el.classList.remove("active");
-});
-
-const activeItem = document.querySelector(`.lang-item[onclick="setLanguage('${savedLang}')"]`);
-if(activeItem){
-    activeItem.classList.add("active");
+    // ==========================
+    // TUTUP MENU
+    // ==========================
+    const menu = document.getElementById("menuDropdown");
+    if(menu){
+        menu.style.display = "none";
+    }
 }
