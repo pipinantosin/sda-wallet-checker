@@ -32,7 +32,53 @@
     "cached": "cached",
     "realtime": "Real-time data from Sidra Node",
 
-    "no_wallet_text": "No wallet available"
+    "no_wallet_text": "No wallet available",
+    
+    "qr_desc": "Scan this QR code to add this wallet to your wallet app.",
+    
+    "search_token": "Search token...",
+"added": "Added",
+"remove": "Remove",
+"no_lp": "No LP added",
+
+"delete_wallet_confirm": "Delete this wallet?",
+"wallet_deleted": "Wallet deleted",
+"select_wallet_error": "Select wallet first",
+"success": "Success",
+"error": "Something went wrong",
+"invalid_address": "Invalid address format",
+"wallet_exists": "Wallet already saved",
+
+"select_wallet_error": "Select wallet first",
+"enter_new_name": "New name:",
+"wallet_renamed": "Wallet name updated",
+"select_wallet_error": "Select wallet first",
+"wallet_name_empty": "Name cannot be empty",
+"wallet_saved_name": "Name saved",
+
+"wallet_saved": "Wallet successfully saved",
+"invalid_address": "Invalid address format",
+"wallet_exists": "Wallet already saved",
+
+"wallet_saved_name": "Name saved",
+"wallet_name_empty": "Name cannot be empty",
+
+"wallet_renamed": "Wallet name updated",
+
+"delete_wallet_confirm": "Delete this wallet?",
+"wallet_deleted": "Wallet deleted",
+
+"select_wallet_error": "Select wallet first",
+"enter_new_name": "New name:",
+
+"enter_address": "Enter address",
+"no_wallet": "No Wallet Selected",
+
+"copied": "Copied",
+"copy_failed": "Copy failed",
+
+"no_wallet_available": "No wallet available",
+"refresh_done": "Refresh completed"
   },
 
   "id": {
@@ -68,6 +114,52 @@
     "cached": "cache",
     "realtime": "Data real-time dari Sidra Node",
 
-    "no_wallet_text": "Tidak ada wallet"
+    "no_wallet_text": "Tidak ada wallet",
+    
+    "qr_desc": "Scan QR ini untuk menambahkan wallet ke aplikasi wallet Anda.",
+    
+    "search_token": "Cari token...",
+"added": "Ditambahkan",
+"remove": "Hapus",
+"no_lp": "Tidak ada LP",
+
+"delete_wallet_confirm": "Hapus wallet ini?",
+"wallet_deleted": "Wallet dihapus",
+"select_wallet_error": "Pilih wallet dulu",
+"success": "Berhasil",
+"error": "Terjadi kesalahan",
+"invalid_address": "Format address tidak valid",
+"wallet_exists": "Wallet sudah tersimpan",
+
+"select_wallet_error": "Pilih wallet dulu",
+"enter_new_name": "Nama baru:",
+"wallet_renamed": "Nama wallet diubah",
+"select_wallet_error": "Pilih wallet dulu",
+"wallet_name_empty": "Nama tidak boleh kosong",
+"wallet_saved_name": "Nama disimpan",
+
+"wallet_saved": "Wallet berhasil disimpan",
+"invalid_address": "Format address tidak valid",
+"wallet_exists": "Wallet sudah tersimpan",
+
+"wallet_saved_name": "Nama disimpan",
+"wallet_name_empty": "Nama tidak boleh kosong",
+
+"wallet_renamed": "Nama wallet diubah",
+
+"delete_wallet_confirm": "Hapus wallet ini?",
+"wallet_deleted": "Wallet dihapus",
+
+"select_wallet_error": "Pilih wallet dulu",
+"enter_new_name": "Nama baru:",
+
+"enter_address": "Masukkan alamat",
+"no_wallet": "Tidak ada wallet dipilih",
+
+"copied": "Tersalin",
+"copy_failed": "Gagal menyalin",
+
+"no_wallet_available": "Tidak ada wallet",
+"refresh_done": "Refresh selesai"
   }
 }
