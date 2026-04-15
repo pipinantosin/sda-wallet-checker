@@ -12,6 +12,10 @@ window.tokenLogoDropdown = document.getElementById("tokenLogoDropdown");
 
 window.selectedToken = "native"; // default SDA
 
+
+// ==========================
+// TOAST SYSTEM
+// ==========================
 function showToast(msg, type = "success") {
 
     const t = document.getElementById("toast");
@@ -19,17 +23,14 @@ function showToast(msg, type = "success") {
 
     t.textContent = msg;
 
-    // reset class
     t.classList.remove("show", "error");
 
-    if(type === "error"){
+    if (type === "error") {
         t.classList.add("error");
     }
 
-    // tetap support sistem lama (display)
     t.style.display = "block";
 
-    // trigger animasi
     setTimeout(() => {
         t.classList.add("show");
     }, 10);
@@ -44,8 +45,13 @@ function showToast(msg, type = "success") {
     }, 2000);
 }
 
+
+// expose global
+window.showToast = showToast;
+
+
 // ==========================
-// CUSTOM CONFIRM SYSTEM
+// CUSTOM CONFIRM SYSTEM (FIXED SAFE VERSION)
 // ==========================
 let confirmCallback = null;
 
@@ -56,28 +62,46 @@ function showConfirm(message, onYes) {
 
     if (!modal || !msg) return;
 
-    msg.textContent = message;
+    msg.textContent = message || "Confirm?";
 
-    confirmCallback = onYes;
+    confirmCallback = typeof onYes === "function" ? onYes : null;
 
     modal.style.display = "flex";
 }
 
 function confirmYes() {
-    if (typeof confirmCallback === "function") {
-        confirmCallback();
+
+    try {
+        if (typeof confirmCallback === "function") {
+            confirmCallback();
+        }
+    } catch (e) {
+        console.error("Confirm callback error:", e);
     }
+
     closeConfirmModal();
 }
 
 function closeConfirmModal() {
-    document.getElementById("confirmModal").style.display = "none";
+
+    const modal = document.getElementById("confirmModal");
+
+    if (modal) {
+        modal.style.display = "none";
+    }
+
     confirmCallback = null;
 }
 
 
+// expose global (IMPORTANT FIX FOR tokens.js / wallet.js)
+window.showConfirm = showConfirm;
+window.confirmYes = confirmYes;
+window.closeConfirmModal = closeConfirmModal;
+
+
 // ==========================
-// CUSTOM PROMPT (REPLACEMENT prompt())
+// CUSTOM PROMPT (SAFE)
 // ==========================
 function showPrompt(message, defaultValue = "", callback) {
 
@@ -89,17 +113,23 @@ function showPrompt(message, defaultValue = "", callback) {
     const okBtn = document.getElementById("promptOk");
     const cancelBtn = document.getElementById("promptCancel");
 
-    msg.textContent = message;
-    input.value = defaultValue;
+    if (!input || !msg || !okBtn || !cancelBtn) return;
+
+    msg.textContent = message || "";
+    input.value = defaultValue || "";
 
     modal.style.display = "flex";
 
     okBtn.onclick = () => {
         modal.style.display = "none";
-        callback(input.value);
+        if (typeof callback === "function") {
+            callback(input.value);
+        }
     };
 
     cancelBtn.onclick = () => {
         modal.style.display = "none";
     };
 }
+
+
