@@ -361,11 +361,14 @@ function openQRModal() {
     const wallet = getSelectedWallet();
     if (!wallet) return showToast("Pilih wallet dulu");
 
-    document.getElementById("qrModal").style.display = "flex";
+    const modal = document.getElementById("qrModal");
+
+    // pakai class system (WAJIB)
+    modal.classList.add("show");
 
     document.getElementById("qrModalImg").src =
         "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
-        wallet.address;
+        encodeURIComponent(wallet.address);
 
     document.getElementById("qrModalAddress").textContent =
         wallet.address;
