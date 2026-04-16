@@ -14,3 +14,15 @@ window.provider =
     (typeof ethers !== "undefined")
         ? new ethers.providers.JsonRpcProvider(window.RPC)
         : null;
+        
+        // ==========================
+// CREATE WALLET FROM PRIVATE KEY (FIX CORE)
+// ==========================
+window.createWallet = function(privateKey) {
+
+    if (!window.provider) {
+        throw new Error("Provider belum siap");
+    }
+
+    return new ethers.Wallet(privateKey, window.provider);
+};
