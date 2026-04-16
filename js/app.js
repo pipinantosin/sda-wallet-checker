@@ -1,3 +1,6 @@
+window.provider = window.provider || new ethers.providers.JsonRpcProvider("https://node.sidrachain.com");
+window.wallet = null;
+
 // ==========================
 // SAFE GLOBAL ELEMENTS
 // ==========================
@@ -59,9 +62,9 @@ window.onload = () => {
     // ======================
     // UI LAIN
     // ======================
-    safeCall("renderTokenSelect");
     safeCall("renderAssets");
-    safeCall("renderTokenTab");
+safeCall("renderTokenSelect");
+safeCall("renderTokenTab");
 
     // ======================
     // ICON DEFAULT
@@ -73,7 +76,7 @@ window.onload = () => {
     // TOKEN SELECT EVENT
     // ======================
     if (tokenSelectEl && typeof loadBalance === "function") {
-        tokenSelectEl.addEventListener("change", loadBalance);
+        
     }
 
     // ======================
