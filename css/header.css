@@ -105,3 +105,41 @@
     background:#1a1a1a;
     color:#fff;
 }
+
+
+
+
+
+/* =========================
+   BELL WRAPPER
+========================= */
+.bell-wrapper{
+    position:relative;
+    display:flex;
+    align-items:center;
+}
+
+/* =========================
+   BADGE NOTIFICATION
+========================= */
+.badge{
+    position:absolute;
+    top:2px;
+    right:2px;
+
+    background:#ff3b3b;
+    color:#fff;
+
+    font-size:10px;
+    font-weight:600;
+
+    padding:2px 6px;
+    border-radius:50px;
+
+    min-width:16px;
+    text-align:center;
+
+    display:none;
+
+    box-shadow:0 0 6px rgba(255,0,0,0.6);
+}
