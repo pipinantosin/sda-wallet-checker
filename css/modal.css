@@ -116,3 +116,120 @@
 
 
 
+/* FULL SCREEN MODAL */
+.send-modal{
+    position:fixed;
+    inset:0;
+    background:#0b0f14;
+    z-index:9999;
+    display:none;
+    flex-direction:column;
+}
+
+/* HEADER */
+.send-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:16px;
+    background:#111;
+    border-bottom:1px solid #1f1f1f;
+}
+
+.send-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:16px;
+    font-weight:bold;
+    color:#ff7a00;
+}
+
+.send-close{
+    cursor:pointer;
+    padding:8px;
+    border-radius:10px;
+    background:#1a1a1a;
+}
+
+/* BODY */
+.send-body{
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+/* INPUT STYLE */
+.input-box{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:#111;
+    padding:12px;
+    border-radius:14px;
+}
+
+.input-box input{
+    width:100%;
+    border:none;
+    outline:none;
+    background:transparent;
+    color:#fff;
+}
+
+/* TOKEN SELECT */
+.token-box{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:#111;
+    padding:12px;
+    border-radius:14px;
+}
+
+.token-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.token-left img{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+}
+
+/* BALANCE */
+.send-balance{
+    font-size:12px;
+    color:#aaa;
+}
+
+/* BUTTON */
+.send-btn{
+    margin-top:10px;
+    padding:14px;
+    border:none;
+    border-radius:14px;
+    background:#ff7a00;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.copy-btn,
+.open-ledger{
+    font-size:12px;
+    color:#888;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.copy-btn:hover{
+    color:#ff7a00;
+}
+
+.open-ledger:hover{
+    color:#3aa0ff;
+}
