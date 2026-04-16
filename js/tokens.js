@@ -20,50 +20,156 @@ function renderTokenSelect() {
     const select = document.getElementById("tokenSelect");
     if (!select) return;
 
+    // ==========================
+    // FLAG: SEDANG RENDER
+    // ==========================
+    window.__RENDERING_TOKEN__ = true;
+
+    const list = Array.isArray(TOKENS) ? TOKENS : [];
+
+    const prevValue = window.selectedToken || "native";
+
+    // ==========================
+    // RESET SELECT
+    // ==========================
     select.innerHTML = "";
 
-    // SDA default
+    // ==========================
+    // NATIVE TOKEN
+    // ==========================
     const nativeOpt = document.createElement("option");
     nativeOpt.value = "native";
     nativeOpt.textContent = "SDA";
     select.appendChild(nativeOpt);
 
+    // ==========================
     // TOKEN LIST
-    (TOKENS || []).forEach((t) => {
+    // ==========================
+    list.forEach(t => {
+        if (!t || !t.address) return;
 
         const opt = document.createElement("option");
         opt.value = t.address;
-        opt.textContent = t.symbol;
-
+        opt.textContent = t.symbol || "TOKEN";
         select.appendChild(opt);
     });
 
-    select.value = window.selectedToken || "native";
+    // ==========================
+    // RESTORE VALUE (ANTI RESET)
+    // ==========================
+    const exist = [...select.options].some(o => o.value === prevValue);
 
-    select.onchange = (e) => {
+    if (exist) {
+        select.value = prevValue;
+    } else {
+        select.value = "native";
+        window.selectedToken = "native";
+    }
 
-        const val = e.target.value;
+    // ==========================
+    // UPDATE UI ONLY (NO RPC)
+    // ==========================
+    function updateUIOnly() {
+
+        const val = select.value;
         window.selectedToken = val;
 
         let logo = "img/sda.png";
 
         if (val !== "native") {
-            const token = (TOKENS || []).find(t => t.address === val);
-            if (token) logo = token.logo || "img/default.png";
+            const token = list.find(t => t.address === val);
+            if (token) {
+                logo = token.logo || "img/default.png";
+            }
         }
 
-        if (window.tokenLogoBalance) {
-            window.tokenLogoBalance.src = logo;
+        const balImg = document.getElementById("tokenLogoBalance");
+        const dropImg = document.getElementById("tokenLogoDropdown");
+
+        if (balImg) balImg.src = logo;
+        if (dropImg) dropImg.src = logo;
+
+        syncSendTokenUI?.();
+    }
+
+    // ==========================
+    // UPDATE FULL (SAFE)
+    // ==========================
+    let loading = false;
+    let lastToken = null;
+
+    async function updateFull() {
+
+        const current = select.value;
+
+        // ❌ cegah loop & spam
+        if (loading || current === lastToken) return;
+
+        loading = true;
+        lastToken = current;
+
+        updateUIOnly();
+
+        // ==========================
+        // LOAD BALANCE
+        // ==========================
+        try {
+            if (typeof loadBalance === "function") {
+                await loadBalance();
+            }
+        } catch (e) {
+            console.warn("loadBalance error:", e);
         }
 
-        if (window.tokenLogoDropdown) {
-            window.tokenLogoDropdown.src = logo;
+        // ==========================
+        // REFRESH (ANTI LOOP)
+        // ==========================
+        try {
+            if (
+                typeof refreshAll === "function" &&
+                !window.__RENDERING_TOKEN__ &&
+                !window.__REFRESH_LOCK__
+            ) {
+
+                window.__REFRESH_LOCK__ = true;
+
+                setTimeout(() => {
+                    try {
+                        refreshAll();
+                    } catch (err) {
+                        console.warn("refreshAll crash:", err);
+                    } finally {
+                        window.__REFRESH_LOCK__ = false;
+                    }
+                }, 150);
+            }
+        } catch (e) {
+            console.warn("refreshAll error:", e);
         }
 
-        refreshAll?.();
-    };
+        loading = false;
+    }
+
+    // ==========================
+    // EVENT (ANTI DOUBLE)
+    // ==========================
+    select.onchange = null;
+    select.onchange = updateFull;
+
+    // ==========================
+    // INIT (JANGAN LANGSUNG RPC)
+    // ==========================
+    updateUIOnly();
+
+    setTimeout(() => {
+        updateFull();
+    }, 200);
+
+    // ==========================
+    // SELESAI RENDER
+    // ==========================
+    window.__RENDERING_TOKEN__ = false;
 }
-
 
 // ==========================
 // ADD TOKEN (LANG + SAFE)
