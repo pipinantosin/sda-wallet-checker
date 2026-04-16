@@ -47,10 +47,12 @@ function saveWallet() {
     // ==========================
     // SAVE
     // ==========================
+    
+    
     const newWallet = {
-        address: addr,
-        name: name || "Wallet"
-    };
+    address: addr,
+    name: name || "Wallet"
+};
 
     wallets.push(newWallet);
     setWallets(wallets);
@@ -508,4 +510,5 @@ function startGuide() {
         saveBtn.classList.remove("blink");
     }
 }
+
 
