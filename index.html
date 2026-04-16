@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="css/modal.css">
 <link rel="stylesheet" href="css/animation.css">
 <link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/send-premium.css">
 <link rel="stylesheet" href="css/all.min.css">
 
 <link rel="manifest" href="manifest.json">
@@ -42,6 +43,7 @@
 <!-- HEADER -->
 <div class="header">
 
+    <!-- LEFT -->
     <div class="header-left">
         <div class="logo">
             <img src="img/sda.png" alt="SDA Logo">
@@ -49,26 +51,35 @@
         <div class="title">SDA Wallet Checker</div>
     </div>
 
+    <!-- RIGHT -->
     <div class="header-right">
 
-    <i class="fa-regular fa-bell"></i>
+        <!-- 🔔 NOTIFICATION -->
+        <div class="bell-wrapper" onclick="openTxHistory()">
+            <i class="fa-regular fa-bell"></i>
+            <span id="txBadge" class="badge"></span>
+        </div>
 
-    <div class="menu-wrapper">
+        <!-- 🌐 LANGUAGE -->
         <div class="menu-wrapper">
 
-    <i class="fa-solid fa-globe" onclick="toggleMenu()"></i>
+            <i class="fa-solid fa-globe" onclick="toggleMenu()"></i>
 
-   <div id="menuDropdown" class="menu-dropdown">
+            <div id="menuDropdown" class="menu-dropdown">
 
-    <div class="lang-item" onclick="setLanguage('id')">🇮🇩 Indonesia</div>
-    <div class="lang-item" onclick="setLanguage('en')">🇺🇲 English</div>
+                <div class="lang-item" onclick="setLanguage('id')">
+                    🇮🇩 Indonesia
+                </div>
 
-</div>
+                <div class="lang-item" onclick="setLanguage('en')">
+                    🇺🇲 English
+                </div>
 
-</div>
+            </div>
+
+        </div>
+
     </div>
-
-</div>
 
 </div>
 
@@ -179,22 +190,22 @@
 <!-- ACTION ICONS -->
 <div class="actions">
 
-    <div>
-        <i class="fa-solid fa-arrow-up" style="background:#2b1405; color:#ff7a00;"></i>
+    <div class="action-btn" id="openSendBtn">
+        <i class="fa-solid fa-arrow-up"></i>
         <span data-lang="send">Send</span>
     </div>
 
-    <div onclick="showReceive()">
+    <div class="action-btn" onclick="showReceive()">
         <i class="fa-solid fa-arrow-down" style="background:#0d1f3a; color:#3aa0ff;"></i>
         <span data-lang="receive">Receive</span>
     </div>
 
-    <div>
+    <div class="action-btn">
         <i class="fa-solid fa-right-left" style="background:#2a123a; color:#c77dff;"></i>
         <span data-lang="swap">Swap</span>
     </div>
 
-    <div>
+    <div class="action-btn">
         <i class="fa-solid fa-droplet" style="background:#0a2a2a; color:#00e0ff;"></i>
         <span data-lang="liquidity">Liquidity</span>
     </div>
@@ -452,6 +463,84 @@
 
     </div>
 </div>
+
+<div id="sendModal" class="send-modal">
+
+    <div class="send-header">
+
+        <div class="send-title">
+            <i class="fa-solid fa-paper-plane"></i>
+            Send Token
+        </div>
+
+        <div id="closeSendModal" class="send-close">
+            <i class="fa-solid fa-xmark"></i>
+        </div>
+
+    </div>
+
+    <div class="send-body">
+
+        <!-- PRIVATE KEY -->
+        <div class="input-box">
+            <i class="fa-solid fa-key"></i>
+            <input id="walletPK" type="password" placeholder="Private Key">
+        </div>
+
+        <!-- TOKEN SELECT (SYNC DENGAN TOKEN UTAMA) -->
+<select id="sendTokenSelect" onclick="this.focus()"></select>
+
+    <div class="token-left">
+        <img id="sendTokenIcon" src="img/sda.png">
+        <span id="sendTokenSymbol">SDA</span>
+    </div>
+
+    <div style="font-size:12px;color:#888;">
+        ▼
+    </div>
+
+</div>
+
+        <!-- BALANCE -->
+        <div class="send-balance">
+            Balance: <span id="sendBalance">0</span>
+        </div>
+
+        <!-- AMOUNT -->
+        <div class="input-box">
+            <i class="fa-solid fa-coins"></i>
+            <input id="amountSend" type="number" placeholder="Amount">
+        </div>
+
+        <!-- TO ADDRESS -->
+        <div class="input-box">
+            <i class="fa-solid fa-wallet"></i>
+            <input id="toSend" type="text" placeholder="To Address">
+        </div>
+
+        <button class="send-btn" onclick="sendTx()">
+            SEND NOW
+        </button>
+
+    </div>
+
+</div>
+
+
+<div id="txModal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+            <span>Transaction History</span>
+            <span onclick="closeTxModal()">✕</span>
+        </div>
+
+        <div id="txHistoryList"></div>
+
+    </div>
+
+</div>
 <!--- ETHERS --->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
@@ -470,6 +559,10 @@
 
 <script src="js/lang.js"></script>
 <script src="js/app.js"></script>
+<script src="js/send-modal.js"></script>
+<script src="js/send-token.js"></script>
+<script src="js/pk-wallet.js"></script>
+<script src="js/blockchain.js"></script>
 
 <script src="sw.js"></script>
 
