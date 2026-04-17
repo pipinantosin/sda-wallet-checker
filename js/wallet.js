@@ -12,6 +12,8 @@ let blinkState = false;
 // SAVE WALLET (FIXED + LANG + SYNC)
 // ==========================
 function saveWallet() {
+	
+	const isPKWallet = !!window.pkWallet;
 
     let addr = addressInput?.value?.trim().toLowerCase();
     const nameInput = document.getElementById("walletName");
@@ -51,7 +53,8 @@ function saveWallet() {
     
     const newWallet = {
     address: addr,
-    name: name || "Wallet"
+    name: name || "Wallet",
+    type: isPKWallet ? "pk" : "watch"
 };
 
     wallets.push(newWallet);
@@ -377,7 +380,10 @@ function openQRModal() {
 }
 
 function closeQRModal() {
-    document.getElementById("qrModal").style.display = "none";
+    const modal = document.getElementById("qrModal");
+    if (!modal) return;
+
+    modal.classList.remove("show");
 }
 
 
@@ -512,3 +518,84 @@ function startGuide() {
 }
 
 
+function setSelectedWallet(address){
+
+    const wallets = getWallets?.() || [];
+
+    const index = wallets.findIndex(
+        w => w.address.toLowerCase() === address.toLowerCase()
+    );
+
+    if(index !== -1){
+        localStorage.setItem("selectedWalletIndex", index);
+
+        const select = document.getElementById("walletSelect");
+        if(select){
+            select.value = index;
+        }
+    }
+}
+
+function renderSavedAddresses(){
+
+    const sel = document.getElementById("savedAddressSelect");
+    if (!sel) return;
+
+    const wallets = getWallets?.() || [];
+    const active = getSelectedWallet?.();
+
+    if (wallets.length === 0) {
+        sel.innerHTML = `<option value="">No saved address</option>`;
+        return;
+    }
+
+    sel.innerHTML = `<option value="">Pilih address</option>`;
+
+    wallets.forEach((w, i) => {
+
+        const opt = document.createElement("option");
+
+        // icon type wallet
+        const icon = w.type === "pk" ? "🔑" : "👁";
+
+        // short address
+        const short = w.address.slice(0,6) + "..." + w.address.slice(-4);
+
+        // active mark
+        const isActive =
+            active?.address?.toLowerCase() === w.address.toLowerCase();
+
+        const activeMark = isActive ? " (Active)" : "";
+
+        opt.value = w.address;
+
+        opt.textContent =
+            `${icon} ${w.name || ("Wallet " + (i + 1))} • ${short}${activeMark}`;
+
+        if (isActive) opt.selected = true;
+
+        sel.appendChild(opt);
+    });
+
+    sel.onchange = () => {
+
+    const input = document.getElementById("toSend");
+
+    if (input && sel.value) {
+        input.value = sel.value;
+    }
+
+    // 🔥 FIX: refresh balance + UI send modal
+    if (typeof loadBalance === "function") {
+        loadBalance();
+    }
+
+    if (typeof updateSendBalance === "function") {
+        updateSendBalance(sel.value);
+    }
+
+    if (typeof renderAssets === "function") {
+        renderAssets();
+    }
+};
+}
