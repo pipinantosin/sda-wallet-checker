@@ -14,15 +14,16 @@ const tokenSelectEl  = document.getElementById("tokenSelect");
 if (walletSelectEl) {
     walletSelectEl.addEventListener("change", () => {
 
-        updateActiveWalletName?.();
-        updateAddressUI?.();
-        renderAssets?.();
-        loadBalance?.();
+    updateActiveWalletName?.();
+    updateAddressUI?.();
+    renderAssets?.();
+    loadBalance?.();
+    updateSendBalance?.();
 
-        setTimeout(() => {
-            autoRefreshIfNeeded?.();
-        }, 100);
-    });
+    setTimeout(() => {
+        autoRefreshIfNeeded?.();
+    }, 100);
+});
 }
 
 
@@ -274,3 +275,5 @@ window.addEventListener("click", function (e) {
         if (menu) menu.style.display = "none";
     }
 });
+
+
