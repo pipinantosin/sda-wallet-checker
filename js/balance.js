@@ -41,22 +41,69 @@ function loadBalance() {
     const addr = wallet.address;
 
     let key;
+    let symbol = "SDA";
 
     // ==========================
-    // SDA / TOKEN SWITCH LOGIC
+    // TOKEN SWITCH
     // ==========================
     if (!window.selectedToken || window.selectedToken === "native") {
         key = addr + "_native";
+        symbol = "SDA";
     } else {
         key = addr + "_" + window.selectedToken;
+
+        const token = (window.TOKENS || []).find(
+            t => t.address === window.selectedToken
+        );
+
+        if (token) symbol = token.symbol;
     }
 
-    const bal = localStorage.getItem(key);
+    const bal = localStorage.getItem(key) || ("0.00 " + symbol);
 
+    // ==========================
+    // MAIN BALANCE
+    // ==========================
     const el = document.getElementById("balance");
+    if (el) el.textContent = bal;
 
-    if (el) {
-        el.textContent = bal || "0.00";
+    // ==========================
+    // SEND BALANCE (🔥 SYNC)
+    // ==========================
+    if (typeof updateSendBalance === "function") {
+        updateSendBalance();
+    }
+}
+
+
+function updateSendBalance() {
+
+    const wallet = getSelectedWallet();
+    if (!wallet) return;
+
+    const addr = wallet.address;
+
+    let key;
+    let symbol = "SDA";
+
+    if (!window.selectedToken || window.selectedToken === "native") {
+        key = addr + "_native";
+        symbol = "SDA";
+    } else {
+        key = addr + "_" + window.selectedToken;
+
+        const token = (window.TOKENS || []).find(
+            t => t.address === window.selectedToken
+        );
+
+        if (token) symbol = token.symbol;
+    }
+
+    const bal = localStorage.getItem(key) || ("0.00 " + symbol);
+
+    const sendEl = document.querySelector(".send-balance");
+    if (sendEl) {
+        sendEl.textContent = bal;
     }
 }
 
