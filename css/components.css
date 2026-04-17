@@ -247,7 +247,7 @@
     opacity:0;
     display:none;
 
-    z-index:9999;
+    z-index:9999999;
     transition:all 0.3s ease;
 
     white-space:nowrap;
@@ -263,7 +263,52 @@
 .toast.error{
     color:#ff5c5c !important;
 }
+#toast{
+    position:fixed;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%);
+
+    z-index:20000; /*  HARUS LEBIH BESAR DARI MODAL */
+}
 
 
 
+.wallet-select-wrapper{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 10px;
+    background:#111;
+    border-radius:10px;
+    border:1px solid #222;
+}
 
+.wallet-icon{
+    color:#ff7a00;
+    font-size:16px;
+}
+
+.wallet-select{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    color:#fff;
+    font-size:13px;
+}
+
+.wallet-type-icon{
+    color:#888;
+    font-size:14px;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.wallet-type-icon.pk{
+    color:#ffd700;
+}
+
+.wallet-type-icon.watch{
+    color:#3aa0ff;
+}
