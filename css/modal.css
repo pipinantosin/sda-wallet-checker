@@ -113,9 +113,6 @@
         inset 0 0 12px rgba(255,255,255,0.08);
 }
 
-
-
-
 /* FULL SCREEN MODAL */
 .send-modal{
     position:fixed;
@@ -218,18 +215,68 @@
     cursor:pointer;
 }
 
-.copy-btn,
-.open-ledger{
+
+/* Riwayat Modal */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none; /* tetap hidden default */
+    align-items: center;
+    justify-content: center;
+
+    /* penting */
+    padding: 20px;
+    overflow: hidden;
+    z-index: 9999;
+}
+
+/* isi modal */
+.modal-content {
+    background: #111;
+    width: 100%;
+    max-width: 420px;
+
+    /*  INI KUNCI SCROLL */
+    max-height: 85vh;
+    overflow-y: auto;
+
+    border-radius: 40px;
+    padding: 40px;
+
+    /* biar tidak nempel atas */
+    margin: auto;
+}
+
+.send-balance{
+    display:flex;
+    align-items:center;
+    gap:6px;
     font-size:12px;
-    color:#888;
-    cursor:pointer;
-    transition:0.2s;
+    color:#aaa;
 }
 
-.copy-btn:hover{
-    color:#ff7a00;
+.send-balance img{
+    width:16px;
+    height:16px;
+    border-radius:50%;
 }
 
-.open-ledger:hover{
-    color:#3aa0ff;
+.send-balance{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    color:#aaa;
 }
+
+.send-balance img{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+}
+
+
+
+
+
