@@ -11,7 +11,12 @@ window.tokenLogoBalance = document.getElementById("tokenLogoBalance");
 window.tokenLogoDropdown = document.getElementById("tokenLogoDropdown");
 
 window.selectedToken = "native"; // default SDA
-
+window.selectedTokenData = {
+    symbol: "SDA",
+    type: "native",
+    decimals: 18,
+    logo: "img/sda.png"
+};
 
 // ==========================
 // TOAST SYSTEM
@@ -133,3 +138,62 @@ function showPrompt(message, defaultValue = "", callback) {
 }
 
 
+function setGlobalToken(val){
+
+    window.selectedToken = val || "native";
+    localStorage.setItem("selectedToken", window.selectedToken);
+
+    let logo = "img/sda.png";
+
+    if (val === "native") {
+
+        window.selectedTokenData = {
+            symbol: "SDA",
+            type: "native",
+            decimals: 18,
+            logo: logo
+        };
+
+    } else {
+
+        const token = (window.TOKENS || []).find(t => t.address === val);
+
+        if (token) {
+            logo = token.logo || "img/default.png";
+
+            window.selectedTokenData = {
+                ...token,
+                type: "erc20",
+                decimals: token.decimals || 18
+            };
+        }
+    }
+
+    // ==========================
+    // 🔥 SYNC SEMUA UI
+    // ==========================
+    const mainSelect = document.getElementById("tokenSelect");
+    const sendSelect = document.getElementById("sendTokenSelect");
+
+    if (mainSelect) mainSelect.value = val;
+    if (sendSelect) sendSelect.value = val;
+
+    if (window.tokenLogoBalance) {
+        window.tokenLogoBalance.src = logo;
+    }
+
+    if (window.tokenLogoDropdown) {
+        window.tokenLogoDropdown.src = logo;
+    }
+
+    // send modal
+    syncSendTokenUI?.();
+    applySendTokenState?.();
+
+    // balance
+    loadBalance?.();
+    updateSendBalance?.();
+
+    // assets
+    renderAssets?.();
+}
