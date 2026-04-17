@@ -103,7 +103,7 @@ let customTokens =
     JSON.parse(localStorage.getItem("customTokens")) || [];
 
 // gabungkan default + custom
-let TOKENS = [...DEFAULT_TOKENS, ...customTokens];
+window.window.TOKENS = [...DEFAULT_TOKENS, ...customTokens];
 
 // ===============================
 // SAVE
@@ -141,7 +141,7 @@ function addToken(symbol, address) {
     const newToken = { symbol, address };
 
     customTokens.push(newToken);
-    TOKENS = [...DEFAULT_TOKENS, ...customTokens];
+    window.TOKENS = [...DEFAULT_TOKENS, ...customTokens];
 
     saveTokens();
     renderTokenList();
@@ -156,7 +156,7 @@ function removeToken(address) {
         t => t.address.toLowerCase() !== address.toLowerCase()
     );
 
-    TOKENS = [...DEFAULT_TOKENS, ...customTokens];
+    window.TOKENS = [...DEFAULT_TOKENS, ...customTokens];
 
     saveTokens();
     renderTokenList();
