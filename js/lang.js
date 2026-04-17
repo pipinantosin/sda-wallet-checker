@@ -1,14 +1,29 @@
 let LANG = {};
 let CURRENT_LANG = localStorage.getItem("lang") || "id";
 
-// load json
+// ==========================
+// LOAD JSON
+// ==========================
 async function loadLang(){
-    const res = await fetch("data/lang.json");
-    LANG = await res.json();
-    applyLang();
+    try{
+        const res = await fetch("data/lang.json");
+        LANG = await res.json();
+
+        // pastikan DOM siap
+        if(document.readyState === "loading"){
+            document.addEventListener("DOMContentLoaded", applyLang);
+        } else {
+            applyLang();
+        }
+
+    }catch(e){
+        console.error("Lang load error:", e);
+    }
 }
 
-// apply ke UI
+// ==========================
+// APPLY LANGUAGE
+// ==========================
 function applyLang(){
 
     const langData = LANG[CURRENT_LANG];
@@ -19,13 +34,24 @@ function applyLang(){
     // ======================
     document.querySelectorAll("[data-lang]").forEach(el => {
 
-        //  skip dynamic element
         if (el.id === "activeWalletName") return;
 
-        const key = el.getAttribute("data-lang");
+        const key = el.dataset.lang;
 
         if(langData[key]){
-            el.textContent = langData[key];
+
+            // 🔥 FIX: jangan overwrite icon di dalam element
+            if(el.children.length > 0){
+                // cari text node saja
+                el.childNodes.forEach(node => {
+                    if(node.nodeType === 3){ // TEXT_NODE
+                        node.textContent = langData[key];
+                    }
+                });
+            }else{
+                el.textContent = langData[key];
+            }
+
         }
 
     });
@@ -35,7 +61,7 @@ function applyLang(){
     // ======================
     document.querySelectorAll("[data-lang-placeholder]").forEach(el => {
 
-        const key = el.getAttribute("data-lang-placeholder");
+        const key = el.dataset.langPlaceholder;
 
         if(langData[key]){
             el.placeholder = langData[key];
@@ -45,27 +71,32 @@ function applyLang(){
 
 }
 
-// ganti bahasa
+// ==========================
+// SET LANGUAGE
+// ==========================
 function setLanguage(lang){
 
     CURRENT_LANG = lang;
     localStorage.setItem("lang", lang);
 
-    // apply text static
     applyLang();
 
     // ==========================
-    // FIX: RE-RENDER UI DINAMIS
+    // RE-RENDER UI DINAMIS
     // ==========================
     renderAssets?.();
     renderTokenTab?.();
     renderLP?.();
 
-    // update nama wallet biar ga ke overwrite
+    // 🔥 penting: apply lagi setelah render
+    setTimeout(() => {
+        applyLang();
+    }, 50);
+
     updateActiveWalletName?.();
 
     // ==========================
-    // UPDATE ACTIVE MENU
+    // ACTIVE MENU
     // ==========================
     document.querySelectorAll(".lang-item").forEach(el => {
         el.classList.remove("active");
