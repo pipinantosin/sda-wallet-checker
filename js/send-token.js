@@ -102,10 +102,15 @@ function loadSendTokens() {
     applySendTokenState();
 
     sel.onchange = function () {
-        window.selectedToken = sel.value;
-        applySendTokenState();
-        updateSendBalance();
-    };
+
+    const val = sel.value;
+
+    // 🔥 PAKAI GLOBAL HANDLER (INI KUNCI)
+    setGlobalToken(val);
+
+    // update UI send modal
+    applySendTokenState();
+};
 }
 
 
@@ -204,7 +209,7 @@ async function updateSendBalance() {
 
 
 // =============================
-// SEND TRANSACTION
+// SEND TRANSACTION (FIX FINAL)
 // =============================
 async function sendTx() {
 
@@ -225,47 +230,54 @@ async function sendTx() {
         return alert("Input belum lengkap");
     }
 
+    const token = window.selectedTokenData;
+
+    if (!token) {
+        return alert("Token tidak valid");
+    }
+
     let tx;
 
     try {
+console.log("TOKEN TERPILIH:", window.selectedTokenData);
+
 
         // =============================
         // NATIVE (SDA)
         // =============================
-        if (!window.selectedToken || window.selectedToken === "native") {
+        if (token.type === "native") {
 
             tx = await activeWallet.sendTransaction({
-                to,
+                to: to,
                 value: ethers.utils.parseEther(amount)
             });
 
         // =============================
-        // TOKEN (ERC20)
+        // ERC20 TOKEN
         // =============================
         } else {
 
-            const token = (window.TOKENS || []).find(
-                t => t.address === window.selectedToken
-            );
-
-            if (!token) {
-                return alert("Token tidak ditemukan");
-            }
-
             const abi = [
-                "function transfer(address to,uint amount) returns (bool)"
+                "function transfer(address to,uint amount) returns (bool)",
+                "function decimals() view returns (uint8)"
             ];
 
-            const c = new ethers.Contract(
+            const contract = new ethers.Contract(
                 token.address,
                 abi,
                 activeWallet
             );
 
-            tx = await c.transfer(
-                to,
-                ethers.utils.parseUnits(amount, 18)
-            );
+            // ambil decimals (dynamic)
+            let decimals = token.decimals || 18;
+
+            try {
+                decimals = await contract.decimals();
+            } catch {}
+
+            const value = ethers.utils.parseUnits(amount, decimals);
+
+            tx = await contract.transfer(to, value);
         }
 
     } catch (e) {
@@ -274,7 +286,7 @@ async function sendTx() {
     }
 
     // =====================
-    // SUCCESS FIX
+    // SUCCESS HANDLER
     // =====================
     try {
 
@@ -286,10 +298,14 @@ async function sendTx() {
 
         showToast?.("Transaksi berhasil", "success");
 
-        // ✅ SIMPAN HISTORY (AUTO AMBIL ADDRESS DARI HASH)
-        await saveTxToHistory(tx.hash, amount);
+        await saveTxToHistory(tx.hash, amount, token);
 
         closeSendModal?.();
+
+        // refresh balance biar langsung update
+        if (typeof refreshAll === "function") {
+            setTimeout(() => refreshAll(), 500);
+        }
 
     } catch (uiErr) {
         console.warn("UI error:", uiErr);
@@ -300,7 +316,7 @@ async function sendTx() {
 // =============================
 // SAVE TX HISTORY (NO CONFIG DEPENDENCY)
 // =============================
-async function saveTxToHistory(hash, amount){
+async function saveTxToHistory(hash, amount, token){
 
     try{
 
@@ -323,6 +339,14 @@ async function saveTxToHistory(hash, amount){
         history.unshift({
             hash: hash,
             value: parseFloat(amount),
+
+            // ==========================
+            // TOKEN DATA (FIX UTAMA)
+            // ==========================
+            symbol: token?.symbol || "SDA",
+            logo: token?.logo || "img/sda.png",
+            tokenAddress: token?.address || "native",
+
             to: to,
             from: from,
             timestamp: Math.floor(Date.now()/1000),
@@ -335,12 +359,14 @@ async function saveTxToHistory(hash, amount){
         renderTxHistory?.();
         updateBellBadge?.();
 
-        console.log("✔ History saved:", {hash, to, from});
+        console.log("✔ History saved:", {hash, token: token?.symbol});
 
     }catch(e){
         console.warn("History error:", e);
     }
 }
+
+
 
 // =============================
 // INIT
@@ -358,3 +384,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
+
+window.closeSendModal = function () {
+    const modal = document.getElementById("sendModal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+};
