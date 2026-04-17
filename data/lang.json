@@ -84,7 +84,15 @@
   "token_exists": "Token already added",
   "token_added": "Token added successfully",
   "token_removed": "Token removed",
-  "remove_token_confirm": "Remove this token?"
+  "remove_token_confirm": "Remove this token?",
+  
+  "send_token": "Send Token",
+    "private_key": "Private Key",
+    "balance": "Balance",
+    "amount": "Amount",
+    "to_address": "To Address",
+    "send_now": "Send Now",
+    "select_saved_address": "Select saved address"
   },
 
   "id": {
@@ -172,6 +180,14 @@
 "token_exists": "Sudah ditambahkan",
 "token_added": "Token ditambahkan",
 "token_removed": "Token dihapus",
-"remove_token_confirm": "Hapus token ini?"
+"remove_token_confirm": "Hapus token ini?",
+
+"send_token": "Kirim Token",
+    "private_key": "Private Key",
+    "balance": "Saldo",
+    "amount": "Jumlah",
+    "to_address": "Alamat Tujuan",
+    "send_now": "Kirim Sekarang",
+    "select_saved_address": "Pilih alamat tersimpan"
   }
 }
