@@ -29,7 +29,7 @@ window.CONFIG = Object.assign(window.CONFIG, {
     // ==========================
     FACTORY: "0xCFE41fb5dA87916D84E7F22889087b4Ff7163cDE",
 
-    ROUTER: "0x0000000000000000000000000000000000000000", 
+    ROUTER: "0xF779943822CA0c9C8d5486aF78b9A001abc03b44", 
     // nanti diisi saat swap engine aktif
 
     MULTICALL: "0xcA11bde05977b3631167028862bE2a173976CA11",
