@@ -35,12 +35,7 @@ function initPrivateKeyWallet() {
 
             console.log("✔ PK Wallet aktif:", wallet.address);
 
-            const addrInput = document.getElementById("address");
-
-            if (addrInput) {
-                addrInput.value = wallet.address;
-                addrInput.dispatchEvent(new Event("input"));
-            }
+            
 
             // ==========================
             // 🔥 CORE FIX: INSERT INTO WALLET LIST
@@ -209,9 +204,9 @@ function loadPKWallet() {
 
 function syncPKToWalletList(pk, address) {
 
-    if (window.__PK_RESTORING) return; // 🔥 STOP BLINK
+    if (window.__PK_RESTORING) return;
 
-    const wallets = getWallets();
+    let wallets = getWallets() || [];
 
     const exist = wallets.find(
         w => w.address.toLowerCase() === address.toLowerCase()
@@ -219,6 +214,9 @@ function syncPKToWalletList(pk, address) {
 
     if (!exist) {
 
+        // ==========================
+        // CREATE NEW PK WALLET
+        // ==========================
         wallets.push({
             address: address,
             name: "Main Wallet (PK)",
@@ -226,10 +224,27 @@ function syncPKToWalletList(pk, address) {
             privateKey: pk
         });
 
-        setWallets(wallets);
+        console.log("✔ PK wallet added");
 
-        console.log("✔ PK synced into wallet list");
+    } else {
+
+        // ==========================
+        // UPGRADE WATCH → PK
+        // ==========================
+        if (exist.type !== "pk") {
+            exist.type = "pk";
+            exist.privateKey = pk;
+
+            console.log("✔ Wallet upgraded to PK");
+        } else {
+            console.log("✔ PK already exists");
+        }
     }
+
+    // ==========================
+    // SAVE
+    // ==========================
+    setWallets(wallets);
 
     // ==========================
     // SET ACTIVE WALLET
@@ -245,7 +260,7 @@ function syncPKToWalletList(pk, address) {
     }
 
     // ==========================
-    // UI REFRESH TOTAL
+    // UI REFRESH
     // ==========================
     renderWallets?.();
     renderSavedAddresses?.();
