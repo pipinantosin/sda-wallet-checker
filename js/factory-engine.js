@@ -113,13 +113,25 @@ window.FACTORY_ENGINE = (function () {
     // ==========================
     function getQuote(tokenIn, tokenOut, amountIn) {
 
-        const pIn = getPrice(tokenIn);
-        const pOut = getPrice(tokenOut);
-
-        if (!pIn || !pOut || !amountIn) return 0;
-
-        return (amountIn * pIn) / pOut;
+    // 🔥 1. SAME TOKEN = AUTO 1:1
+    if (
+        tokenIn === tokenOut ||
+        !tokenIn ||
+        !tokenOut
+    ) {
+        return amountIn;
     }
+
+    const pIn = getPrice(tokenIn);
+    const pOut = getPrice(tokenOut);
+
+    // 🔥 2. HANDLE ZERO PRICE (ANTI 0/0)
+    if (!pIn || !pOut) {
+        return 0;
+    }
+
+    return (amountIn * pIn) / pOut;
+}
 
     // ==========================
     // REFRESH FORCE
