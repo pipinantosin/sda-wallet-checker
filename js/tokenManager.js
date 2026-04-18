@@ -191,11 +191,10 @@ function renderTokenList() {
 // render saat load
 document.addEventListener("DOMContentLoaded", renderTokenList);
 
+// ==========================
+// ENGINE COMPATIBILITY LAYER
+// ==========================
+window.tokenmanager = window.tokenmanager || {};
 
-
-
-
-
-
-
-
+// alias lama (biar swap-modal.js tidak error)
+window.SIDRAPULSE = window.tokenmanager;
