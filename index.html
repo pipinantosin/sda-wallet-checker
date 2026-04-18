@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="css/actions.css">
 <link rel="stylesheet" href="css/tabs.css">
 <link rel="stylesheet" href="css/modal.css">
+<link rel="stylesheet" href="css/swap-modal.css">
 <link rel="stylesheet" href="css/animation.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/send-premium.css">
@@ -200,14 +201,16 @@
         <span data-lang="receive">Receive</span>
     </div>
 
-    <div class="action-btn">
-        <i class="fa-solid fa-right-left" style="background:#2a123a; color:#c77dff;"></i>
-        <span data-lang="swap">Swap</span>
-    </div>
+    <div class="action-btn" id="openSwapBtn">
+    <i class="fa-solid fa-right-left" style="background:#2a123a; color:#c77dff;"></i>
+    <span data-lang="swap">Swap</span>
+</div>
 
-    <div class="action-btn">
-        <i class="fa-solid fa-droplet" style="background:#0a2a2a; color:#00e0ff;"></i>
-        <span data-lang="liquidity">Liquidity</span>
+     <div class="action-btn">
+        <div class="action-icon liquidity">
+            <i class="fa-solid fa-droplet"></i>
+        </div>
+        <span>Liquidity</span>
     </div>
 
 </div>
@@ -570,6 +573,94 @@
     </div>
 
 </div>
+
+<!-- SWAP MODAL -->
+<div id="swapModal" class="swap-modal">
+
+    <div class="swap-container">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="logo">
+                <img src="img/sda.png">
+            </div>
+            <div id="closeSwapModal" class="close-btn">✕</div>
+        </div>
+
+<div class="app">
+
+
+    <!-- SWAP -->
+    <div class="swap-card">
+
+        <div class="swap-title">Swap</div>
+        <div class="swap-sub">Trade tokens instantly</div>
+
+        <!-- WALLET -->
+        <div class="wallet-box">
+            <div class="wallet-left">
+                <div class="wallet-icon">💼</div>
+                <div id="swapWalletName">Main Wallet</div>
+            </div>
+            <div class="wallet-balance" id="swapWalletBalance">0.00 SDA</div>
+        </div>
+
+        <!-- YOU PAY -->
+        <div class="input-card">
+            <div class="row">
+                <div class="label">YOU PAY</div>
+                <div class="label" id="payBalance">
+                    0.00 TOKEN <span class="max" id="btnMax">MAX</span>
+                </div>
+            </div>
+
+            <div class="row">
+                <input class="amount" id="payAmount" placeholder="0.0">
+
+                <div class="token" id="payToken">
+                    <img src="img/sda.png" id="payTokenIcon">
+                    <span id="payTokenSymbol">SDA</span> ▼
+                </div>
+            </div>
+        </div>
+
+        <!-- SWITCH -->
+        <div class="switch" id="switchSwap">⇅</div>
+
+        <!-- YOU RECEIVE -->
+        <div class="input-card">
+            <div class="row">
+                <div class="label receive">YOU RECEIVE</div>
+                <div class="label" id="receiveBalance">0.00</div>
+            </div>
+
+            <div class="row">
+                <div class="amount" id="receiveAmount">0.0</div>
+
+                <div class="token" id="receiveToken">
+                    <img src="img/sda.png" id="receiveTokenIcon">
+                    <span id="receiveTokenSymbol">SDA</span> ▼
+                </div>
+            </div>
+        </div>
+
+        <!-- RATE -->
+        <div class="info" id="swapRate">
+            1 TOKEN ≈ 0 TOKEN
+        </div>
+
+        <!-- SLIPPAGE -->
+        <div class="slippage">
+            <div>Slippage tolerance</div>
+            <div id="slippageVal">0.5%</div>
+        </div>
+
+        <!-- BUTTON -->
+        <button class="btn" id="btnReviewSwap">Review Swap</button>
+
+    </div>
+
+</div>
 <!--- ETHERS --->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
@@ -591,12 +682,16 @@
 <script src="js/send-modal.js"></script>
 <script src="js/send-token.js"></script>
 <script src="js/pk-wallet.js"></script>
+<script src="js/factory-engine.js"></script>
 <script src="js/blockchain.js"></script>
 <script src="js/riwayat.js"></script>
+<script src="js/swap-modal.js"></script>
 
 <script src="sw.js"></script>
 
 <script>
+	
+	
 function toggleMenu(){
     const menu = document.getElementById("menuDropdown");
     menu.style.display =
