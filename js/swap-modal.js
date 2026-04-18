@@ -15,7 +15,7 @@ function getSwapDisplaySymbol(symbol){
 // ==========================
 // GLOBAL SWAP STATE
 // ==========================
-let swapState = {
+window.swapState = {
     payToken: "native",
     receiveToken: null
 };
@@ -89,9 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
    // ==========================
 // CONSTANT (WSDA BRIDGE)
 // ==========================
-const WSDA_ADDRESS = "0xE4095a910209D7BE03B55D02F40d4554B1666182";
-
-
 function resolveTokenAddress(token){
 
     if(!token) return "native"; // 🔥 FIX AUTO SAFE
@@ -107,7 +104,7 @@ function resolveTokenAddress(token){
 // ==========================
 // UPDATE UI
 // ==========================
-function updateTokenUI(){
+window.updateTokenUI = async function(){
 
     const pay = getTokenData(swapState.payToken);
     const recv = getTokenData(swapState.receiveToken);
@@ -118,16 +115,12 @@ function updateTokenUI(){
     payIcon.src = pay.logo;
     receiveIcon.src = recv.logo;
 
-    //  penting
-    updatePayBalance();
-updateReceiveBalance();
-refreshSwapWalletBalance();
-
-const recvBalEl = document.getElementById("receiveBalance");
-
-if(recvBalEl){
-    recvBalEl.innerText = "0.00"; // optional placeholder
-}
+    //  jalanin bareng biar cepat
+    await Promise.all([
+        updatePayBalance(),
+        updateReceiveBalance(),
+        refreshSwapWalletBalance()
+    ]);
 }
 
 
@@ -163,9 +156,17 @@ openBtn?.addEventListener("click", async () => {
                 parseFloat(ethers.utils.formatEther(bal)).toFixed(4) + " SDA";
         }
 
-        updatePayBalance();
-        updateReceiveEstimate();
-        await refreshSwapWalletBalance();
+        const recvEl = document.getElementById("receiveBalance");
+if(recvEl) recvEl.innerText = "...";
+
+await updateTokenUI();
+updateReceiveEstimate();
+
+//  trigger rate manual (WAJIB)
+if(window.updateRate){
+    setTimeout(window.updateRate, 200);
+}
+
 
     } catch (err) {
         console.warn("Swap open error:", err);
@@ -234,46 +235,62 @@ payInput?.addEventListener("input", () => {
 
 async function updateReceiveEstimate(){
 
-    const amount = parseFloat(payInput?.value || 0);
     const outInput = document.getElementById("receiveAmount");
+    if(!outInput) return;
+
+    const amount = parseFloat(payInput?.value || 0);
 
     if(!amount || amount <= 0){
-        if(outInput) outInput.value = "";
+        outInput.value = "";
         return;
     }
 
-    const tokenIn  = resolveTokenAddress(swapState.payToken);
-    const tokenOut = resolveTokenAddress(swapState.receiveToken);
+    // ==========================
+    // 🔥 SAME TOKEN FIX (PALING ATAS)
+    // ==========================
+    const WSDA = window.CONFIG?.WSDA || WSDA_ADDRESS;
 
-    if(!tokenIn || !tokenOut) return;
+    const normalize = (x) => {
+        if(!x || x === "native") return WSDA;
+        return x;
+    };
 
+    const tokenIn  = normalize(swapState.payToken);
+    const tokenOut = normalize(swapState.receiveToken);
+
+    if(tokenIn === tokenOut){
+        outInput.value = amount.toFixed(6);
+        return;
+    }
+
+    // ==========================
+    // 🔥 ENGINE QUOTE
+    // ==========================
     try {
 
-        // ==========================
-        // FACTORY ENGINE ONLY
-        // ==========================
-        if (window.FACTORY_ENGINE?.getQuote) {
+    if(window.FACTORY_ENGINE?.getQuote){
 
-            const result = window.FACTORY_ENGINE.getQuote(
-                tokenIn,
-                tokenOut,
-                amount
-            );
+        // 🔥 WAJIB
+        await window.FACTORY_ENGINE.init();
 
-            if (result && isFinite(result)) {
+        const result = window.FACTORY_ENGINE.getQuote(
+            tokenIn,
+            tokenOut,
+            amount
+        );
+
+            if(result && isFinite(result)){
                 outInput.value = Number(result).toFixed(6);
                 return;
             }
         }
 
-        // fallback kalau engine belum ready
-        if(outInput){
-            outInput.value = "0.0000";
-        }
+        // fallback
+        outInput.value = "0.0000";
 
     } catch (e) {
         console.warn("Estimate error:", e);
-        if(outInput) outInput.value = "0.0000";
+        outInput.value = "0.0000";
     }
 }
 
