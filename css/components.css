@@ -312,3 +312,28 @@
 .wallet-type-icon.watch{
     color:#3aa0ff;
 }
+
+
+
+
+
+#walletSelect {
+    padding-left: 28px;
+    position: relative;
+}
+
+/* Default icon (watch) */
+#walletSelect option[data-type="watch"]::before {
+    content: "\f06e"; /* eye */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 6px;
+}
+
+/* PK wallet */
+#walletSelect option[data-type="pk"]::before {
+    content: "\f084"; /* key */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 6px;
+}
