@@ -9,11 +9,11 @@ let blinkState = false;
 
 
 // ==========================
-// SAVE WALLET (FIXED + LANG + SYNC)
+// SAVE WALLET (FINAL FIX - PK UPGRADE + SAFE UI)
 // ==========================
 function saveWallet() {
-	
-	const isPKWallet = !!window.pkWallet;
+
+    const isPKWallet = !!window.pkWallet;
 
     let addr = addressInput?.value?.trim().toLowerCase();
     const nameInput = document.getElementById("walletName");
@@ -23,39 +23,93 @@ function saveWallet() {
     // VALIDATION
     // ==========================
     if (!addr) {
-        return showToast(LANG?.[CURRENT_LANG]?.enter_address || "Enter address");
+        return showToast(
+            LANG?.[CURRENT_LANG]?.enter_address || "Enter address"
+        );
     }
 
     if (!addr.startsWith("0x") || addr.length < 42) {
-    return showToast(
-        LANG?.[CURRENT_LANG]?.invalid_address || "Format address tidak valid",
-        "error"
-    );
-}
+        return showToast(
+            LANG?.[CURRENT_LANG]?.invalid_address || "Format address tidak valid",
+            "error"
+        );
+    }
 
     const wallets = getWallets();
 
-    const isExist = wallets.some(w =>
-        w.address.toLowerCase() === addr
+    const exist = wallets.find(
+        w => w.address.toLowerCase() === addr
     );
 
-    if (isExist) {
-    return showToast(
-        LANG?.[CURRENT_LANG]?.wallet_exists || "Wallet sudah tersimpan",
-        "error"
-    );
-}
+    // ==========================
+    // 🔥 RULE HANDLING (FIX UTAMA)
+    // ==========================
+    if (exist) {
+
+        // ❌ PK sudah ada → block
+        if (exist.type === "pk" && isPKWallet) {
+            return showToast(
+                LANG?.[CURRENT_LANG]?.wallet_exists || "Wallet PK sudah ada",
+                "error"
+            );
+        }
+
+        // 🔥 UPGRADE WATCH → PK
+        if (exist.type === "watch" && isPKWallet) {
+
+            exist.type = "pk";
+            exist.privateKey = window.pkWallet.privateKey;
+
+            if (name) {
+                exist.name = name;
+            }
+
+            setWallets(wallets);
+
+            renderWallets();
+
+            const index = wallets.findIndex(
+                w => w.address.toLowerCase() === addr
+            );
+
+            if (selectEl && index !== -1) {
+                selectEl.value = String(index);
+            }
+
+            updateActiveWalletName();
+            updateAddressUI?.();
+            renderAssets();
+            loadBalance();
+
+            // reset input (tidak ganggu tombol logic)
+            if (addressInput) addressInput.value = "";
+            if (nameInput) nameInput.value = "";
+
+            validateInput();
+
+            showToast("Wallet di-upgrade ke PK", "success");
+
+            return;
+        }
+
+        // ❌ watch + watch → block
+        if (!isPKWallet) {
+            return showToast(
+                LANG?.[CURRENT_LANG]?.wallet_exists || "Wallet sudah tersimpan",
+                "error"
+            );
+        }
+    }
 
     // ==========================
-    // SAVE
+    // ✅ CREATE NEW WALLET
     // ==========================
-    
-    
     const newWallet = {
-    address: addr,
-    name: name || "Wallet",
-    type: isPKWallet ? "pk" : "watch"
-};
+        address: addr,
+        name: name || "Wallet",
+        type: isPKWallet ? "pk" : "watch",
+        ...(isPKWallet && { privateKey: window.pkWallet.privateKey })
+    };
 
     wallets.push(newWallet);
     setWallets(wallets);
@@ -65,20 +119,21 @@ function saveWallet() {
     // ==========================
     renderWallets();
 
-    // penting: pakai string biar aman
     const newIndex = String(wallets.length - 1);
-    selectEl.value = newIndex;
+    if (selectEl) {
+        selectEl.value = newIndex;
+    }
 
     // ==========================
-    // SYNC UI (INI YANG FIX BUG)
+    // SYNC UI
     // ==========================
     updateActiveWalletName();
-    updateAddressUI?.(); // kalau ada function ini
+    updateAddressUI?.();
     renderAssets();
     loadBalance();
 
     // ==========================
-    // RESET INPUT
+    // RESET INPUT (TIDAK MERUSAK VALIDATION)
     // ==========================
     if (addressInput) addressInput.value = "";
     if (nameInput) nameInput.value = "";
@@ -86,9 +141,9 @@ function saveWallet() {
     validateInput();
 
     showToast(
-    LANG?.[CURRENT_LANG]?.wallet_saved || "Wallet berhasil disimpan",
-    "success"
-);
+        LANG?.[CURRENT_LANG]?.wallet_saved || "Wallet berhasil disimpan",
+        "success"
+    );
 
     setTimeout(() => {
         autoRefreshIfNeeded();
