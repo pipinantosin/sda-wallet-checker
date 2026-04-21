@@ -1,129 +1,106 @@
-/* =========================
-   MODAL OVERLAY
-========================= */
+
+/* =====================================================
+    BASE MODAL SYSTEM (GLOBAL OVERLAY)
+===================================================== */
 
 .modal{
     position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-
-    background:rgba(0,0,0,0.7);
-
+    inset:0;
+    background:rgba(0,0,0,0.65);
     display:none;
-    justify-content:center;
     align-items:center;
-
-    z-index:999;
+    justify-content:center;
+    padding:20px;
+    z-index:9999;
 }
 
-/* SHOW MODAL (optional helper class) */
 .modal.show{
     display:flex;
 }
 
-/* =========================
-   MODAL CONTENT
-========================= */
-
+/* GENERIC CONTENT */
 .modal-content{
     background:#111;
-    padding:20px;
-    border-radius:14px;
-    width:280px;
+    width:100%;
+    max-width:420px;
 
-    animation:fadeIn 0.25s ease;
+    max-height:85vh;
+    overflow-y:auto;
+
+    border-radius:22px;
+    padding:24px;
+
+    animation:fadeIn .25s ease;
 }
 
-/* =========================
-   HEADER
-========================= */
-
+/* HEADER GLOBAL */
 .modal-header{
     display:flex;
     justify-content:space-between;
     align-items:center;
     margin-bottom:15px;
-
-    font-weight:bold;
+    font-weight:600;
 }
 
-/* CLOSE BUTTON */
-.modal-header span{
+/* CLOSE */
+.modal-header span,
+.modal-close{
     cursor:pointer;
-    font-size:18px;
 }
 
-/* =========================
-   ANIMATION
-========================= */
-
+/* ANIMATION */
 @keyframes fadeIn{
-    from{
-        opacity:0;
-        transform:scale(0.9);
-    }
-    to{
-        opacity:1;
-        transform:scale(1);
-    }
+    from{opacity:0;transform:scale(.95);}
+    to{opacity:1;transform:scale(1);}
 }
 
-/* =========================
-   QR STYLE PREMIUM
-========================= */
+
+/* =====================================================
+    QR MODAL
+===================================================== */
 
 #qrModalImg,
 #receiveQR{
-
-    /* ukuran tetap */
     width:170px;
-
-    /* padding dalam */
-    padding:12px;
-
-    /* background dalam */
+    padding:10px;
     background:#111;
-
     border-radius:16px;
 
-    /* 🔥 DOUBLE BORDER EFFECT */
-    border:2px solid #fff; /* putih dalam */
-
+    border:2px solid #fff;
     box-shadow:
-        0 0 0 4px #2a2a2a, /* abu luar */
-        0 0 20px rgba(255,255,255,0.08), /* glow halus */
+        0 0 0 4px #2a2a2a,
+        0 0 20px rgba(255,255,255,0.08),
         inset 0 0 10px rgba(255,255,255,0.05);
 
     display:block;
     margin:15px auto;
 
-    transition:all 0.25s ease;
+    transition:.25s;
 }
 
-/* HOVER EFFECT (optional tapi cakep) */
 #qrModalImg:hover,
 #receiveQR:hover{
     transform:scale(1.03);
-
     box-shadow:
         0 0 0 4px #3a3a3a,
-        0 0 25px rgba(255,122,0,0.25),
-        inset 0 0 12px rgba(255,255,255,0.08);
+        0 0 25px rgba(255,122,0,0.25);
 }
 
-/* FULL SCREEN MODAL */
+
+/* =====================================================
+    SEND MODAL
+===================================================== */
+
 .send-modal{
     position:fixed;
     inset:0;
     background:#0b0f14;
     z-index:9999;
+
     display:none;
     flex-direction:column;
 }
 
-/* HEADER */
 .send-header{
     display:flex;
     justify-content:space-between;
@@ -137,70 +114,65 @@
     display:flex;
     align-items:center;
     gap:10px;
-    font-size:16px;
-    font-weight:bold;
     color:#ff7a00;
+    font-weight:600;
 }
 
 .send-close{
-    cursor:pointer;
     padding:8px;
     border-radius:10px;
     background:#1a1a1a;
+    cursor:pointer;
 }
 
 /* BODY */
 .send-body{
-    padding:16px;
     display:flex;
     flex-direction:column;
     gap:12px;
+    padding:16px;
 }
 
-/* INPUT STYLE */
+/* INPUT */
 .input-box{
     display:flex;
     align-items:center;
     gap:10px;
-    background:#111;
     padding:12px;
     border-radius:14px;
+    background:#111;
 }
 
 .input-box input{
     width:100%;
+    background:transparent;
     border:none;
     outline:none;
-    background:transparent;
     color:#fff;
 }
 
-/* TOKEN SELECT */
+/* TOKEN BOX */
 .token-box{
     display:flex;
     justify-content:space-between;
     align-items:center;
-    background:#111;
     padding:12px;
+    background:#111;
     border-radius:14px;
-}
-
-.token-left{
-    display:flex;
-    align-items:center;
-    gap:10px;
-}
-
-.token-left img{
-    width:26px;
-    height:26px;
-    border-radius:50%;
 }
 
 /* BALANCE */
 .send-balance{
+    display:flex;
+    align-items:center;
+    gap:6px;
     font-size:12px;
     color:#aaa;
+}
+
+.send-balance img{
+    width:16px;
+    height:16px;
 }
 
 /* BUTTON */
@@ -211,70 +183,9 @@
     border-radius:14px;
     background:#ff7a00;
     color:#fff;
-    font-weight:bold;
-    cursor:pointer;
+    font-weight:600;
 }
 
-
-/* Riwayat Modal */
-.modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: none; /* tetap hidden default */
-    align-items: center;
-    justify-content: center;
-
-    /* penting */
-    padding: 20px;
-    overflow: hidden;
-    z-index: 9999;
-}
-
-/* isi modal */
-.modal-content {
-    background: #111;
-    width: 100%;
-    max-width: 420px;
-
-    /*  INI KUNCI SCROLL */
-    max-height: 85vh;
-    overflow-y: auto;
-
-    border-radius: 40px;
-    padding: 40px;
-
-    /* biar tidak nempel atas */
-    margin: auto;
-}
-
-.send-balance{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    font-size:12px;
-    color:#aaa;
-}
-
-.send-balance img{
-    width:16px;
-    height:16px;
-    border-radius:50%;
-}
-
-.send-balance{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    font-size:12px;
-    color:#aaa;
-}
-
-.send-balance img{
-    width:16px;
-    height:16px;
-    border-radius:50%;
-}
 
 
 
