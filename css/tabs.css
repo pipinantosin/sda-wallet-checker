@@ -1,69 +1,139 @@
 /* =========================
-   TABS CONTAINER
+   TABS WRAPPER (CLEAN)
 ========================= */
+.tabs {
+    display: flex;
+    margin-top: 14px;
 
-.tabs{
-    display:flex;
-    margin-top:15px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px;
 
-    /* glass style */
-    background:rgba(255,255,255,0.03);
-    border-radius:20px;
-    padding:5px;
-    backdrop-filter: blur(10px);
-    border:1px solid rgba(255,255,255,0.05);
+    padding: 4px;
+    backdrop-filter: blur(12px);
 }
 
 /* =========================
-   TAB ITEM
+   TAB ITEM (SMALL + CLEAN)
 ========================= */
+.tab {
+    flex: 1;
+    text-align: center;
 
-.tab{
-    flex:1;
-    text-align:center;
-    padding:10px;
-    cursor:pointer;
+    padding: 8px;
+    font-size: 12px;
 
-    font-size:13px;
-    color:#777;
+    color: #8a8a8a;
+    cursor: pointer;
 
-    border-radius:16px;
-    transition:all 0.25s ease;
+    border-radius: 14px;
+    transition: all 0.2s ease;
+
+    letter-spacing: 0.2px;
 }
 
-/* HOVER (COMBINED) */
-.tab:hover{
-    color:#fff;
-    background:#1a1a1a; /* dari kode kamu */
+/* HOVER */
+.tab:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.05);
 }
 
 /* ACTIVE TAB */
-.tab.active{
-    color:#ff7a00;
+.tab.active {
+    color: #ff8a1f;
 
-    /* glass highlight */
-    background:rgba(255,122,0,0.12);
+    background: rgba(255,138,31,0.12);
 
     box-shadow:
-        inset 0 0 10px rgba(255,122,0,0.15),
-        0 0 8px rgba(255,122,0,0.25);
+        inset 0 0 8px rgba(255,138,31,0.12),
+        0 0 6px rgba(255,138,31,0.18);
 
-    font-weight:600;
+    font-weight: 600;
 }
 
 /* =========================
-   TAB CONTENT
+   TAB CONTENT (CLEAN CARD)
 ========================= */
+.tab-content {
+    display: none;
 
-.tab-content{
-    display:none;
-    background:#111;
-    padding:12px;
-    border-radius:12px;
-    margin-top:10px;
+    margin-top: 10px;
+    padding: 10px;
+
+    background: #0f0f0f;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
 }
 
-/* ACTIVE CONTENT */
-.tab-content.active{
-    display:block;
+/* ACTIVE */
+.tab-content.active {
+    display: block;
+}
+
+/* =========================
+   ADD TOKEN BUTTON (SMALL)
+========================= */
+.add-token-btn {
+    width: 24px;
+    height: 24px;
+
+    border-radius: 6px;
+    border: none;
+
+    background: #2b7cff;
+    color: #fff;
+
+    font-size: 14px;
+    font-weight: bold;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+    padding: 0;
+
+    transition: 0.15s ease;
+}
+
+.add-token-btn:active {
+    transform: scale(0.92);
+}
+
+/* =========================
+   OPTIONAL: REMOVE BUTTON "-"
+========================= */
+.remove-token-btn {
+    width: 22px;
+    height: 22px;
+
+    border-radius: 5px;
+    border: none;
+
+    background: #ff4d4f;
+    color: #fff;
+
+    font-size: 14px;
+    font-weight: bold;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+    padding: 0;
+
+    transition: 0.15s ease;
+}
+
+.remove-token-btn:active {
+    transform: scale(0.92);
+}
+
+/* =========================
+   OPTIONAL: ASSET ITEM TEXT (IF NEEDED GLOBAL)
+========================= */
+.asset-item {
+    font-size: 12.5px;
+    color: #eaeaea;
 }
