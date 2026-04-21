@@ -284,7 +284,7 @@
 
         <!-- AMOUNT -->
         <input type="number"
-               id="receiveAmount"
+               id="receiveAmountQR"
                data-lang-placeholder="amount_optional"
                placeholder="Amount (optional)" />
 
@@ -584,81 +584,102 @@
             <div class="logo">
                 <img src="img/sda.png">
             </div>
-            <div id="closeSwapModal" class="close-btn">✕</div>
+            <div id="closeSwapModal" class="close-btn">
+            <i class="fa-solid fa-xmark"></i>
         </div>
+    </div>
 
 <div class="app">
 
 
     <!-- SWAP -->
-    <div class="swap-card">
+<div class="swap-card">
 
-        <div class="swap-title">Swap</div>
-        <div class="swap-sub">Trade tokens instantly</div>
+    <div class="swap-title">Swap</div>
+    <div class="swap-sub">Trade tokens instantly</div>
 
-        <!-- WALLET -->
-        <div class="wallet-box">
-            <div class="wallet-left">
-                <div class="wallet-icon">💼</div>
-                <div id="swapWalletName">Main Wallet</div>
-            </div>
-            <div class="wallet-balance" id="swapWalletBalance">0.00 SDA</div>
+    <!-- WALLET -->
+    <div class="wallet-box">
+        <div class="wallet-left">
+            <i class="fa-solid fa-wallet"></i>
+            <div id="swapWalletName">Main Wallet</div>
         </div>
-
-        <!-- YOU PAY -->
-        <div class="input-card">
-            <div class="row">
-                <div class="label">YOU PAY</div>
-                <div class="label" id="payBalance">
-                    0.00 TOKEN <span class="max" id="btnMax">MAX</span>
-                </div>
-            </div>
-
-            <div class="row">
-                <input class="amount" id="payAmount" placeholder="0.0">
-
-                <div class="token" id="payToken">
-                    <img src="img/sda.png" id="payTokenIcon">
-                    <span id="payTokenSymbol">SDA</span> ▼
-                </div>
-            </div>
-        </div>
-
-        <!-- SWITCH -->
-        <div class="switch" id="switchSwap">⇅</div>
-
-        <!-- YOU RECEIVE -->
-        <div class="input-card">
-            <div class="row">
-                <div class="label receive">YOU RECEIVE</div>
-                <div class="label" id="receiveBalance">0.00</div>
-            </div>
-
-            <div class="row">
-                <div class="amount" id="receiveAmount">0.0</div>
-
-                <div class="token" id="receiveToken">
-                    <img src="img/sda.png" id="receiveTokenIcon">
-                    <span id="receiveTokenSymbol">SDA</span> ▼
-                </div>
-            </div>
-        </div>
-
-        <!-- RATE -->
-<div class="info" id="swapRate">
-    Loading rate...
-</div>
-
-<!-- SLIPPAGE -->
-<div class="slippage">
-    <div>Slippage tolerance</div>
-    <div id="slippageVal">--</div>
-</div>
-
-        <!-- BUTTON -->
-        <button class="btn" id="btnReviewSwap">Review Swap</button>
-
+        <div class="wallet-balance" id="swapWalletBalance">0.00 SDA</div>
     </div>
+
+    <!-- YOU PAY -->
+    <div class="input-card">
+        <div class="row">
+            <div class="label">YOU PAY</div>
+            <div class="label" id="payBalance">
+                0.00 TOKEN <span class="max" id="btnMax">MAX</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <input class="amount" id="payAmount" placeholder="0.0">
+
+            <div class="token" id="payToken">
+
+                <!-- 🔥 TETAP PNG (JANGAN DIUBAH) -->
+                <img src="img/sda.png" id="payTokenIcon">
+
+                <span id="payTokenSymbol">SDA</span>
+
+                <!-- ONLY ICON UI -->
+                <i class="fa-solid fa-chevron-down"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- SWITCH -->
+    <div class="switch" id="switchSwap">
+        <i class="fa-solid fa-arrows-up-down"></i>
+    </div>
+
+    <!-- YOU RECEIVE -->
+    <div class="input-card">
+        <div class="row">
+            <div class="label receive">YOU RECEIVE</div>
+            <div class="label" id="receiveBalance">0.00</div>
+        </div>
+
+        <div class="row">
+            <div class="amount" id="receiveAmount">0.0</div>
+
+            <div class="token" id="receiveToken">
+
+                <!-- 🔥 TETAP PNG -->
+                <img src="img/sda.png" id="receiveTokenIcon">
+
+                <span id="receiveTokenSymbol">SDA</span>
+
+                <!-- ONLY ICON UI -->
+                <i class="fa-solid fa-chevron-down"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- RATE -->
+    <div class="info" id="swapRate">
+        <i class="fa-solid fa-chart-line"></i>
+        Loading rate...
+    </div>
+
+    <!-- SLIPPAGE -->
+    <div class="slippage">
+        <div>
+            <i class="fa-solid fa-gauge-high"></i>
+            Slippage tolerance
+        </div>
+        <div id="slippageVal">--</div>
+    </div>
+
+    <!-- BUTTON -->
+    <button class="btn" id="btnReviewSwap">
+        <i class="fa-solid fa-right-left"></i>
+        Review Swap
+    </button>
 
 </div>
 <!--- ETHERS --->
@@ -685,6 +706,7 @@
 <script src="js/factory-engine.js"></script>
 <script src="js/blockchain.js"></script>
 <script src="js/riwayat.js"></script>
+<script src="js/price-engine.js"></script>
 <script src="js/swap-modal.js"></script>
 <script src="js/swap-extra.js"></script>
 
