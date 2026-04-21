@@ -1,6 +1,5 @@
 const WSDA_ADDRESS = "0xE4095a910209D7BE03B55D02F40d4554B1666182";
 
-
 const SWAP_TOKEN_ALIAS = {
     WSDA: "SDA"
 };
@@ -10,10 +9,8 @@ function getSwapDisplaySymbol(symbol){
     return SWAP_TOKEN_ALIAS[symbol] || symbol;
 }
 
-
-
 // ==========================
-// GLOBAL SWAP STATE
+// GLOBAL STATE
 // ==========================
 window.swapState = {
     payToken: "native",
@@ -39,72 +36,58 @@ document.addEventListener("DOMContentLoaded", () => {
     const receiveIcon = document.getElementById("receiveTokenIcon");
 
     const payBalanceEl = document.getElementById("payBalance");
+    const receiveBalanceEl = document.getElementById("receiveBalance");
 
     const switchBtn = document.getElementById("switchSwap");
     const payInput = document.getElementById("payAmount");
+    payInput.addEventListener("input", () => {
+    updateReceiveEstimate();
+    updateRate(); // 🔥 TAMBAH INI
+});
 
     // ==========================
-    // INIT TOKEN (SYNC TOKENS GLOBAL)
+    // INIT TOKEN
     // ==========================
     function initTokens(){
-
         const tokens = window.TOKENS || [];
 
-        // default: SDA  token pertama
         swapState.payToken = "native";
 
         const first = tokens.find(t => t.symbol !== "WSDA");
         swapState.receiveToken = first?.address || "native";
 
-        updateTokenUI();
-        updateReceiveEstimate();
-        ensureValidSwapState();
+        updateUI();
     }
 
     // ==========================
-    // GET TOKEN DATA (UNIFIED)
+    // TOKEN DATA
     // ==========================
     function getTokenData(addr){
 
-    const isNative =
-        !addr ||
-        addr === "native" ||
-        addr === WSDA_ADDRESS;
+        const isNative =
+            !addr ||
+            addr === "native" ||
+            addr === WSDA_ADDRESS;
 
-    if(isNative){
+        if(isNative){
+            return {
+                symbol: "SDA",
+                logo: "img/sda.png"
+            };
+        }
+
+        const t = (window.TOKENS || []).find(x => x.address === addr);
+
         return {
-            symbol: "SDA",
-            logo: "img/sda.png"
+            symbol: getSwapDisplaySymbol(t?.symbol || "???"),
+            logo: t?.logo || "img/default.png"
         };
     }
 
-    const t = (window.TOKENS || []).find(x => x.address === addr);
-
-    return {
-        symbol: getSwapDisplaySymbol(t?.symbol || "???"),
-        logo: t?.logo || "img/default.png"
-    };
-}
-
-   // ==========================
-// CONSTANT (WSDA BRIDGE)
-// ==========================
-function resolveTokenAddress(token){
-
-    if(!token) return "native"; // 🔥 FIX AUTO SAFE
-
-    if(token === "native"){
-        return "native";
-    }
-
-    return token;
-}
-
-
-// ==========================
-// UPDATE UI
-// ==========================
-window.updateTokenUI = async function(){
+    // ==========================
+    // UPDATE UI
+    // ==========================
+    async function updateUI(){
 
     const pay = getTokenData(swapState.payToken);
     const recv = getTokenData(swapState.receiveToken);
@@ -115,206 +98,207 @@ window.updateTokenUI = async function(){
     payIcon.src = pay.logo;
     receiveIcon.src = recv.logo;
 
-    //  jalanin bareng biar cepat
     await Promise.all([
-        updatePayBalance(),
-        updateReceiveBalance(),
-        refreshSwapWalletBalance()
-    ]);
+    updatePayBalance(),
+    updateReceiveBalance(),
+    refreshWalletBalance(),
+    updateRate()
+]);
+
+// 🔥 TAMBAH INI
+setTimeout(updateReceiveEstimate, 50);
+updateReceiveBalance()
+}
+    
+    
+    async function updateRate(){
+
+    const rateEl = document.getElementById("swapRate");
+    if(!rateEl) return;
+
+    const payData  = getTokenData(swapState.payToken);
+    const recvData = getTokenData(swapState.receiveToken);
+
+    const price = await PRICE_ENGINE.getPrice(
+        swapState.payToken,
+        swapState.receiveToken
+    );
+
+    if(!price || price === 0){
+        rateEl.innerText = `No pool`;
+        return;
+    }
+
+    rateEl.innerText =
+        `1 ${payData.symbol} ≈ ${price.toFixed(6)} ${recvData.symbol}`;
 }
 
 
-async function refreshSwapWalletBalance(){
+let isUpdatingReceive = false;
 
-    const w = getSelectedWallet?.();
-    if(!w) return;
+async function updateReceiveEstimate(){
 
-    const bal = await getTokenBalance(w.address, "native"); // 🔥 FIX WAJIB SDA ONLY
+    if(isUpdatingReceive) return;
+    isUpdatingReceive = true;
 
-    document.getElementById("swapWalletBalance").innerText =
-        `${parseFloat(bal).toFixed(4)} SDA`;
+    const val = parseFloat(payInput.value);
+    const outEl = document.getElementById("receiveAmount");
+
+    if(!outEl){
+        isUpdatingReceive = false;
+        return;
+    }
+
+    if(isNaN(val) || val <= 0){
+        outEl.value = "0";
+        isUpdatingReceive = false;
+        return;
+    }
+
+    try{
+        const out = await PRICE_ENGINE.getAmountOut(
+            swapState.payToken,
+            swapState.receiveToken,
+            val
+        );
+
+        console.log("OUT UI FINAL:", out);
+
+        if(out === null || out === undefined || isNaN(out)){
+            outEl.value = "0";
+        }else{
+            outEl.value = Number(out).toFixed(6);
+        }
+
+    }catch(e){
+        console.warn("estimate error:", e);
+        outEl.value = "0";
+    }
+
+    isUpdatingReceive = false;
 }
-// ==========================
-// OPEN SWAP
-// ==========================
-openBtn?.addEventListener("click", async () => {
+    
 
-    try {
+    async function refreshWalletBalance(){
+        const w = getSelectedWallet?.();
+        if(!w) return;
+
+        const bal = await getTokenBalance(w.address, "native");
+
+        walletBalanceEl.innerText =
+            `${parseFloat(bal).toFixed(4)} SDA`;
+    }
+
+    // ==========================
+    // OPEN MODAL
+    // ==========================
+    openBtn?.addEventListener("click", async () => {
 
         modal.classList.add("show");
 
         const w = getSelectedWallet?.();
 
         if (w) {
-
             walletNameEl.innerText = w.name || "Wallet";
 
-            const prov = window.provider || window.pkProvider;
-            const bal = await prov.getBalance(w.address);
+            const bal = await getTokenBalance(w.address, "native");
 
             walletBalanceEl.innerText =
-                parseFloat(ethers.utils.formatEther(bal)).toFixed(4) + " SDA";
+                `${parseFloat(bal).toFixed(4)} SDA`;
         }
 
-        const recvEl = document.getElementById("receiveBalance");
-if(recvEl) recvEl.innerText = "...";
+        await updateUI();
 
-await updateTokenUI();
-updateReceiveEstimate();
+// 🔥 TAMBAH INI
+setTimeout(() => {
+    updateReceiveEstimate();
+}, 300);
+        
+    });
 
-//  trigger rate manual (WAJIB)
-if(window.updateRate){
-    setTimeout(window.updateRate, 200);
-}
+    // ==========================
+    // CLOSE
+    // ==========================
+    closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
 
+    modal?.addEventListener("click", (e) => {
+        if (e.target === modal) modal.classList.remove("show");
+    });
 
-    } catch (err) {
-        console.warn("Swap open error:", err);
-    }
-});
+    // ==========================
+    // SWITCH TOKEN (FIX HIDUP)
+    // ==========================
+    switchBtn?.addEventListener("click", () => {
 
+    // 🔥 SIMPAN VALUE LAMA
+    const oldPay = payInput.value;
+    const receiveEl = document.getElementById("receiveAmount");
+    const oldReceive = receiveEl?.value || "";
 
-// ==========================
-// CLOSE
-// ==========================
-closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
-
-modal?.addEventListener("click", (e) => {
-    if (e.target === modal) modal.classList.remove("show");
-});
-
-
-// ==========================
-// SWITCH TOKEN
-// ==========================
-switchBtn?.addEventListener("click", () => {
-
+    // 🔥 TUKAR TOKEN
     [swapState.payToken, swapState.receiveToken] =
     [swapState.receiveToken, swapState.payToken];
 
-    ensureValidSwapState();
+    // 🔥 TUKAR ANGKA JUGA (INI YANG KURANG)
+    payInput.value = oldReceive || "";
+    if(receiveEl) receiveEl.value = oldPay || "";
 
-    updateTokenUI();
-    updatePayBalance();
-    updateReceiveBalance(); // 🔥 FIX PENTING
-    updateReceiveEstimate();
+    updateUI();
+
+    // 🔥 PAKSA HITUNG ULANG
+    setTimeout(updateReceiveEstimate, 100);
 });
 
+    // ==========================
+    // MAX BUTTON
+    // ==========================
+    document.addEventListener("click", async (e) => {
 
-// ==========================
-// MAX BUTTON (DELEGATION FIX)
-// ==========================
-document.addEventListener("click", async (e) => {
+        if(e.target.id === "btnMax"){
 
-    if(e.target.id === "btnMax"){
+            const w = getSelectedWallet?.();
+            if (!w) return;
+
+            const bal = await getTokenBalance(w.address, swapState.payToken);
+
+            payInput.value = parseFloat(bal).toFixed(6);
+            updateReceiveEstimate();
+        }
+    });
+
+    // ==========================
+    // PAY BALANCE
+    // ==========================
+    async function updatePayBalance(){
 
         const w = getSelectedWallet?.();
         if (!w) return;
 
-        const token = swapState.payToken; // 🔥 FIX INI
+        const bal = await getTokenBalance(w.address, swapState.payToken);
+        const data = getTokenData(swapState.payToken);
 
-        const bal = await getTokenBalance(w.address, token);
-
-        payInput.value = parseFloat(bal).toFixed(6);
-
-        updateReceiveEstimate();
-        updatePayBalance(); // optional biar sync UI
-    }
-});
-
-
-// ==========================
-// INPUT LISTENER (LIVE CALC)
-// ==========================
-payInput?.addEventListener("input", () => {
-    updateReceiveEstimate();
-});
-
-
-
-
-async function updateReceiveEstimate(){
-
-    const outInput = document.getElementById("receiveAmount");
-    if(!outInput) return;
-
-    const amount = parseFloat(payInput?.value || 0);
-
-    if(!amount || amount <= 0){
-        outInput.value = "";
-        return;
+        payBalanceEl.innerHTML =
+            `${parseFloat(bal).toFixed(4)} ${data.symbol}
+             <span class="max" id="btnMax">MAX</span>`;
     }
 
     // ==========================
-    // 🔥 SAME TOKEN FIX (PALING ATAS)
+    // RECEIVE BALANCE (DIHIDUPKAN LAGI)
     // ==========================
-    const WSDA = window.CONFIG?.WSDA || WSDA_ADDRESS;
+    async function updateReceiveBalance(){
 
-    const normalize = (x) => {
-        if(!x || x === "native") return WSDA;
-        return x;
-    };
+        const w = getSelectedWallet?.();
+        if (!w) return;
 
-    const tokenIn  = normalize(swapState.payToken);
-    const tokenOut = normalize(swapState.receiveToken);
+        const bal = await getTokenBalance(w.address, swapState.receiveToken);
+        const data = getTokenData(swapState.receiveToken);
 
-    if(tokenIn === tokenOut){
-        outInput.value = amount.toFixed(6);
-        return;
+        receiveBalanceEl.innerText =
+            `${parseFloat(bal).toFixed(4)} ${data.symbol}`;
     }
 
     // ==========================
-    // 🔥 ENGINE QUOTE
-    // ==========================
-    try {
-
-    if(window.FACTORY_ENGINE?.getQuote){
-
-        // 🔥 WAJIB
-        await window.FACTORY_ENGINE.init();
-
-        const result = window.FACTORY_ENGINE.getQuote(
-            tokenIn,
-            tokenOut,
-            amount
-        );
-
-            if(result && isFinite(result)){
-                outInput.value = Number(result).toFixed(6);
-                return;
-            }
-        }
-
-        // fallback
-        outInput.value = "0.0000";
-
-    } catch (e) {
-        console.warn("Estimate error:", e);
-        outInput.value = "0.0000";
-    }
-}
-
-    // ==========================
-    // UPDATE PAY BALANCE
-    // ==========================
-    async function updatePayBalance(){
-
-    const w = getSelectedWallet?.();
-    if (!w) return;
-
-    const token = swapState.payToken;
-
-    const bal = await getTokenBalance(w.address, token);
-
-    const data = getTokenData(token);
-
-    payBalanceEl.innerHTML =
-        `${parseFloat(bal).toFixed(4)} ${data.symbol}
-         <span class="max" id="btnMax">MAX</span>`;
-}
-
-    // ==========================
-    // DROPDOWN TOKEN CLICK ( FIX UTAMA)
+    // DROPDOWN
     // ==========================
     document.getElementById("payToken")?.addEventListener("click", () => {
         openSelector("pay");
@@ -326,130 +310,92 @@ async function updateReceiveEstimate(){
 
     function openSelector(type){
 
-    const tokens = window.TOKENS || [];
+        const tokens = window.TOKENS || [];
+        let html = "";
 
-    let html = "";
+        tokens.forEach(t => {
 
-    tokens.forEach(t => {
-        html += `
-            <div class="token-item"
-                 data-type="${type}"
-                 data-address="${t.address}"
-                 data-symbol="${t.symbol.toLowerCase()}">
+            if (t.symbol === "WSDA") return;
 
-                <img src="${t.logo || 'img/default.png'}">
+            html += `
+                <div class="token-item"
+                     data-type="${type}"
+                     data-address="${t.address}"
+                     data-symbol="${t.symbol.toLowerCase()}">
 
-                <span>${getSwapDisplaySymbol(t.symbol)}</span>
+                    <img src="${t.logo || 'img/default.png'}">
+                    <span>${getSwapDisplaySymbol(t.symbol)}</span>
+                </div>
+            `;
+        });
+
+        const box = document.createElement("div");
+        box.id = "tokenPopup";
+
+        box.innerHTML = `
+            <div class="popup-bg"></div>
+            <div class="popup">
+                <div class="token-search">
+                    <input type="text" id="tokenSearchInput" placeholder="Search token...">
+                </div>
+                <div id="tokenList">${html}</div>
             </div>
         `;
-    });
 
-    const box = document.createElement("div");
-    box.id = "tokenPopup";
+        document.body.appendChild(box);
 
-    box.innerHTML = `
-        <div class="popup-bg"></div>
+        const input = box.querySelector("#tokenSearchInput");
+        const list  = box.querySelector("#tokenList");
 
-        <div class="popup">
+        input.addEventListener("input", (e) => {
+            const keyword = e.target.value.toLowerCase();
+            list.querySelectorAll(".token-item").forEach(item => {
+                item.style.display =
+                    item.dataset.symbol.includes(keyword) ? "flex" : "none";
+            });
+        });
 
-            <!-- SEARCH -->
-            <div class="token-search">
-                <input type="text" id="tokenSearchInput" placeholder="Search token...">
-            </div>
+        box.addEventListener("click", (e) => {
 
-            <!-- LIST -->
-            <div id="tokenList">
-                ${html}
-            </div>
+            if(e.target.classList.contains("popup-bg")){
+                box.remove();
+                return;
+            }
 
-        </div>
-    `;
+            const item = e.target.closest(".token-item");
+            if(!item) return;
 
-    document.body.appendChild(box);
-
-    const input = box.querySelector("#tokenSearchInput");
-    const list  = box.querySelector("#tokenList");
-
-    // ==========================
-    // SEARCH FILTER
-    // ==========================
-    input.addEventListener("input", (e) => {
-
-        const keyword = e.target.value.toLowerCase();
-        const items = list.querySelectorAll(".token-item");
-
-        items.forEach(item => {
-
+            let tokenAddress = item.dataset.address;
             const symbol = item.dataset.symbol;
 
-            if(symbol.includes(keyword)){
-                item.style.display = "flex";
+            const isNative =
+                symbol === "sda" ||
+                tokenAddress === WSDA_ADDRESS ||
+                tokenAddress === "native";
+
+            if(isNative) tokenAddress = "native";
+
+            if(type === "pay"){
+                swapState.payToken = tokenAddress;
             } else {
-                item.style.display = "none";
+                swapState.receiveToken = tokenAddress;
             }
-        });
-    });
 
-    // ==========================
-    // CLICK SELECT TOKEN
-    // ==========================
-    box.addEventListener("click", (e) => {
-
-        // klik background
-        if(e.target.classList.contains("popup-bg")){
+            updateUI();
             box.remove();
-            return;
-        }
+        });
+    }
 
-        const item = e.target.closest(".token-item");
-if(!item) return;
-
-const val = item.dataset.address;
-const symbol = item.dataset.symbol;
-const type = item.dataset.type;
-
-// 🔥 NORMALIZE SDA
-let tokenAddress = val;
-
-// 🔥 NORMALIZE SDA
-if(symbol === "sda" || val === WSDA_ADDRESS){
-    tokenAddress = "native";
-}
-
-if(type === "pay"){
-    swapState.payToken = tokenAddress;
-} else {
-    swapState.receiveToken = tokenAddress;
-}
-
-updateTokenUI();
-updatePayBalance();
-updateReceiveEstimate();
-updateReceiveBalance();
-
-box.remove();
-    });
-}
-
-    // ==========================
-    // INIT RUN
-    // ==========================
     initTokens();
-
-setTimeout(() => {
-    window.FACTORY_ENGINE?.init();
-}, 300);
 });
 
-
 // ==========================
-// TOKEN BALANCE (SAFE GLOBAL)
+// TOKEN BALANCE
 // ==========================
 async function getTokenBalance(address, tokenAddr){
 
     try {
 
-        // 🔥 SDA / WSDA = native balance
         const isNative =
             !tokenAddr ||
             tokenAddr === "native" ||
@@ -475,102 +421,141 @@ async function getTokenBalance(address, tokenAddr){
         return ethers.utils.formatUnits(bal, dec);
 
     } catch (e) {
-        console.warn("Swap balance error:", e);
+        console.warn("Balance error:", e);
         return "0";
     }
 }
 
 
-function ensureValidSwapState(){
-
-    const tokens = window.TOKENS || [];
-
-    if(!swapState.payToken){
-        swapState.payToken = "native";
-    }
-
-    if(!swapState.receiveToken){
-        const first = tokens.find(t => t.symbol !== "WSDA");
-        swapState.receiveToken = first?.address || "native";
-    }
-}
-
-async function updateReceiveBalance(){
-
-    const w = getSelectedWallet?.();
-    if (!w) return;
-
-    const token = swapState.receiveToken;
-
-    const bal = await getTokenBalance(w.address, token);
-
-    const data = getTokenData(token);
-    const displaySymbol = data.symbol;
-
-    document.getElementById("receiveBalance").innerText =
-        `${parseFloat(bal).toFixed(4)} ${displaySymbol}`;
-}
-
-function resolveDisplay(symbol){
-    if(!symbol) return "???";
-    return getSwapDisplaySymbol(symbol);
-}
 
 
-function openTokenPopup(type){
+// ==========================
+// GLOBAL STATE
+// ==========================
+window.swapState = {
+    payToken: "native",
+    receiveToken: null
+};
 
-    const popup = document.getElementById("tokenPopup");
-    if(!popup) return;
+document.addEventListener("DOMContentLoaded", () => {
 
-    popup.style.display = "block";
+    const payInput = document.getElementById("payAmount");
+    const receiveEl = document.getElementById("receiveAmount");
+    const switchBtn = document.getElementById("switchSwap");
 
-    const list = popup.querySelector(".popup");
-    list.innerHTML = "";
+    // ==========================
+    // INPUT FILTER (ANGKA ONLY)
+    // ==========================
+    payInput.addEventListener("input", (e) => {
 
-    (window.TOKENS || []).forEach(token => {
+        e.target.value = e.target.value
+            .replace(/[^0-9.]/g, "")
+            .replace(/(\..*)\./g, '$1');
 
-        const item = document.createElement("div");
-        item.className = "token-item";
-
-        item.innerHTML = `
-            <img src="${token.logo || 'img/default.png'}">
-            <span>${token.symbol}</span>
-        `;
-
-        item.onclick = () => {
-
-            if(type === "pay"){
-                swapState.payToken = token.address;
-            } else {
-                swapState.receiveToken = token.address;
-            }
-
-            updateTokenUI();
-            updateReceiveEstimate();
-            updatePayBalance();
-            updateReceiveBalance();
-
-            popup.style.display = "none";
-        };
-
-        list.appendChild(item);
+        updateReceiveEstimate();
     });
 
-    // close background
-    popup.onclick = (e) => {
-        if(e.target.id === "tokenPopup"){
-            popup.style.display = "none";
+    // ==========================
+    // UPDATE RECEIVE
+    // ==========================
+    async function updateReceiveEstimate(){
+
+        const val = parseFloat(payInput.value);
+
+        if(!receiveEl) return;
+
+        if(isNaN(val) || val <= 0){
+            receiveEl.innerText = "0.0";
+            return;
         }
-    };
-}
-// ==========================
-// AUTO UPDATE OUTPUT
-// ==========================
-const payInput = document.getElementById("payAmount");
 
-payInput?.addEventListener("input", () => {
-    updateReceiveEstimate();
-    console.log("swap-modal loaded");
+        try{
+            const out = await PRICE_ENGINE.getAmountOut(
+                swapState.payToken,
+                swapState.receiveToken,
+                val
+            );
+
+            console.log("OUT UI FINAL:", out);
+
+            if(out === null || out === undefined || isNaN(out)){
+                receiveEl.innerText = "0.0";
+            }else{
+                receiveEl.innerText = Number(out).toFixed(6);
+            }
+
+        }catch(e){
+            console.warn("estimate error:", e);
+            receiveEl.innerText = "0.0";
+        }
+    }
+
+    // ==========================
+    // UPDATE RATE
+    // ==========================
+    async function updateRate(){
+
+        const rateEl = document.getElementById("swapRate");
+        if(!rateEl) return;
+
+        const price = await PRICE_ENGINE.getPrice(
+            swapState.payToken,
+            swapState.receiveToken
+        );
+
+        if(!price || price === 0){
+            rateEl.innerText = "No pool";
+            return;
+        }
+
+        rateEl.innerText = `1  ${price.toFixed(6)}`;
+    }
+
+    // ==========================
+    // UPDATE UI
+    // ==========================
+    async function updateUI(){
+
+        await updateRate();
+
+        // delay supaya tidak ketimpa
+        setTimeout(updateReceiveEstimate, 50);
+    }
+
+    // ==========================
+    // SWITCH TOKEN + VALUE
+    // ==========================
+    switchBtn?.addEventListener("click", async () => {
+
+        const oldPay = payInput.value;
+        const oldReceive = receiveEl.innerText;
+
+        // tukar token
+        [swapState.payToken, swapState.receiveToken] =
+        [swapState.receiveToken, swapState.payToken];
+
+        // tukar value
+        payInput.value = oldReceive;
+        receiveEl.innerText = oldPay || "0.0";
+
+        await updateUI();
+
+        setTimeout(updateReceiveEstimate, 50);
+    });
+
+    // ==========================
+    // INIT
+    // ==========================
+    function initTokens(){
+        const tokens = window.TOKENS || [];
+
+        swapState.payToken = "native";
+
+        const first = tokens.find(t => t.symbol !== "WSDA");
+        swapState.receiveToken = first?.address || "native";
+
+        updateUI();
+    }
+
+    initTokens();
 });
-
-
