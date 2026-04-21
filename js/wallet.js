@@ -469,7 +469,7 @@ function showReceive() {
 
     document.getElementById("receiveAddress").textContent = wallet.address;
 
-    const amountInput = document.getElementById("receiveAmount");
+    const amountInput = document.getElementById("receiveAmountQR");
     const qr = document.getElementById("receiveQR");
     const linkEl = document.getElementById("receiveLink");
 
