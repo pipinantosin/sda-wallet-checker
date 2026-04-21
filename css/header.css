@@ -23,24 +23,50 @@
 .header-right{
     display:flex;
     gap:12px;
+    align-items:center;
 }
 
-/* ICON RIGHT */
+/* =========================
+   ICON BUTTON (FIX BUG LONJONG)
+========================= */
+
 .header-right i{
     font-size:16px;
-    padding:10px;
+
+    width:36px;
+    height:36px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
     border-radius:10px;
+
     background:#1a1a1a;
     cursor:pointer;
+
     transition:all 0.25s ease;
+
+    line-height:1;
+
+    box-sizing:border-box;
 }
 
 /* HOVER ICON */
 .header-right i:hover{
     background:#ff7a00;
+    color:#fff;
 }
 
-/* LOGO */
+/* CLICK EFFECT */
+.header-right i:active{
+    transform:scale(0.95);
+}
+
+/* =========================
+   LOGO
+========================= */
+
 .logo{
     width:40px;
     height:40px;
@@ -59,7 +85,7 @@
     object-fit:contain;
 }
 
-/* TITLE (biar rapi & scalable) */
+/* TITLE */
 .title{
     font-size:16px;
     font-weight:600;
@@ -67,7 +93,7 @@
 }
 
 /* =========================
-   MENU DROPDOWN
+   MENU WRAPPER
 ========================= */
 
 .menu-wrapper{
@@ -106,13 +132,10 @@
     color:#fff;
 }
 
-
-
-
-
 /* =========================
    BELL WRAPPER
 ========================= */
+
 .bell-wrapper{
     position:relative;
     display:flex;
@@ -122,6 +145,7 @@
 /* =========================
    BADGE NOTIFICATION
 ========================= */
+
 .badge{
     position:absolute;
     top:2px;
