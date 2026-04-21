@@ -14,8 +14,8 @@ function t(key){
 // ASSET RENDER
 // ==========================
 function renderAssets() {
-	
-	syncCustomTokens();
+
+    syncCustomTokens();
 
     const container = document.getElementById("tab-assets");
     if (!container) return;
@@ -34,16 +34,21 @@ function renderAssets() {
         localStorage.getItem(wallet.address + "_native") ||
         "0.00 SDA";
 
+    // ==========================
+    // SDA (TOP)
+    // ==========================
     html += `
         <div class="asset-item">
             <div style="display:flex;align-items:center;gap:10px;">
                 <img src="img/sda.png" style="width:32px;height:32px;border-radius:50%;">
                 <div>
-                    <b>SDA</b><br>
+                    <b>Sidra Digital Asset</b><br>
                     <small style="color:#888;">Native Token</small>
                 </div>
             </div>
-            <div>${sdaCache.replace(" SDA", "")}</div>
+            <div>
+                ${sdaCache.replace(" SDA", "")} <span style="color:#888;">SDA</span>
+            </div>
         </div>
     `;
 
@@ -51,32 +56,48 @@ function renderAssets() {
         ? window.customTokens
         : [];
 
-    tokens.slice(0, 10).forEach(token => {
+    tokens.forEach(token => {
 
-        const cacheKey = wallet.address + "_" + token.address;
+    const cacheKey = wallet.address + "_" + token.address;
 
-        const cached =
-            localStorage.getItem(cacheKey) ||
-            ("0.00 " + token.symbol);
+    const cached =
+        localStorage.getItem(cacheKey) ||
+        ("0.00 " + token.symbol);
 
-        html += `
-            <div class="asset-item">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <img src="${token.logo || 'img/default.png'}"
-                         style="width:32px;height:32px;border-radius:50%;">
-                    <div>
-                        <b>${token.symbol}</b><br>
-                        <small style="color:#888;">ERC20</small>
-                    </div>
-                </div>
+    html += `
+        <div class="asset-item">
+
+            <div style="display:flex;align-items:center;gap:10px;">
+                <img src="${token.icon || token.logo || 'img/default.png'}"
+                     style="width:32px;height:32px;border-radius:50%;">
 
                 <div>
-                    <span>${cached.replace(" " + token.symbol, "")}</span>
-                    <button onclick="removeToken('${token.address}')">-</button>
+                    <!-- nama panjang -->
+                    <b>${token.name || token.symbol}</b><br>
+
+                    <!-- label -->
+                    <small style="color:#888;">ERC-20 Token</small>
                 </div>
             </div>
-        `;
-    });
+
+            <div style="display:flex;align-items:center;gap:6px;">
+
+                <!-- balance ONLY (tanpa duplikat nama) -->
+                <div>
+                    ${cached.replace(" " + token.symbol, "")}
+                    <span style="color:#888;">${token.symbol}</span>
+                </div>
+
+                <button onclick="removeToken('${token.address}')"
+                        class="remove-token-btn">
+                    -
+                </button>
+
+            </div>
+
+        </div>
+    `;
+});
 
     container.innerHTML = html;
 }
@@ -86,10 +107,11 @@ function renderAssets() {
 // TOKEN TAB
 // ==========================
 function renderTokenTab() {
-	
-	syncTokenState();
+
+    syncTokenState();
 
     const container = document.getElementById("tab-tokens");
+    if (!container) return;
 
     let html = `
         <input type="text" id="searchToken"
@@ -98,6 +120,9 @@ function renderTokenTab() {
     `;
 
     DEFAULT_TOKENS.forEach(token => {
+
+        // ❌ ONLY SKIP SDA
+        if (token.symbol === "SDA") return;
 
         const customTokens =
             JSON.parse(localStorage.getItem("customTokens") || "[]");
@@ -113,17 +138,24 @@ function renderTokenTab() {
                  data-symbol="${token.symbol.toLowerCase()}">
 
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <img src="${token.logo || 'img/default.png'}"
+                    <img src="${token.icon || token.logo || 'img/default.png'}"
                          style="width:28px;height:28px;border-radius:50%;">
-                    <div>${token.symbol}</div>
+
+                    <div>
+                        <b>${token.name || token.symbol}</b><br>
+                        <small style="color:#888;">${token.symbol}</small>
+                    </div>
                 </div>
 
                 ${
                     isAdded
                     ? `<span style="color:#888;">${t("added") || 'Added'}</span>`
-                    : `<button onclick='addTokenFromList(JSON.parse(decodeURIComponent("${tokenData}")))'
-                               style="width:auto;">+</button>`
+                    : `<button class="add-token-btn"
+                               onclick='addTokenFromList(JSON.parse(decodeURIComponent("${tokenData}")))'>
+                               +
+                       </button>`
                 }
+
             </div>
         `;
     });
@@ -132,7 +164,6 @@ function renderTokenTab() {
 
     initTokenSearch();
 }
-
 
 // ==========================
 // SEARCH TOKEN
