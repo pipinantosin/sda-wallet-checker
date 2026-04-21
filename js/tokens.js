@@ -96,34 +96,23 @@ function renderTokenSelect() {
 
     select.innerHTML = "";
 
-    // ==========================
-    // NATIVE TOKEN
-    // ==========================
-    const nativeOpt = document.createElement("option");
-    nativeOpt.value = "native";
-    nativeOpt.textContent = "SDA";
-    select.appendChild(nativeOpt);
+    const tokens = window.TOKENS || [];
 
-    // ==========================
-    // TOKEN LIST
-    // ==========================
-    (window.TOKENS || []).forEach((t) => {
+    tokens.forEach(t => {
 
         const opt = document.createElement("option");
+
         opt.value = t.address;
-        opt.textContent = t.symbol;
+        opt.textContent = `${t.symbol}`;
+
+        //  icon tetap aman (PNG SYSTEM TIDAK DIHAPUS)
+        opt.dataset.icon = t.logo || "img/default.png";
 
         select.appendChild(opt);
     });
 
-    // ==========================
-    // SET VALUE
-    // ==========================
     select.value = window.selectedToken || "native";
 
-    // ==========================
-    // EVENT (🔥 SINGLE SOURCE)
-    // ==========================
     select.onchange = (e) => {
         setGlobalToken(e.target.value);
     };
@@ -212,6 +201,207 @@ async function addTokenFromList(token) {
     renderTokenSelect?.();
 }
 
+
+// ======================================================
+//  ADD TOKEN
+// ======================================================
+function addToken(symbol, address){
+
+    symbol = symbol.trim().toUpperCase();
+    address = address.trim();
+
+    if (!ethers.utils.isAddress(address)) {
+        alert("Invalid contract address");
+        return;
+    }
+
+    const exists = window.TOKENS.find(
+        t => t.address.toLowerCase() === address.toLowerCase()
+    );
+
+    if (exists){
+        alert("Token already added");
+        return;
+    }
+
+    const newToken = normalizeToken({
+        symbol,
+        address
+    });
+
+    customTokens.push(newToken);
+
+    saveTokens();
+    rebuildTokens();
+
+    renderTokenList();
+}
+
+// ======================================================
+//  REMOVE TOKEN
+// ======================================================
+function removeToken(address){
+
+    customTokens = customTokens.filter(
+        t => t.address.toLowerCase() !== address.toLowerCase()
+    );
+
+    saveTokens();
+    rebuildTokens();
+
+    renderTokenList();
+}
+
+function openTokenDropdown(target){
+
+    const tokens = window.TOKENS || [];
+
+    let html = "";
+
+    tokens.forEach(t => {
+
+        html += `
+            <div class="token-item"
+                 data-address="${t.address}"
+                 data-symbol="${t.symbol.toLowerCase()}">
+
+                <img src="${t.logo || 'img/default.png'}">
+
+                <div>
+                    <b>${t.symbol}</b><br>
+                    <small style="color:#888;">${t.name}</small>
+                </div>
+
+            </div>
+        `;
+    });
+
+    const box = document.createElement("div");
+    box.id = "tokenPopup";
+
+    box.innerHTML = `
+        <div class="popup-bg"></div>
+
+        <div class="popup">
+
+            <div class="token-search">
+                <input id="tokenSearchInput" placeholder="Search token...">
+            </div>
+
+            <div id="tokenList">
+                ${html}
+            </div>
+
+        </div>
+    `;
+
+    document.body.appendChild(box);
+
+    const input = box.querySelector("#tokenSearchInput");
+    const list = box.querySelector("#tokenList");
+
+    // ==========================
+    // SEARCH FILTER
+    // ==========================
+    input.addEventListener("input", (e) => {
+
+        const keyword = e.target.value.toLowerCase();
+
+        list.querySelectorAll(".token-item").forEach(item => {
+
+            const symbol = item.dataset.symbol;
+
+            item.style.display =
+                symbol.includes(keyword) ? "flex" : "none";
+        });
+    });
+
+    // ==========================
+    // SELECT TOKEN ( CORE FIX)
+    // ==========================
+    box.addEventListener("click", (e) => {
+
+        if (e.target.classList.contains("popup-bg")) {
+            box.remove();
+            return;
+        }
+
+        const item = e.target.closest(".token-item");
+        if (!item) return;
+
+        const addr = item.dataset.address;
+
+        // ==========================
+        //  1 SOURCE OF TRUTH
+        // ==========================
+        window.activeToken = addr;
+        localStorage.setItem("selectedToken", addr);
+
+        // ==========================
+        // UPDATE SYSTEM HOME + SEND
+        // ==========================
+        setGlobalToken(addr);     // sync home
+        setSendToken(addr);       // sync send
+
+        // ==========================
+        // FORCE UI UPDATE ALL
+        // ==========================
+        syncSendTokenUI?.();
+        updateSendBalance?.();
+        loadBalance?.();
+        renderAssets?.();
+
+        box.remove();
+    });
+}
+
+document.getElementById("tokenSelect")?.addEventListener("mousedown", (e) => {
+    e.preventDefault(); //  STOP native dropdown
+    openTokenDropdown("home");
+});
+
+document.getElementById("sendTokenSelect")?.addEventListener("mousedown", (e) => {
+    e.preventDefault(); //  STOP native dropdown
+    openTokenDropdown("send");
+});
+
+// ======================================================
+//  SAVE CUSTOM TOKENS
+// ======================================================
+function saveTokens(){
+    localStorage.setItem("customTokens", JSON.stringify(customTokens));
+}
+
+// ======================================================
+//  RENDER CUSTOM TOKEN LIST (MANAGER PAGE)
+// ======================================================
+function renderTokenList(){
+
+    const list = document.getElementById("token-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    customTokens.forEach(token => {
+
+        const div = document.createElement("div");
+        div.style.marginBottom = "6px";
+
+        div.innerHTML = `
+            <img src="${getTokenIcon(token)}"
+                 style="width:16px;height:16px;margin-right:6px"
+                 onerror="this.src='img/default.png'">
+
+            <span>${token.symbol}</span>
+
+            <button onclick="removeToken('${token.address}')">
+                Remove
+            </button>
+        `;
+
+        list.appendChild(div);
+    });
+}
 // ==========================
 // GET TOKEN DATA
 // ==========================
