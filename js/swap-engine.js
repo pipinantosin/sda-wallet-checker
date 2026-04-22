@@ -1,22 +1,19 @@
 // ==========================
-// SWAP ENGINE FINAL FIXED
+// SWAP ENGINE FINAL PRO (MULTICALL + HISTORY)
 // ==========================
 
 window.SWAP_ENGINE = (function () {
 
-    // ==========================
-    // SAFE CONFIG
-    // ==========================
     const ROUTER_ADDR = window.CONFIG?.ROUTER;
-    const SDA_NATIVE  = "native";
-const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
+    const WSDA_ADDR   = window.CONFIG?.WSDA;
 
     let isLoading = false;
 
     // ==========================
-    // ABI (MATCH SOLIDITY)
+    // ABI
     // ==========================
     const ROUTER_ABI = [
+        "function multicall(bytes[] data) payable returns (bytes[] results)",
         "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256)"
     ];
 
@@ -27,43 +24,32 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
     ];
 
     // ==========================
-    // LOCAL HELPERS (NO CONFLICT)
+    // HELPERS
     // ==========================
-    function _isNative(token){
-    return !token || token === "native";
-}
-
-    function _toAddress(token){
-
-    // SDA (native) -> WSDA (wrapped for router)
-    if (!token || token === "native") {
-        return WSDA_ADDR;
+    function isNative(token){
+        return !token || token === "native";
     }
 
-    // ERC20 tetap
-    return token;
-}
+    function toRouterAddress(token){
+        return isNative(token) ? WSDA_ADDR : token;
+    }
 
     function getWallet(){
-        return getPKWallet?.() || getSelectedWallet?.() || wallet || null;
+        return getPKWallet?.() || getSelectedWallet?.() || window.wallet || null;
     }
 
-    function setButtonLoading(state){
+    function setLoading(state){
         const btn = document.getElementById("btnReviewSwap");
         if(!btn) return;
 
-        if(state){
-            btn.disabled = true;
-            btn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Swapping...`;
-        }else{
-            btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-right-left"></i> Review Swap`;
-        }
+        btn.disabled = state;
+        btn.innerHTML = state
+            ? `<i class="fa fa-spinner fa-spin"></i> Swapping...`
+            : `<i class="fa-solid fa-right-left"></i> Review Swap`;
     }
 
     function log(msg){
         console.log("[SWAP]", msg);
-
         const el = document.getElementById("swapRate");
         if(el) el.innerText = msg;
     }
@@ -72,7 +58,7 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
     // DECIMALS
     // ==========================
     async function getDecimals(token){
-        if(_isNative(token)) return 18;
+        if(isNative(token)) return 18;
 
         try{
             const c = new ethers.Contract(token, ERC20_ABI, provider);
@@ -82,20 +68,17 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
         }
     }
 
-    // ==========================
-    // PARSE
-    // ==========================
     async function parseAmount(token, amount){
         const dec = await getDecimals(token);
         return ethers.utils.parseUnits(amount.toString(), dec);
     }
 
     // ==========================
-    // APPROVE
+    // APPROVE (OUTSIDE MULTICALL - SAFE)
     // ==========================
     async function approveIfNeeded(token, amount, wallet){
 
-        if(_isNative(token)) return;
+        if(isNative(token)) return;
 
         const contract = new ethers.Contract(token, ERC20_ABI, wallet);
 
@@ -116,7 +99,7 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
     }
 
     // ==========================
-    // BUILD PARAMS (MATCH SOLIDITY)
+    // BUILD PARAMS
     // ==========================
     async function buildParams(wallet, tokenIn, tokenOut, amountUI){
 
@@ -142,19 +125,19 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
         );
 
         return {
-            tokenIn: _toAddress(tokenIn),
-            tokenOut: _toAddress(tokenOut),
+            tokenIn: toRouterAddress(tokenIn),
+            tokenOut: toRouterAddress(tokenOut),
             fee: window.CONFIG?.FEE || 3000,
             recipient: wallet.address,
             deadline: Math.floor(Date.now()/1000) + 300,
-            amountIn: amountIn,
+            amountIn,
             amountOutMinimum: amountOutMin,
             sqrtPriceLimitX96: 0
         };
     }
 
     // ==========================
-    // MAIN SWAP
+    // MAIN SWAP (MULTICALL ENGINE)
     // ==========================
     async function swapExactInput(){
 
@@ -175,7 +158,7 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
             }
 
             isLoading = true;
-            setButtonLoading(true);
+            setLoading(true);
 
             const router = new ethers.Contract(
                 ROUTER_ADDR,
@@ -190,29 +173,72 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
                 amountUI
             );
 
+            // ==========================
+            // APPROVE FIRST (SAFE STANDARD)
+            // ==========================
             await approveIfNeeded(
-                _toAddress(tokenIn),
+                tokenIn === "native" ? WSDA_ADDR : tokenIn,
                 params.amountIn,
                 wallet
             );
 
-            log("Swapping...");
+            // ==========================
+            // MULTICALL BUILD
+            // ==========================
+            const iface = new ethers.utils.Interface(ROUTER_ABI);
 
-            const tx = await router.exactInputSingle(params, {
-                gasLimit: 500000
+            const calls = [];
+
+            const swapData = iface.encodeFunctionData(
+                "exactInputSingle",
+                [params]
+            );
+
+            calls.push(swapData);
+
+            log("Executing multicall...");
+
+            const tx = await router.multicall(calls, {
+                gasLimit: 900000
             });
 
             log("TX: " + tx.hash);
 
             const receipt = await tx.wait();
 
+            if(receipt.status !== 1){
+                throw new Error("Swap failed on-chain");
+            }
+
             log("Swap success");
 
             showToast?.("Swap success", "success");
 
-            if(typeof loadBalance === "function"){
-                loadBalance();
+            // ==========================
+            // HISTORY (FIXED GUARANTEED)
+            // ==========================
+            try{
+
+                const history = JSON.parse(localStorage.getItem("txHistory") || "[]");
+
+                history.unshift({
+                    hash: tx.hash,
+                    value: amountUI,
+                    symbol: tokenOut === "native" ? "SDA" : (swapState?.receiveSymbol || "TOKEN"),
+                    tokenAddress: tokenOut,
+                    timestamp: Date.now()
+                });
+
+                localStorage.setItem("txHistory", JSON.stringify(history));
+
+                renderTxHistory?.();
+                updateBellBadge?.();
+
+            }catch(e){
+                console.warn("history fail", e);
             }
+
+            loadBalance?.();
 
             return receipt;
 
@@ -226,20 +252,16 @@ const WSDA_ADDR   = window.CONFIG?.WSDA; // wrapped
         }finally{
 
             isLoading = false;
-            setButtonLoading(false);
+            setLoading(false);
         }
     }
 
     // ==========================
-    // INIT BUTTON
+    // INIT
     // ==========================
     function init(){
-
-        const btn = document.getElementById("btnReviewSwap");
-
-        if(btn){
-            btn.addEventListener("click", swapExactInput);
-        }
+        document.getElementById("btnReviewSwap")
+            ?.addEventListener("click", swapExactInput);
     }
 
     document.addEventListener("DOMContentLoaded", init);
