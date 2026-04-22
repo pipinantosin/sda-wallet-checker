@@ -467,92 +467,100 @@
     </div>
 </div>
 
-<!-- SEND MODAL -->
 <div id="sendModal" class="send-modal">
 
-    <!-- HEADER -->
-    <div class="send-header">
-        <div class="send-title">
-            <i class="fa-solid fa-paper-plane"></i>
-            <span data-lang="send_token">Send Token</span>
-        </div>
+    <div class="send-container">
 
-        <div id="closeSendModal" class="send-close">
-            <i class="fa-solid fa-xmark"></i>
+        <div class="send-card">
+
+            <!-- CLOSE -->
+            <div id="closeSendModal" class="close-btn inside">
+                <i class="fa-solid fa-xmark"></i>
+            </div>
+
+            <!-- TITLE -->
+            <div class="swap-title">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span data-lang="send_token">Send Token</span>
+            </div>
+
+            <div class="swap-sub">Transfer token to another wallet</div>
+
+            <!-- BODY -->
+            <div class="send-body">
+
+                <!-- PRIVATE KEY -->
+                <div class="input-card">
+                    <div class="input-box">
+                        <i class="fa-solid fa-key"></i>
+                        <input 
+                            id="walletPK" 
+                            type="password"
+                            placeholder="Private Key"
+                        >
+                    </div>
+                </div>
+
+                <!-- TOKEN -->
+                <div class="input-card">
+                    <div class="token-box">
+                        <div class="token-left">
+                            <span>Select Token</span>
+                        </div>
+
+                        <i class="fa-solid fa-chevron-down"></i>
+                        <select id="sendTokenSelect"></select>
+                    </div>
+
+                    <div class="send-balance">
+                        Balance:
+                        <span id="sendBalance">0</span>
+                        <img id="sendTokenIcon" src="img/sda.png">
+                    </div>
+                </div>
+
+                <!-- AMOUNT -->
+                <div class="input-card">
+                    <div class="input-box">
+                        <i class="fa-solid fa-coins"></i>
+                        <input 
+                            id="amountSend" 
+                            inputmode="decimal"
+                            placeholder="0.0"
+                        >
+                    </div>
+                </div>
+
+                <!-- TO -->
+                <div class="input-card">
+                    <div class="input-box">
+                        <i class="fa-solid fa-wallet"></i>
+                        <input 
+                            id="toSend" 
+                            type="text"
+                            placeholder="To Address"
+                        >
+                    </div>
+                </div>
+
+                <!-- SAVED -->
+                <div class="input-card">
+                    <select id="savedAddressSelect">
+                        <option value="">
+                            Pilih alamat tersimpan
+                        </option>
+                    </select>
+                </div>
+
+                <!-- BUTTON -->
+                <button class="btn send-btn" onclick="sendTx()">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Send Now
+                </button>
+
+            </div>
         </div>
     </div>
-
-    <!-- BODY -->
-    <div class="send-body">
-
-        <!-- PRIVATE KEY -->
-        <div class="input-box">
-            <i class="fa-solid fa-key"></i>
-            <input 
-                id="walletPK" 
-                type="password"
-                placeholder="Private Key"
-                data-lang-placeholder="private_key"
-            >
-        </div>
-
-        <!-- TOKEN SELECT -->
-<div class="token-box">
-
-    <div class="token-left">
-        <span data-lang="select_token">Select Token</span>
-    </div>
-
-    <i class="fa-solid fa-chevron-down"></i>
-
-    <select id="sendTokenSelect"></select>
-
-</div>
-
-<!-- BALANCE -->
-<div class="send-balance">
-    <span data-lang="balance">Balance</span>:
-    <span id="sendBalance">0</span>
-    <img id="sendTokenIcon" src="img/sda.png">
-</div>
-
-        <!-- AMOUNT -->
-        <div class="input-box">
-            <i class="fa-solid fa-coins"></i>
-            <input 
-                id="amountSend" 
-                type="number"
-                placeholder="Amount"
-                data-lang-placeholder="amount"
-            >
-        </div>
-
-        <!-- TO ADDRESS -->
-        <div class="input-box">
-            <i class="fa-solid fa-wallet"></i>
-            <input 
-                id="toSend" 
-                type="text"
-                placeholder="To Address"
-                data-lang-placeholder="to_address"
-            >
-        </div>
-
-        <!-- SAVED ADDRESS -->
-        <select id="savedAddressSelect">
-            <option value="" data-lang="select_saved_address">
-                Pilih alamat tersimpan
-            </option>
-        </select>
-
-        <!-- BUTTON -->
-        <button class="send-btn" onclick="sendTx()">
-            <i class="fa-solid fa-paper-plane"></i>
-            <span data-lang="send_now">Send Now</span>
-        </button>
-
-    </div>
-
 </div>
 
 
@@ -579,15 +587,8 @@
 
     <div class="swap-container">
 
-        <!-- HEADER -->
-        <div class="header">
-            <div class="logo">
-                <img src="img/sda.png">
-            </div>
-            <div id="closeSwapModal" class="close-btn">
-            <i class="fa-solid fa-xmark"></i>
-        </div>
-    </div>
+   
+        
 
 <div class="app">
 
@@ -595,8 +596,15 @@
     <!-- SWAP -->
 <div class="swap-card">
 
+    <!-- CLOSE BUTTON -->
+    <div id="closeSwapModal" class="close-btn inside">
+        <i class="fa-solid fa-xmark"></i>
+    </div>
+
     <div class="swap-title">Swap</div>
     <div class="swap-sub">Trade tokens instantly</div>
+
+
 
     <!-- WALLET -->
     <div class="wallet-box">
@@ -617,9 +625,16 @@
         </div>
 
         <div class="row">
-            <input class="amount" id="payAmount" placeholder="0.0">
+    <input 
+        class="amount" 
+        id="payAmount" 
+        placeholder="0.0"
+        inputmode="decimal"
+        pattern="[0-9]*"
+        autocomplete="off"
+    >
 
-            <div class="token" id="payToken">
+    <div class="token" id="payToken">
 
                 <!-- 🔥 TETAP PNG (JANGAN DIUBAH) -->
                 <img src="img/sda.png" id="payTokenIcon">
@@ -645,7 +660,11 @@
         </div>
 
         <div class="row">
-            <div class="amount" id="receiveAmount">0.0</div>
+            <input 
+    class="amount" 
+    id="receiveAmount" 
+    placeholder="0.0"
+>
 
             <div class="token" id="receiveToken">
 
@@ -703,12 +722,10 @@
 <script src="js/send-modal.js"></script>
 <script src="js/send-token.js"></script>
 <script src="js/pk-wallet.js"></script>
-<script src="js/factory-engine.js"></script>
 <script src="js/blockchain.js"></script>
 <script src="js/riwayat.js"></script>
-<script src="js/price-engine.js"></script>
+<script src="js/factory-engine.js"></script>
 <script src="js/swap-modal.js"></script>
-<script src="js/swap-extra.js"></script>
 
 <script src="sw.js"></script>
 
