@@ -91,6 +91,7 @@
     SEND MODAL
 ===================================================== */
 
+/* MODAL BASE */
 .send-modal{
     position:fixed;
     inset:0;
@@ -98,31 +99,60 @@
     z-index:9999;
 
     display:none;
-    flex-direction:column;
+    justify-content:center;
+    align-items:flex-start;
+    overflow-y:auto;
 }
 
-.send-header{
+.send-modal.show{
     display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:16px;
-    background:#111;
-    border-bottom:1px solid #1f1f1f;
 }
 
-.send-title{
+/* CONTAINER */
+.send-container{
+    width:100%;
+    max-width:420px;
+    padding:16px;
+}
+
+/* CARD (SAMA KAYAK SWAP) */
+.send-card{
+    position:relative;
+    background:linear-gradient(145deg,#1a1f27,#0f141b);
+    border-radius:20px;
+    padding:16px;
+    box-shadow:0 0 30px rgba(0,0,0,0.5);
+}
+
+/* CLOSE */
+.close-btn.inside{
+    position:absolute;
+    top:12px;
+    right:12px;
+    font-size:20px;
+    cursor:pointer;
+    opacity:0.7;
+}
+
+.close-btn.inside:hover{
+    opacity:1;
+}
+
+/* TITLE */
+
+
+.send-card .swap-title{
     display:flex;
     align-items:center;
     gap:10px;
-    color:#ff7a00;
-    font-weight:600;
+    font-size:20px;
+    font-weight:bold;
 }
 
-.send-close{
-    padding:8px;
-    border-radius:10px;
-    background:#1a1a1a;
-    cursor:pointer;
+.swap-sub{
+    font-size:12px;
+    color:#aaa;
+    margin-bottom:15px;
 }
 
 /* BODY */
@@ -130,7 +160,13 @@
     display:flex;
     flex-direction:column;
     gap:12px;
-    padding:16px;
+}
+
+/* INPUT CARD (KAYAK SWAP) */
+.input-card{
+    background:#0c1117;
+    border-radius:18px;
+    padding:14px;
 }
 
 /* INPUT */
@@ -138,9 +174,6 @@
     display:flex;
     align-items:center;
     gap:10px;
-    padding:12px;
-    border-radius:14px;
-    background:#111;
 }
 
 .input-box input{
@@ -151,42 +184,37 @@
     color:#fff;
 }
 
-/* TOKEN BOX */
+/* TOKEN */
 .token-box{
     display:flex;
     justify-content:space-between;
     align-items:center;
-    padding:12px;
-    background:#111;
-    border-radius:14px;
 }
 
 /* BALANCE */
 .send-balance{
+    margin-top:6px;
+    font-size:12px;
+    color:#aaa;
     display:flex;
     align-items:center;
     gap:6px;
-    font-size:12px;
-    color:#aaa;
 }
 
 .send-balance img{
     width:16px;
-    height:16px;
 }
 
-/* BUTTON */
-.send-btn{
+/* BUTTON (PAKAI STYLE SWAP) */
+.btn{
     margin-top:10px;
-    padding:14px;
+    width:100%;
+    padding:16px;
     border:none;
-    border-radius:14px;
-    background:#ff7a00;
+    border-radius:18px;
+    background:#ff4d00;
     color:#fff;
-    font-weight:600;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
 }
-
-
-
-
-
