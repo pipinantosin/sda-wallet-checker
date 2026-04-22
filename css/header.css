@@ -36,20 +36,22 @@
     width:36px;
     height:36px;
 
-    display:flex;
+    display:inline-flex; /* 🔥 FIX */
+
     align-items:center;
     justify-content:center;
 
     border-radius:10px;
-
     background:#1a1a1a;
-    cursor:pointer;
 
+    cursor:pointer;
     transition:all 0.25s ease;
 
     line-height:1;
+}
 
-    box-sizing:border-box;
+.header-right i::before{
+    display:block;
 }
 
 /* HOVER ICON */
