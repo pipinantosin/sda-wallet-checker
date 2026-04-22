@@ -43,19 +43,22 @@ body{
     margin-bottom:20px;
 }
 
-.logo{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-weight:bold;
+.close-btn.inside{
+    position:absolute;
+    top:12px;
+    right:12px;
+    font-size:20px;
+    cursor:pointer;
+    opacity:0.7;
 }
 
-.logo img{
-    width:30px;
+.close-btn.inside:hover{
+    opacity:1;
 }
 
 /* CARD */
 .swap-card{
+	position:relative;
     background:linear-gradient(145deg,#1a1f27,#0f141b);
     border-radius:20px;
     padding:16px;
@@ -118,7 +121,9 @@ body{
     display:flex;
     justify-content:space-between;
     align-items:center;
+    gap:10px;
 }
+
 
 .label{
     font-size:12px;
@@ -131,13 +136,25 @@ body{
 }
 
 .amount{
+    flex:1;
+    min-width:0;
+
     font-size:32px;
     font-weight:bold;
     background:transparent;
     border:none;
     outline:none;
     color:#fff;
-    width:100%;
+
+    overflow-x:auto;      /*  scroll horizontal */
+    overflow-y:hidden;
+    white-space:nowrap;   /*  biar ga turun baris */
+
+    scrollbar-width:none; /* firefox */
+}
+
+.amount::-webkit-scrollbar{
+    display:none;         /* chrome */
 }
 
 /* TOKEN */
@@ -149,6 +166,7 @@ body{
     padding:8px 12px;
     border-radius:12px;
     cursor:pointer;
+    flex-shrink:0;
 }
 
 .token img{
@@ -295,4 +313,9 @@ body{
     padding: 10px;
     border-bottom: 1px solid #222;
 }
+
+
+
+
+
 
