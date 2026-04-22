@@ -1,176 +1,179 @@
-// =====================================================
-// SIDRAPULSE FACTORY ENGINE
-// PRICE CACHE LAYER (SWAP + SCANNER CORE)
-// =====================================================
+// ==========================
+// PRICE ENGINE (STABLE)
+// ==========================
 
-window.FACTORY_ENGINE = (function () {
+const WSDA = window.CONFIG?.WSDA;
+const FACTORY = window.CONFIG?.FACTORY;
 
-    // ==========================
-    // SAFETY CHECK
-    // ==========================
-    if (!window.CONFIG) {
-        console.error("❌ CONFIG belum tersedia");
-    }
+const FEES = [500, 3000, 10000];
 
-    const CONFIG = window.CONFIG || {};
+// ==========================
+// ABI
+// ==========================
+const FACTORY_ABI = [
+    "function getPool(address,address,uint24) view returns (address)"
+];
 
-    const cache = new Map();
-    let initialized = false;
-    let lastUpdate = 0;
+const POOL_ABI = [
+    "function slot0() view returns (uint160 sqrtPriceX96,int24,uint16,uint16,uint16,uint8,bool)"
+];
 
-    const REFRESH_MS = CONFIG.CACHE_REFRESH_MS || 60000;
-
-    // ==========================
-    // LOAD TOKENS
-    // ==========================
-    async function loadTokens() {
-        const res = await fetch("./data/tokens.json");
-        return await res.json();
-    }
-
-    // ==========================
-    // FETCH POOL DATA (via SIDRAPULSE ONLY)
-    // ==========================
-    async function fetchPool(tokenAddr) {
-
-        if (!window.SIDRAPULSE) {
-            throw new Error("SIDRAPULSE belum ready");
-        }
-
-        return await window.SIDRAPULSE.fetchPoolDataByToken(tokenAddr);
-    }
-
-    // ==========================
-    // INIT / REFRESH CACHE
-    // ==========================
-    async function init(force = false) {
-
-        const now = Date.now();
-
-        if (initialized && !force && (now - lastUpdate < REFRESH_MS)) {
-            return;
-        }
-
-        initialized = true;
-        lastUpdate = now;
-
-        const tokens = await loadTokens();
-
-        console.log("📡 FACTORY ENGINE scanning:", tokens.length);
-
-        const tasks = tokens.map(async (t) => {
-
-            try {
-
-                const data = await fetchPool(t.address);
-
-                cache.set(t.address, {
-                    symbol: t.symbol,
-                    address: t.address,
-                    price: data?.price || 0,
-                    liquidity: data?.liquidity || 0,
-                    updated: Date.now()
-                });
-
-            } catch (e) {
-
-                cache.set(t.address, {
-                    symbol: t.symbol,
-                    address: t.address,
-                    price: 0,
-                    liquidity: 0,
-                    error: true
-                });
-            }
-        });
-
-        await Promise.all(tasks);
-
-        console.log("✅ FACTORY ENGINE READY");
-    }
-
-    // ==========================
-    // GETTERS (FAST CACHE ONLY)
-    // ==========================
-    function getPrice(addr) {
-        return cache.get(addr)?.price || 0;
-    }
-
-    function getLiquidity(addr) {
-        return cache.get(addr)?.liquidity || 0;
-    }
-
-    function getToken(addr) {
-        return cache.get(addr) || null;
-    }
-
-    function getAll() {
-        return Array.from(cache.values());
-    }
-
-    // ==========================
-    // SWAP QUOTE ENGINE
-    // ==========================
-    function getQuote(tokenIn, tokenOut, amountIn) {
-
-    // 🔥 1. SAME TOKEN = AUTO 1:1
-    if (
-        tokenIn === tokenOut ||
-        !tokenIn ||
-        !tokenOut
-    ) {
-        return amountIn;
-    }
-
-    const pIn = getPrice(tokenIn);
-    const pOut = getPrice(tokenOut);
-
-    // 🔥 2. HANDLE ZERO PRICE (ANTI 0/0)
-    if (!pIn || !pOut) {
-        return 0;
-    }
-
-    return (amountIn * pIn) / pOut;
+// ==========================
+// HELPERS
+// ==========================
+function isNative(t){
+    return !t || t === "native" || t === WSDA;
 }
 
-    // ==========================
-    // REFRESH FORCE
-    // ==========================
-    async function refresh() {
-        return await init(true);
+function normalize(t){
+    return isNative(t) ? WSDA : t;
+}
+
+// ==========================
+// SQRT PRICE  NORMAL PRICE (FIX PRESISI)
+// ==========================
+function sqrtToPrice(sqrt){
+
+    try{
+        // pakai BigInt biar ga jadi e-38
+        const sqrtBig = BigInt(sqrt.toString());
+
+        // price = (sqrt^2) / 2^192
+        const numerator = sqrtBig * sqrtBig;
+        const denominator = 2n ** 192n;
+
+        const price = Number(numerator) / Number(denominator);
+
+        if(!isFinite(price)) return 0;
+
+        return price;
+
+    }catch(e){
+        console.warn("sqrt convert error:", e);
+        return 0;
+    }
+}
+
+// ==========================
+// FACTORY GET POOL
+// ==========================
+async function getPool(tokenA, tokenB, fee){
+
+    try{
+        const factory = new ethers.Contract(FACTORY, FACTORY_ABI, provider);
+
+        const pool = await factory.getPool(tokenA, tokenB, fee);
+
+        if(!pool || pool === ethers.constants.AddressZero){
+            return null;
+        }
+
+        return pool;
+
+    }catch(e){
+        console.warn("getPool error", e);
+        return null;
+    }
+}
+
+// ==========================
+// FETCH PRICE FROM POOL
+// ==========================
+async function fetchPrice(poolAddr){
+
+    try{
+        const pool = new ethers.Contract(poolAddr, POOL_ABI, provider);
+
+        const slot0 = await pool.slot0();
+
+        const sqrt = slot0.sqrtPriceX96 || slot0[0];
+
+        if(!sqrt) return 0;
+
+        return sqrtToPrice(sqrt);
+
+    }catch(e){
+        console.warn("slot0 fail:", poolAddr);
+        return 0;
+    }
+}
+
+// ==========================
+// MAIN PRICE
+// ==========================
+async function getPrice(tokenIn, tokenOut){
+
+    // native ↔ native
+    if(isNative(tokenIn) && isNative(tokenOut)){
+        return 1;
     }
 
-    // ==========================
-    // DEBUG
-    // ==========================
-    function debug() {
-        console.table(getAll());
+    const tA = normalize(tokenIn);
+    const tB = normalize(tokenOut);
+
+    for(const fee of FEES){
+
+        const pool = await getPool(tA, tB, fee);
+        if(!pool) continue;
+
+        try{
+            const contract = new ethers.Contract(pool, [
+                "function token0() view returns (address)",
+                "function token1() view returns (address)",
+                ...POOL_ABI
+            ], provider);
+
+            const [token0, token1, slot0] = await Promise.all([
+                contract.token0(),
+                contract.token1(),
+                contract.slot0()
+            ]);
+
+            const sqrt = slot0.sqrtPriceX96 || slot0[0];
+            if(!sqrt) continue;
+
+            let price = sqrtToPrice(sqrt);
+
+            if(price <= 0) continue;
+
+            // 🔥 INI KUNCINYA
+            // kalau arah terbalik → inverse
+            if(
+                token0.toLowerCase() !== tA.toLowerCase() &&
+                token1.toLowerCase() === tA.toLowerCase()
+            ){
+                price = 1 / price;
+            }
+
+            return price;
+
+        }catch(e){
+            console.warn("price read error:", e);
+        }
     }
 
-    // ==========================
-    // AUTO REFRESH LOOP
-    // ==========================
-    setInterval(() => {
-        init(true);
-    }, REFRESH_MS);
+    return 0;
+}
+// ==========================
+// AMOUNT OUT
+// ==========================
+async function getAmountOut(tokenIn, tokenOut, amountIn){
 
-    // ==========================
-    // EXPORT API
-    // ==========================
-    return {
+    const price = await getPrice(tokenIn, tokenOut);
 
-        init,
-        refresh,
+    if(!price || price === 0) return 0;
 
-        getPrice,
-        getLiquidity,
-        getToken,
-        getAll,
+    const result = amountIn * price;
 
-        getQuote,
-        debug,
+    if(!isFinite(result)) return 0;
 
-        cache
-    };
+    return result;
+}
 
-})();
+// ==========================
+// GLOBAL EXPORT
+// ==========================
+window.PRICE_ENGINE = {
+    getPrice,
+    getAmountOut
+};
