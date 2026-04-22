@@ -1,4 +1,4 @@
-const WSDA_ADDRESS = "0xE4095a910209D7BE03B55D02F40d4554B1666182";
+const WSDA_ADDR = "0xE4095a910209D7BE03B55D02F40d4554B1666182";
 
 const SWAP_TOKEN_ALIAS = {
     WSDA: "SDA"
@@ -93,9 +93,8 @@ receiveInput.addEventListener("input", function(){
     function getTokenData(addr){
 
         const isNative =
-            !addr ||
-            addr === "native" ||
-            addr === WSDA_ADDRESS;
+    !addr ||
+    addr === "native";
 
         if(isNative){
             return {
@@ -371,7 +370,8 @@ setTimeout(() => {
 
         tokens.forEach(t => {
 
-            if (t.symbol === "WSDA") return;
+           if (t.symbol === "WSDA") return;
+if (t.address === WSDA_ADDR) return;
 
             html += `
                 <div class="token-item"
@@ -425,9 +425,8 @@ setTimeout(() => {
             const symbol = item.dataset.symbol;
 
             const isNative =
-                symbol === "sda" ||
-                tokenAddress === WSDA_ADDRESS ||
-                tokenAddress === "native";
+    symbol === "sda" ||
+    tokenAddress === "native";
 
             if(isNative) tokenAddress = "native";
 
@@ -445,6 +444,29 @@ setTimeout(() => {
     initTokens();
 });
 
+
+
+
+document.getElementById("swapButton")
+?.addEventListener("click", () => {
+    SWAP_ENGINE.swapExactInput();
+});
+
+
+const payInput = document.getElementById("payAmount");
+if(payInput){
+    payInput.addEventListener("input", function(){
+        activeInput = "pay";
+        this.value = this.value
+            .replace(/[^0-9.]/g, "")
+            .replace(/(\..*)\./g, '$1');
+
+        this.scrollLeft = this.scrollWidth;
+
+        updateReceiveEstimate?.();
+        updateRate?.();
+    });
+}
 // ==========================
 // TOKEN BALANCE
 // ==========================
@@ -455,7 +477,7 @@ async function getTokenBalance(address, tokenAddr){
         const isNative =
             !tokenAddr ||
             tokenAddr === "native" ||
-            tokenAddr === WSDA_ADDRESS;
+            tokenAddr === WSDA_ADDR;
 
         if (isNative) {
             const bal = await provider.getBalance(address);
@@ -481,7 +503,6 @@ async function getTokenBalance(address, tokenAddr){
         return "0";
     }
 }
-
 
 
 
