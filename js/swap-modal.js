@@ -17,6 +17,7 @@ window.swapState = {
     receiveToken: null
 };
 
+let activeInput = "pay"; // "pay" | "receive"
 // ==========================
 // INIT
 // ==========================
@@ -40,9 +41,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const switchBtn = document.getElementById("switchSwap");
     const payInput = document.getElementById("payAmount");
-    payInput.addEventListener("input", () => {
+    
+    payInput.addEventListener("input", function(){
+
+    activeInput = "pay";
+
+    this.value = this.value
+        .replace(/[^0-9.]/g, "")
+        .replace(/(\..*)\./g, '$1');
+
+    this.scrollLeft = this.scrollWidth;
+
     updateReceiveEstimate();
-    updateRate(); // 🔥 TAMBAH INI
+    updateRate();
+});
+
+
+const receiveInput = document.getElementById("receiveAmount");
+
+receiveInput.addEventListener("input", function(){
+
+    activeInput = "receive";
+
+    this.value = this.value
+        .replace(/[^0-9.]/g, "")
+        .replace(/(\..*)\./g, '$1');
+
+    this.scrollLeft = this.scrollWidth;
+
+    updatePayEstimate();
+    updateRate();
 });
 
     // ==========================
@@ -111,7 +139,7 @@ updateReceiveBalance()
 }
     
     
-    async function updateRate(){
+ async function updateRate(){
 
     const rateEl = document.getElementById("swapRate");
     if(!rateEl) return;
@@ -119,18 +147,27 @@ updateReceiveBalance()
     const payData  = getTokenData(swapState.payToken);
     const recvData = getTokenData(swapState.receiveToken);
 
-    const price = await PRICE_ENGINE.getPrice(
-        swapState.payToken,
-        swapState.receiveToken
-    );
+    try{
 
-    if(!price || price === 0){
+        // 🔥 ambil langsung dari swap logic (bukan price)
+        const out = await PRICE_ENGINE.getAmountOut(
+            swapState.payToken,
+            swapState.receiveToken,
+            1 // 1 unit
+        );
+
+        if(!out || isNaN(out)){
+            rateEl.innerText = `No pool`;
+            return;
+        }
+
+        rateEl.innerText =
+            `1 ${payData.symbol} ≈ ${Number(out).toFixed(6)} ${recvData.symbol}`;
+
+    }catch(e){
+        console.warn("rate error:", e);
         rateEl.innerText = `No pool`;
-        return;
     }
-
-    rateEl.innerText =
-        `1 ${payData.symbol} ≈ ${price.toFixed(6)} ${recvData.symbol}`;
 }
 
 
@@ -138,20 +175,15 @@ let isUpdatingReceive = false;
 
 async function updateReceiveEstimate(){
 
-    if(isUpdatingReceive) return;
-    isUpdatingReceive = true;
+    if(activeInput !== "pay") return;
 
     const val = parseFloat(payInput.value);
     const outEl = document.getElementById("receiveAmount");
 
-    if(!outEl){
-        isUpdatingReceive = false;
-        return;
-    }
+    if(!outEl) return;
 
     if(isNaN(val) || val <= 0){
-        outEl.value = "0";
-        isUpdatingReceive = false;
+        outEl.value = "0.0";
         return;
     }
 
@@ -165,19 +197,46 @@ async function updateReceiveEstimate(){
         console.log("OUT UI FINAL:", out);
 
         if(out === null || out === undefined || isNaN(out)){
-            outEl.value = "0";
+            outEl.value = "0.0";
         }else{
             outEl.value = Number(out).toFixed(6);
         }
 
     }catch(e){
         console.warn("estimate error:", e);
-        outEl.value = "0";
+        outEl.value = "0.0";
     }
-
-    isUpdatingReceive = false;
 }
     
+    
+    async function updatePayEstimate(){
+
+    const val = parseFloat(receiveInput.value);
+    if(!payInput) return;
+
+    if(isNaN(val) || val <= 0){
+        payInput.value = "";
+        return;
+    }
+
+    try{
+        const out = await PRICE_ENGINE.getAmountOut(
+            swapState.receiveToken,
+            swapState.payToken,
+            val
+        );
+
+        if(out === null || out === undefined || isNaN(out)){
+            payInput.value = "";
+        }else{
+            payInput.value = Number(out).toFixed(6);
+        }
+
+    }catch(e){
+        console.warn("reverse estimate error:", e);
+        payInput.value = "";
+    }
+}
 
     async function refreshWalletBalance(){
         const w = getSelectedWallet?.();
@@ -230,22 +289,19 @@ setTimeout(() => {
     // ==========================
     switchBtn?.addEventListener("click", () => {
 
-    // 🔥 SIMPAN VALUE LAMA
     const oldPay = payInput.value;
-    const receiveEl = document.getElementById("receiveAmount");
-    const oldReceive = receiveEl?.value || "";
+    const oldReceive = receiveInput.value;
 
-    // 🔥 TUKAR TOKEN
     [swapState.payToken, swapState.receiveToken] =
     [swapState.receiveToken, swapState.payToken];
 
-    // 🔥 TUKAR ANGKA JUGA (INI YANG KURANG)
     payInput.value = oldReceive || "";
-    if(receiveEl) receiveEl.value = oldPay || "";
+    receiveInput.value = oldPay || "";
+
+    activeInput = "pay"; // 🔥 WAJIB
 
     updateUI();
 
-    // 🔥 PAKSA HITUNG ULANG
     setTimeout(updateReceiveEstimate, 100);
 });
 
@@ -429,133 +485,3 @@ async function getTokenBalance(address, tokenAddr){
 
 
 
-// ==========================
-// GLOBAL STATE
-// ==========================
-window.swapState = {
-    payToken: "native",
-    receiveToken: null
-};
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    const payInput = document.getElementById("payAmount");
-    const receiveEl = document.getElementById("receiveAmount");
-    const switchBtn = document.getElementById("switchSwap");
-
-    // ==========================
-    // INPUT FILTER (ANGKA ONLY)
-    // ==========================
-    payInput.addEventListener("input", (e) => {
-
-        e.target.value = e.target.value
-            .replace(/[^0-9.]/g, "")
-            .replace(/(\..*)\./g, '$1');
-
-        updateReceiveEstimate();
-    });
-
-    // ==========================
-    // UPDATE RECEIVE
-    // ==========================
-    async function updateReceiveEstimate(){
-
-        const val = parseFloat(payInput.value);
-
-        if(!receiveEl) return;
-
-        if(isNaN(val) || val <= 0){
-            receiveEl.innerText = "0.0";
-            return;
-        }
-
-        try{
-            const out = await PRICE_ENGINE.getAmountOut(
-                swapState.payToken,
-                swapState.receiveToken,
-                val
-            );
-
-            console.log("OUT UI FINAL:", out);
-
-            if(out === null || out === undefined || isNaN(out)){
-                receiveEl.innerText = "0.0";
-            }else{
-                receiveEl.innerText = Number(out).toFixed(6);
-            }
-
-        }catch(e){
-            console.warn("estimate error:", e);
-            receiveEl.innerText = "0.0";
-        }
-    }
-
-    // ==========================
-    // UPDATE RATE
-    // ==========================
-    async function updateRate(){
-
-        const rateEl = document.getElementById("swapRate");
-        if(!rateEl) return;
-
-        const price = await PRICE_ENGINE.getPrice(
-            swapState.payToken,
-            swapState.receiveToken
-        );
-
-        if(!price || price === 0){
-            rateEl.innerText = "No pool";
-            return;
-        }
-
-        rateEl.innerText = `1  ${price.toFixed(6)}`;
-    }
-
-    // ==========================
-    // UPDATE UI
-    // ==========================
-    async function updateUI(){
-
-        await updateRate();
-
-        // delay supaya tidak ketimpa
-        setTimeout(updateReceiveEstimate, 50);
-    }
-
-    // ==========================
-    // SWITCH TOKEN + VALUE
-    // ==========================
-    switchBtn?.addEventListener("click", async () => {
-
-        const oldPay = payInput.value;
-        const oldReceive = receiveEl.innerText;
-
-        // tukar token
-        [swapState.payToken, swapState.receiveToken] =
-        [swapState.receiveToken, swapState.payToken];
-
-        // tukar value
-        payInput.value = oldReceive;
-        receiveEl.innerText = oldPay || "0.0";
-
-        await updateUI();
-
-        setTimeout(updateReceiveEstimate, 50);
-    });
-
-    // ==========================
-    // INIT
-    // ==========================
-    function initTokens(){
-        const tokens = window.TOKENS || [];
-
-        swapState.payToken = "native";
-
-        const first = tokens.find(t => t.symbol !== "WSDA");
-        swapState.receiveToken = first?.address || "native";
-
-        updateUI();
-    }
-
-    initTokens();
-});
