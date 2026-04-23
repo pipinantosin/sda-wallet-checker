@@ -15,7 +15,7 @@ function t(key){
 // ==========================
 function renderAssets() {
 
-    syncCustomTokens();
+    syncCustomTokens?.();
 
     const container = document.getElementById("tab-assets");
     if (!container) return;
@@ -30,28 +30,37 @@ function renderAssets() {
 
     let html = "";
 
+    // ==========================
+    // SDA (NATIVE)
+    // ==========================
     const sdaCache =
         localStorage.getItem(wallet.address + "_native") ||
         "0.00 SDA";
 
-    // ==========================
-    // SDA (TOP)
-    // ==========================
     html += `
         <div class="asset-item">
+
             <div style="display:flex;align-items:center;gap:10px;">
-                <img src="img/sda.png" style="width:32px;height:32px;border-radius:50%;">
+                <img src="img/sda.png"
+                     style="width:32px;height:32px;border-radius:50%;">
+
                 <div>
                     <b>Sidra Digital Asset</b><br>
                     <small style="color:#888;">Native Token</small>
                 </div>
             </div>
+
             <div>
-                ${sdaCache.replace(" SDA", "")} <span style="color:#888;">SDA</span>
+                ${sdaCache.replace(" SDA", "")}
+                <span style="color:#888;">SDA</span>
             </div>
+
         </div>
     `;
 
+    // ==========================
+    // ERC20 TOKENS
+    // ==========================
     const tokens = Array.isArray(window.customTokens)
         ? window.customTokens
         : [];
@@ -64,6 +73,8 @@ function renderAssets() {
         localStorage.getItem(cacheKey) ||
         ("0.00 " + token.symbol);
 
+    const isWSDA = token.symbol === "WSDA";
+
     html += `
         <div class="asset-item">
 
@@ -72,21 +83,34 @@ function renderAssets() {
                      style="width:32px;height:32px;border-radius:50%;">
 
                 <div>
-                    <!-- nama panjang -->
                     <b>${token.name || token.symbol}</b><br>
-
-                    <!-- label -->
                     <small style="color:#888;">ERC-20 Token</small>
                 </div>
             </div>
 
             <div style="display:flex;align-items:center;gap:6px;">
 
-                <!-- balance ONLY (tanpa duplikat nama) -->
                 <div>
                     ${cached.replace(" " + token.symbol, "")}
                     <span style="color:#888;">${token.symbol}</span>
                 </div>
+
+                <!-- ==========================
+                     UNWRAP BUTTON (ONLY WSDA)
+                ========================== -->
+                ${isWSDA ? `
+                    <button onclick="UNWRAP_ENGINE.unwrapAll()"
+                        style="
+                            margin-left:8px;
+                            padding:4px 8px;
+                            font-size:12px;
+                            background:#ffb020;
+                            border:none;
+                            border-radius:6px;
+                        ">
+                        Unwrap
+                    </button>
+                ` : ``}
 
                 <button onclick="removeToken('${token.address}')"
                         class="remove-token-btn">
@@ -101,7 +125,6 @@ function renderAssets() {
 
     container.innerHTML = html;
 }
-
 
 // ==========================
 // TOKEN TAB
