@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="css/actions.css">
 <link rel="stylesheet" href="css/tabs.css">
 <link rel="stylesheet" href="css/modal.css">
+<link rel="stylesheet" href="css/lp-modal.css">
 <link rel="stylesheet" href="css/swap-modal.css">
 <link rel="stylesheet" href="css/animation.css">
 <link rel="stylesheet" href="css/components.css">
@@ -206,12 +207,12 @@
     <span data-lang="swap">Swap</span>
 </div>
 
-     <div class="action-btn">
-        <div class="action-icon liquidity">
-            <i class="fa-solid fa-droplet"></i>
-        </div>
-        <span>Liquidity</span>
+     <div class="action-btn" id="openLpBtn">
+    <div class="action-icon">
+        <i class="fa-solid fa-droplet"></i>
     </div>
+    <span>Liquidity</span>
+</div>
 
 </div>
 
@@ -587,118 +588,272 @@
 
     <div class="swap-container">
 
-   
-        
+        <div class="app">
 
-<div class="app">
+            <div class="swap-card">
 
+                <!-- CLOSE -->
+                <div id="closeSwapModal" class="close-btn inside">
+                    <i class="fa-solid fa-xmark"></i>
+                </div>
 
-    <!-- SWAP -->
-<div class="swap-card">
+                <div class="swap-title">Swap</div>
+                <div class="swap-sub">Trade tokens instantly</div>
 
-    <!-- CLOSE BUTTON -->
-    <div id="closeSwapModal" class="close-btn inside">
-        <i class="fa-solid fa-xmark"></i>
-    </div>
+                <!-- WALLET -->
+                <div class="wallet-box">
+                    <div class="wallet-left">
+                        <i class="fa-solid fa-wallet"></i>
+                        <div id="swapWalletName">Main Wallet</div>
+                    </div>
+                    <div class="wallet-balance" id="swapWalletBalance">0.00 SDA</div>
+                </div>
 
-    <div class="swap-title">Swap</div>
-    <div class="swap-sub">Trade tokens instantly</div>
+                <!-- YOU PAY -->
+                <div class="input-card">
+                    <div class="row">
+                        <div class="label">YOU PAY</div>
+                        <div class="label" id="payBalance">
+                            0.00 TOKEN <span class="max" id="btnMax">MAX</span>
+                        </div>
+                    </div>
 
+                    <div class="row">
+                        <input 
+                            class="amount" 
+                            id="payAmount" 
+                            placeholder="0.0"
+                            inputmode="decimal"
+                        >
 
+                        <div class="token" id="payToken">
+                            <img src="img/sda.png" id="payTokenIcon">
+                            <span id="payTokenSymbol">SDA</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
 
-    <!-- WALLET -->
-    <div class="wallet-box">
-        <div class="wallet-left">
-            <i class="fa-solid fa-wallet"></i>
-            <div id="swapWalletName">Main Wallet</div>
-        </div>
-        <div class="wallet-balance" id="swapWalletBalance">0.00 SDA</div>
-    </div>
+                <!-- SWITCH -->
+                <div class="switch" id="switchSwap">
+                    <i class="fa-solid fa-arrows-up-down"></i>
+                </div>
 
-    <!-- YOU PAY -->
-    <div class="input-card">
-        <div class="row">
-            <div class="label">YOU PAY</div>
-            <div class="label" id="payBalance">
-                0.00 TOKEN <span class="max" id="btnMax">MAX</span>
+                <!-- YOU RECEIVE -->
+                <div class="input-card">
+                    <div class="row">
+                        <div class="label receive">YOU RECEIVE</div>
+                        <div class="label" id="receiveBalance">0.00</div>
+                    </div>
+
+                    <div class="row">
+                        <input 
+                            class="amount" 
+                            id="receiveAmount" 
+                            placeholder="0.0"
+                        >
+
+                        <div class="token" id="receiveToken">
+                            <img src="img/sda.png" id="receiveTokenIcon">
+                            <span id="receiveTokenSymbol">SDA</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RATE -->
+                <div class="info" id="swapRate">
+                    Loading rate...
+                </div>
+
+                <!-- SLIPPAGE -->
+                <div class="slippage">
+                    <div>Slippage tolerance</div>
+                    <div id="slippageVal">--</div>
+                </div>
+
+                <!-- BUTTON -->
+                <button class="btn" id="btnReviewSwap">
+                    <span id="swapBtnText">Swap</span>
+                </button>
+
             </div>
+
         </div>
 
-        <div class="row">
-    <input 
-        class="amount" 
-        id="payAmount" 
-        placeholder="0.0"
-        inputmode="decimal"
-        pattern="[0-9]*"
-        autocomplete="off"
-    >
+    </div>
 
-    <div class="token" id="payToken">
+</div>
 
-                <!-- 🔥 TETAP PNG (JANGAN DIUBAH) -->
-                <img src="img/sda.png" id="payTokenIcon">
 
-                <span id="payTokenSymbol">SDA</span>
 
-                <!-- ONLY ICON UI -->
-                <i class="fa-solid fa-chevron-down"></i>
+
+<!-- ========================= -->
+<!-- LP MODAL PREMIUM -->
+<!-- ========================= -->
+<div id="lpModal" class="swap-modal">
+
+    <div class="swap-container">
+        <div class="swap-card">
+
+            <!-- CLOSE -->
+            <div class="close-btn inside" id="closeLpModal">
+                <i class="fa-solid fa-xmark"></i>
             </div>
-        </div>
-    </div>
 
-    <!-- SWITCH -->
-    <div class="switch" id="switchSwap">
-        <i class="fa-solid fa-arrows-up-down"></i>
-    </div>
+            <div class="swap-title">Add Liquidity</div>
+            <div class="swap-sub">Earn fees from trades</div>
 
-    <!-- YOU RECEIVE -->
-    <div class="input-card">
-        <div class="row">
-            <div class="label receive">YOU RECEIVE</div>
-            <div class="label" id="receiveBalance">0.00</div>
-        </div>
+            <!-- ========================= -->
+            <!-- FEE -->
+            <!-- ========================= -->
+            <div class="lp-setting big" id="lpFeeSelect">
+                <div class="lp-setting-left">
+                    <div class="lp-label">Fee Level</div>
+                    <div class="lp-desc" id="lpFeeDesc">
+                        Standard • Best for most tokens
+                    </div>
+                </div>
 
-        <div class="row">
-            <input 
+                <div class="lp-setting-right">
+                    <span id="lpFeeLabel">0.3%</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+            </div>
+
+            <!-- TOKEN A -->
+            <div class="input-card">
+                <div class="row">
+                    <div class="label">YOU DEPOSIT</div>
+                    <div class="label" id="lpBalance0">0.00 SDA</div>
+                </div>
+
+                <div class="row">
+                    <input 
+    id="lpAmount0" 
     class="amount" 
-    id="receiveAmount" 
     placeholder="0.0"
->
+    inputmode="decimal"
+    pattern="[0-9]*"
+    autocomplete="off"
+/>
 
-            <div class="token" id="receiveToken">
+                    <div class="token" id="lpToken0Select">
+                        <img src="img/sda.png">
+                        <span>SDA</span>
+                    </div>
+                </div>
+            </div>
 
-                <!-- 🔥 TETAP PNG -->
-                <img src="img/sda.png" id="receiveTokenIcon">
+            <div class="switch">
+                <i class="fa-solid fa-plus"></i>
+            </div>
 
-                <span id="receiveTokenSymbol">SDA</span>
+            <!-- TOKEN B -->
+            <div class="input-card">
+                <div class="row">
+                    <div class="label">PAIR WITH</div>
+                    <div class="label" id="lpBalance1">0.00</div>
+                </div>
 
-                <!-- ONLY ICON UI -->
-                <i class="fa-solid fa-chevron-down"></i>
+                <div class="row">
+                    <input 
+    id="lpAmount1" 
+    class="amount" 
+    placeholder="0.0"
+    inputmode="decimal"
+    pattern="[0-9]*"
+    autocomplete="off"
+/>
+
+                    <div class="token" id="lpToken1Select">
+                        <div id="lpToken1IconBox" class="token-icon">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </div>
+
+                        <span id="lpToken1Symbol">Select token</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATUS -->
+            <div class="info" id="lpPoolStatus">
+                Checking pool...
+            </div>
+
+<div id="lpPoolStatus" class="lp-status"></div>
+
+<div id="lpManualPriceBox" style="display:none;">
+    <input id="lpManualPrice" placeholder="Set initial price">
+</div>
+
+<div class="lp-price" id="lpPriceInfo">
+    Price: -
+</div>
+
+
+            <!-- RANGE -->
+            <div class="lp-range">
+
+    <div class="range-inline">
+
+        <div class="range-item active" data-mode="full">
+            <i class="fa-solid fa-check"></i>
+            Full Range
+        </div>
+
+        <div class="range-item" data-mode="custom">
+            <i class="fa-solid fa-check"></i>
+            Custom Range
+        </div>
+
+    </div>
+
+    <!-- CUSTOM (tetap di bawah) -->
+    <div id="lpCustomRange" style="display:none; margin-top:10px;">
+
+        <div class="range-row">
+            <input id="lpMinPrice" class="amount" placeholder="Min price">
+
+            <div class="range-controls">
+                <button onclick="adjustSingle('min', -5)">-</button>
+                <button onclick="adjustSingle('min', 5)">+</button>
             </div>
         </div>
-    </div>
 
-    <!-- RATE -->
-    <div class="info" id="swapRate">
-        <i class="fa-solid fa-chart-line"></i>
-        Loading rate...
-    </div>
+        <div class="range-row">
+            <input id="lpMaxPrice" class="amount" placeholder="Max price">
 
-    <!-- SLIPPAGE -->
-    <div class="slippage">
-        <div>
-            <i class="fa-solid fa-gauge-high"></i>
-            Slippage tolerance
+            <div class="range-controls">
+                <button onclick="adjustSingle('max', -5)">-</button>
+                <button onclick="adjustSingle('max', 5)">+</button>
+            </div>
         </div>
-        <div id="slippageVal">--</div>
+
     </div>
 
-    <!-- BUTTON -->
-    <button class="btn" id="btnReviewSwap">
-    <span id="swapBtnText">Swap</span>
-</button>
+</div>
 
+            <!-- SLIPPAGE -->
+            <div class="lp-setting bottom" id="lpSlippageSelect">
+                <div>
+                    <div class="lp-label">Price Tolerance</div>
+                    <div class="lp-desc">Max price change allowed</div>
+                </div>
+
+                <div>
+                    <span id="lpSlippageLabel">0.5%</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+            </div>
+
+            <button class="btn" id="btnAddLP">Add Liquidity</button>
+
+            <div id="lpStatus"></div>
+
+        </div>
+    </div>
 </div>
 <!--- ETHERS --->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -708,6 +863,7 @@
 
 
 <script src="js/wallet.js"></script>
+<script src="js/unwrap-engine.js"></script>
 <script src="js/tokens.js"></script>
 <script src="js/tokenManager.js"></script>
 <script src="js/lp.js"></script>
@@ -723,6 +879,9 @@
 <script src="js/pk-wallet.js"></script>
 <script src="js/blockchain.js"></script>
 <script src="js/riwayat.js"></script>
+<script src="js/lp-engine.js"></script>
+<script src="js/lp-factory.js"></script>
+<script src="js/lp-modal.js"></script>
 <script src="js/factory-engine.js"></script>
 <script src="js/swap-engine.js"></script>
 <script src="js/swap-modal.js"></script>
