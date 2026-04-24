@@ -8,13 +8,21 @@ function showTxDetail(tx){
         ? (tx.latestBlock - block)
         : 0;
 
-    const symbol = tx.symbol || "SDA";
+    const isSwap = tx.type === "SWAP";
+
+    const symbolLine = isSwap
+        ? `${tx.inSymbol || "?"} → ${tx.outSymbol || "?"}`
+        : (tx.symbol || "SDA");
+
+    const valueLine = isSwap
+        ? `${tx.amountIn || 0} ${tx.inSymbol || ""} → ${tx.amountOut || 0} ${tx.outSymbol || ""}`
+        : `${tx.value} ${symbolLine}`;
 
     showConfirm(`
 Hash: ${tx.hash}
 
-Value: ${tx.value} ${symbol}
-Token: ${symbol}
+Value: ${valueLine}
+Token: ${symbolLine}
 
 From: ${tx.from}
 To: ${tx.to}
@@ -70,6 +78,9 @@ function getTxHistory(){
 // =============================
 // TX HISTORY RENDER (PRO VERSION)
 // =============================
+// =============================
+// TX HISTORY RENDER (FINAL FIXED)
+// =============================
 function renderTxHistory(){
 
     const list = getEl("txHistoryList");
@@ -79,9 +90,7 @@ function renderTxHistory(){
     const wallet = getSelectedWallet?.();
     const myAddr = wallet?.address?.toLowerCase();
 
-    // =============================
     // EMPTY STATE
-    // =============================
     if(history.length === 0){
         list.innerHTML = `
         <div style="text-align:center;color:#888;padding:30px;">
@@ -98,8 +107,23 @@ function renderTxHistory(){
     // =============================
     history.forEach(tx => {
 
-        const symbol = tx.symbol || "SDA";
-        const logo   = tx.logo || "img/sda.png";
+        if(!tx) return;
+
+        const isSwap = tx.type === "SWAP";
+
+        // =============================
+        // FIX LEGACY DATA (ANTI TOKEN / EMPTY)
+        // =============================
+        const inSym  = tx.inSymbol || tx.symbol || "SDA";
+        const outSym = tx.outSymbol || tx.symbol || "SDA";
+
+        const symbolDisplay = isSwap
+            ? `${inSym} → ${outSym}`
+            : (tx.symbol || "SDA");
+
+        const logo = isSwap
+            ? (tx.outLogo || tx.logo || "img/default.png")
+            : (tx.logo || "img/sda.png");
 
         const from = tx.from?.toLowerCase();
         const to   = tx.to?.toLowerCase();
@@ -109,19 +133,22 @@ function renderTxHistory(){
         // =============================
         let type = "SEND";
         let color = "#ff4d4f";
-        let icon = "↑";
+        let icon  = "↑";
 
-        if (myAddr && to === myAddr) {
+        if (isSwap) {
+            type = "SWAP";
+            color = "#3b82f6";
+            icon = "⇄";
+        } else if (myAddr && to === myAddr) {
             type = "RECEIVE";
             color = "#00d084";
             icon = "↓";
         }
 
         // =============================
-        // FORMAT VALUE
+        // VALUE FORMAT
         // =============================
         let value = Number(tx.value || 0);
-
         let valueFormatted;
 
         if (value === 0) {
@@ -133,15 +160,9 @@ function renderTxHistory(){
         }
 
         // =============================
-        // ADDRESS (SMART DISPLAY)
+        // ADDRESS DISPLAY
         // =============================
-        let targetAddr = "-";
-
-        if (type === "SEND") {
-            targetAddr = tx.to || "-";
-        } else {
-            targetAddr = tx.from || "-";
-        }
+        let targetAddr = type === "SEND" ? tx.to : tx.from;
 
         const shortAddr = targetAddr
             ? targetAddr.slice(0,6) + "..." + targetAddr.slice(-4)
@@ -204,20 +225,19 @@ function renderTxHistory(){
         </div>
 
         <div style="font-size:11px;color:#aaa;margin-top:2px;">
-            ${symbol}
+            ${symbolDisplay}
         </div>
 
-        <!-- 🔥 ACTION BUTTONS (INI YANG HILANG) -->
         <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
 
             <button class="copy-btn"
-                data-copy="${tx.hash}"
+                data-copy="${tx.hash || ""}"
                 style="font-size:10px;padding:3px 6px;">
                 Copy
             </button>
 
             <button class="open-tx"
-                data-hash="${tx.hash}"
+                data-hash="${tx.hash || ""}"
                 style="font-size:10px;padding:3px 6px;">
                 Ledger
             </button>
@@ -228,9 +248,7 @@ function renderTxHistory(){
 </div>
 `;
 
-        // =============================
         // CLICK DETAIL
-        // =============================
         el.onclick = (e) => {
             if(e.target.classList.contains("copy-btn")) return;
             if(e.target.classList.contains("open-tx")) return;
