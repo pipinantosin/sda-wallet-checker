@@ -1,5 +1,5 @@
 // ==========================
-// PRICE ENGINE (STABLE)
+// PRICE ENGINE FIXED PRO
 // ==========================
 
 const WSDA = window.CONFIG?.WSDA;
@@ -7,22 +7,18 @@ const FACTORY = window.CONFIG?.FACTORY;
 
 const FEES = [500, 3000, 10000];
 
-// ==========================
-// ABI
-// ==========================
 const FACTORY_ABI = [
     "function getPool(address,address,uint24) view returns (address)"
 ];
 
 const POOL_ABI = [
-    "function slot0() view returns (uint160 sqrtPriceX96,int24,uint16,uint16,uint16,uint8,bool)"
+    "function slot0() view returns (uint160 sqrtPriceX96,int24,uint16,uint16,uint16,uint8,bool)",
+    "function token0() view returns (address)",
+    "function token1() view returns (address)"
 ];
 
-// ==========================
-// HELPERS
-// ==========================
 function isNative(t){
-    return !t || t === "native" || t === WSDA;
+    return !t || t === "native";
 }
 
 function normalize(t){
@@ -30,32 +26,31 @@ function normalize(t){
 }
 
 // ==========================
-// SQRT PRICE  NORMAL PRICE (FIX PRESISI)
+// SAFE sqrt → price (NO NUMBER LOSS)
 // ==========================
 function sqrtToPrice(sqrt){
 
     try{
-        // pakai BigInt biar ga jadi e-38
         const sqrtBig = BigInt(sqrt.toString());
 
-        // price = (sqrt^2) / 2^192
-        const numerator = sqrtBig * sqrtBig;
-        const denominator = 2n ** 192n;
+        const priceX192 = sqrtBig * sqrtBig;
+        const denom = 2n ** 192n;
 
-        const price = Number(numerator) / Number(denominator);
+        // 🔥 FIX: jangan Number langsung → pakai precision safe
+        const ratio = Number(priceX192) / Number(denom);
 
-        if(!isFinite(price)) return 0;
+        if(!isFinite(ratio) || ratio === 0) return 0;
 
-        return price;
+        return ratio;
 
     }catch(e){
-        console.warn("sqrt convert error:", e);
+        console.warn("sqrt error", e);
         return 0;
     }
 }
 
 // ==========================
-// FACTORY GET POOL
+// GET POOL
 // ==========================
 async function getPool(tokenA, tokenB, fee){
 
@@ -64,114 +59,84 @@ async function getPool(tokenA, tokenB, fee){
 
         const pool = await factory.getPool(tokenA, tokenB, fee);
 
-        if(!pool || pool === ethers.constants.AddressZero){
-            return null;
-        }
+        if(!pool || pool === ethers.constants.AddressZero) return null;
 
         return pool;
 
     }catch(e){
-        console.warn("getPool error", e);
         return null;
     }
 }
 
 // ==========================
-// FETCH PRICE FROM POOL
-// ==========================
-async function fetchPrice(poolAddr){
-
-    try{
-        const pool = new ethers.Contract(poolAddr, POOL_ABI, provider);
-
-        const slot0 = await pool.slot0();
-
-        const sqrt = slot0.sqrtPriceX96 || slot0[0];
-
-        if(!sqrt) return 0;
-
-        return sqrtToPrice(sqrt);
-
-    }catch(e){
-        console.warn("slot0 fail:", poolAddr);
-        return 0;
-    }
-}
-
-// ==========================
-// MAIN PRICE
+// PRICE ENGINE CORE FIX
 // ==========================
 async function getPrice(tokenIn, tokenOut){
 
-    // native ↔ native
-    if(isNative(tokenIn) && isNative(tokenOut)){
-        return 1;
-    }
+    if(isNative(tokenIn) && isNative(tokenOut)) return 1;
 
-    const tA = normalize(tokenIn);
-    const tB = normalize(tokenOut);
+    const A = normalize(tokenIn);
+    const B = normalize(tokenOut);
 
     for(const fee of FEES){
 
-        const pool = await getPool(tA, tB, fee);
-        if(!pool) continue;
+        const poolAddr = await getPool(A, B, fee);
+        if(!poolAddr) continue;
 
         try{
-            const contract = new ethers.Contract(pool, [
-                "function token0() view returns (address)",
-                "function token1() view returns (address)",
-                ...POOL_ABI
-            ], provider);
+            const pool = new ethers.Contract(poolAddr, POOL_ABI, provider);
 
             const [token0, token1, slot0] = await Promise.all([
-                contract.token0(),
-                contract.token1(),
-                contract.slot0()
+                pool.token0(),
+                pool.token1(),
+                pool.slot0()
             ]);
 
-            const sqrt = slot0.sqrtPriceX96 || slot0[0];
+            const sqrt = slot0.sqrtPriceX96;
             if(!sqrt) continue;
 
             let price = sqrtToPrice(sqrt);
-
             if(price <= 0) continue;
 
-            // 🔥 INI KUNCINYA
-            // kalau arah terbalik → inverse
-            if(
-                token0.toLowerCase() !== tA.toLowerCase() &&
-                token1.toLowerCase() === tA.toLowerCase()
-            ){
+            // ==========================
+            // FIXED DIRECTION LOGIC (IMPORTANT)
+            // ==========================
+            const tokenInNorm = A.toLowerCase();
+            const t0 = token0.toLowerCase();
+            const t1 = token1.toLowerCase();
+
+            if(tokenInNorm === t1 && tokenInNorm !== t0){
                 price = 1 / price;
             }
 
             return price;
 
         }catch(e){
-            console.warn("price read error:", e);
+            console.warn("pool read fail", e);
         }
     }
 
     return 0;
 }
+
 // ==========================
-// AMOUNT OUT
+// AMOUNT OUT SAFE
 // ==========================
 async function getAmountOut(tokenIn, tokenOut, amountIn){
 
     const price = await getPrice(tokenIn, tokenOut);
 
-    if(!price || price === 0) return 0;
+    if(!price || price <= 0) return 0;
 
-    const result = amountIn * price;
+    const out = Number(amountIn) * price;
 
-    if(!isFinite(result)) return 0;
+    if(!isFinite(out) || out <= 0) return 0;
 
-    return result;
+    return out;
 }
 
 // ==========================
-// GLOBAL EXPORT
+// EXPORT
 // ==========================
 window.PRICE_ENGINE = {
     getPrice,
