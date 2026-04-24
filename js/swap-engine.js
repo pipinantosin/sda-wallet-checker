@@ -281,7 +281,7 @@ async function swapExactInput(){
 
             if(found){
                 meta.symbol = found.symbol || "TOKEN";
-                meta.logo   = found.logo || "img/default.png";
+                meta.logo = found.icon ? `img/${found.icon}` : "img/default.png";
             }
         }catch(e){
             console.warn("meta error", e);
@@ -310,12 +310,19 @@ try {
             ? "SDA"
             : (getTokenData(swapState.payToken)?.symbol || "TOKEN");
 
-    const outSymbol = meta?.symbol;
+    let outSymbol = meta?.symbol;
 
-if(!outSymbol || outSymbol === "TOKEN"){
-    const found = getTokenData(params.tokenOut);
-    meta.symbol = found?.symbol || "UNKNOWN";
-}
+    if (!outSymbol || outSymbol === "TOKEN") {
+        const found = getTokenData(params.tokenOut);
+        outSymbol = found?.symbol || "UNKNOWN";
+        meta.symbol = outSymbol;
+    }
+
+    // ==========================
+    // FIX: ambil token DI LUAR object (WAJIB)
+    // ==========================
+    const inToken  = getTokenData(swapState.payToken);
+    const outToken = getTokenData(params.tokenOut);
 
     history.unshift({
         hash: tx.hash,
@@ -336,8 +343,8 @@ if(!outSymbol || outSymbol === "TOKEN"){
         inSymbol,
         outSymbol,
 
-        inLogo: getTokenData(swapState.payToken)?.logo || "img/default.png",
-        outLogo: meta.logo || "img/default.png",
+        inLogo: inToken?.icon ? `img/${inToken.icon}` : "img/default.png",
+        outLogo: outToken?.icon ? `img/${outToken.icon}` : "img/default.png",
 
         timestamp: Date.now(),
         status: "success",
@@ -377,7 +384,7 @@ return receipt;
     isLoading = false;
     setLoading(false);
 }
-} //  INI PENUTUP swapExactInput()
+} // ✅ penutup swapExactInput()
 
 // ==========================
 // INIT
@@ -393,4 +400,4 @@ return {
     swapExactInput
 };
 
-})(); //  PENUTUP IIFE
+})(); // ✅ PENUTUP IIFE
