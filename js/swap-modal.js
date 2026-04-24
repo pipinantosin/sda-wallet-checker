@@ -10,6 +10,29 @@ function getSwapDisplaySymbol(symbol){
 }
 
 // ==========================
+// REALISTIC OUTPUT (MATCH SWAP)
+// ==========================
+function getRealisticOut(amount, estimated){
+
+    if(!estimated || estimated <= 0) return 0;
+
+    let correction;
+
+    if(amount < 0.00001){
+        correction = 0.995;
+    }else if(amount < 0.001){
+        correction = 0.992;
+    }else if(amount < 0.01){
+        correction = 0.989;   // 🔥 naikkan dikit
+    }else{
+        correction = 0.985;
+    }
+
+    const result = estimated * correction;
+
+    return (!isFinite(result) || result <= 0) ? 0 : result;
+}
+// ==========================
 // GLOBAL STATE
 // ==========================
 window.swapState = {
@@ -187,19 +210,21 @@ async function updateReceiveEstimate(){
     }
 
     try{
-        const out = await PRICE_ENGINE.getAmountOut(
+        const estimated = await PRICE_ENGINE.getAmountOut(
             swapState.payToken,
             swapState.receiveToken,
             val
         );
 
-        console.log("OUT UI FINAL:", out);
+        // 🔥 FIX: pakai realistic
+        const realistic = getRealisticOut(val, estimated);
 
-        if(out === null || out === undefined || isNaN(out)){
-            outEl.value = "0.0";
-        }else{
-            outEl.value = Number(out).toFixed(6);
-        }
+        console.log("EST:", estimated);
+        console.log("REAL:", realistic);
+
+        outEl.value = realistic > 0
+            ? realistic.toFixed(6)
+            : "0.0";
 
     }catch(e){
         console.warn("estimate error:", e);
@@ -219,17 +244,17 @@ async function updateReceiveEstimate(){
     }
 
     try{
-        const out = await PRICE_ENGINE.getAmountOut(
+        const estimated = await PRICE_ENGINE.getAmountOut(
             swapState.receiveToken,
             swapState.payToken,
             val
         );
 
-        if(out === null || out === undefined || isNaN(out)){
-            payInput.value = "";
-        }else{
-            payInput.value = Number(out).toFixed(6);
-        }
+        const realistic = getRealisticOut(val, estimated);
+
+        payInput.value = realistic > 0
+            ? realistic.toFixed(6)
+            : "";
 
     }catch(e){
         console.warn("reverse estimate error:", e);
@@ -453,20 +478,7 @@ document.getElementById("swapButton")
 });
 
 
-const payInput = document.getElementById("payAmount");
-if(payInput){
-    payInput.addEventListener("input", function(){
-        activeInput = "pay";
-        this.value = this.value
-            .replace(/[^0-9.]/g, "")
-            .replace(/(\..*)\./g, '$1');
 
-        this.scrollLeft = this.scrollWidth;
-
-        updateReceiveEstimate?.();
-        updateRate?.();
-    });
-}
 // ==========================
 // TOKEN BALANCE
 // ==========================
