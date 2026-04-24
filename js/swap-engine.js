@@ -1,5 +1,5 @@
 // ==========================
-// SWAP ENGINE FINAL PRO (MULTICALL + HISTORY)
+// SWAP ENGINE FINAL (SIDRA FIXED)
 // ==========================
 
 window.SWAP_ENGINE = (function () {
@@ -10,264 +10,387 @@ window.SWAP_ENGINE = (function () {
     let isLoading = false;
 
     // ==========================
-    // ABI
-    // ==========================
-    const ROUTER_ABI = [
-        "function multicall(bytes[] data) payable returns (bytes[] results)",
-        "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256)"
-    ];
+// ABI
+// ==========================
+const ROUTER_ABI = [
+    "function multicall(bytes[] data) payable returns (bytes[] results)",
 
-    const ERC20_ABI = [
-        "function approve(address spender,uint256 amount) returns (bool)",
-        "function allowance(address owner,address spender) view returns (uint256)",
-        "function decimals() view returns (uint8)"
-    ];
+    // 🔥 FIX: tambahin nama field (WAJIB buat ethers)
+    "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256)"
+];
 
-    // ==========================
-    // HELPERS
-    // ==========================
-    function isNative(token){
-        return !token || token === "native";
+const ERC20_ABI = [
+    "function approve(address spender,uint256 amount) returns (bool)",
+    "function allowance(address owner,address spender) view returns (uint256)",
+    "function decimals() view returns (uint8)"
+];
+
+// 🔥 Optional tapi rapi (kalau mau dipakai langsung)
+const WSDA_ABI = [
+    "function deposit() payable",
+    "function withdraw(uint256)"
+];
+
+// ==========================
+// HELPERS
+// ==========================
+function isNative(token){
+    return !token || token === "native";
+}
+
+function toWSDA(token){
+    return isNative(token) ? WSDA_ADDR : token;
+}
+
+function getWallet(){
+    return getPKWallet?.() || getSelectedWallet?.() || window.wallet || null;
+}
+
+function log(msg){
+    console.log("[SWAP]", msg);
+    const el = document.getElementById("swapRate");
+    if(el) el.innerText = msg;
+}
+
+function setLoading(state){
+    const btn = document.getElementById("btnReviewSwap");
+    if(!btn) return;
+
+    btn.disabled = state;
+    btn.innerHTML = state ? `Swapping...` : `Review Swap`;
+}
+
+// ==========================
+// DECIMALS
+// ==========================
+async function getDecimals(token){
+    const addr = toWSDA(token);
+
+    try{
+        const c = new ethers.Contract(addr, ERC20_ABI, provider);
+        return await c.decimals();
+    }catch{
+        return 18;
+    }
+}
+
+async function parseAmount(token, amount){
+    const dec = await getDecimals(token);
+    return ethers.utils.parseUnits(amount.toString(), dec);
+}
+
+// ==========================
+// APPROVE
+// ==========================
+async function approveIfNeeded(token, amount, wallet){
+
+    if(isNative(token)) return;
+
+    const contract = new ethers.Contract(token, ERC20_ABI, wallet);
+
+    const allowance = await contract.allowance(wallet.address, ROUTER_ADDR);
+
+    if(allowance.gte(amount)) return;
+
+    log("Approving token...");
+
+    const tx = await contract.approve(
+        ROUTER_ADDR,
+        ethers.constants.MaxUint256
+    );
+
+    await tx.wait();
+}
+
+// ==========================
+// SLIPPAGE (ANTI FAIL)
+// ==========================
+function getSlippage(){
+    const cfg = Number(window.CONFIG?.SLIPPAGE_DEFAULT);
+    if (!cfg || cfg <= 0) return 2;
+    return Math.min(Math.max(cfg, 1), 10);
+}
+
+// ==========================
+// BUILD PARAMS (ACCURATE + ANTI FAIL)
+// ==========================
+async function buildParams(wallet, tokenIn, tokenOut, amountUI){
+
+    const amountNum = parseFloat(amountUI);
+
+    if(!amountNum || amountNum <= 0){
+        throw new Error("Invalid amount");
     }
 
-    function toRouterAddress(token){
-        return isNative(token) ? WSDA_ADDR : token;
-    }
-
-    function getWallet(){
-        return getPKWallet?.() || getSelectedWallet?.() || window.wallet || null;
-    }
-
-    function setLoading(state){
-        const btn = document.getElementById("btnReviewSwap");
-        if(!btn) return;
-
-        btn.disabled = state;
-        btn.innerHTML = state
-            ? `<i class="fa fa-spinner fa-spin"></i> Swapping...`
-            : `<i class="fa-solid fa-right-left"></i> Review Swap`;
-    }
-
-    function log(msg){
-        console.log("[SWAP]", msg);
-        const el = document.getElementById("swapRate");
-        if(el) el.innerText = msg;
-    }
+    const amountIn = await parseAmount(tokenIn, amountNum);
 
     // ==========================
-    // DECIMALS
+    // ESTIMATE (PRICE ENGINE)
     // ==========================
-    async function getDecimals(token){
-        if(isNative(token)) return 18;
+    const estimated = await PRICE_ENGINE.getAmountOut(
+        tokenIn,
+        tokenOut,
+        amountNum
+    );
 
-        try{
-            const c = new ethers.Contract(token, ERC20_ABI, provider);
-            return await c.decimals();
-        }catch{
-            return 18;
-        }
-    }
-
-    async function parseAmount(token, amount){
-        const dec = await getDecimals(token);
-        return ethers.utils.parseUnits(amount.toString(), dec);
-    }
-
-    // ==========================
-    // APPROVE (OUTSIDE MULTICALL - SAFE)
-    // ==========================
-    async function approveIfNeeded(token, amount, wallet){
-
-        if(isNative(token)) return;
-
-        const contract = new ethers.Contract(token, ERC20_ABI, wallet);
-
-        const allowance = await contract.allowance(wallet.address, ROUTER_ADDR);
-
-        if(allowance.gte(amount)) return;
-
-        log("Approving...");
-
-        const tx = await contract.approve(
-            ROUTER_ADDR,
-            ethers.constants.MaxUint256
-        );
-
-        await tx.wait();
-
-        log("Approved");
-    }
-
-    // ==========================
-    // BUILD PARAMS
-    // ==========================
-    async function buildParams(wallet, tokenIn, tokenOut, amountUI){
-
-        const amountIn = await parseAmount(tokenIn, amountUI);
-
-        const estimated = await PRICE_ENGINE.getAmountOut(
-            tokenIn,
-            tokenOut,
-            parseFloat(amountUI)
-        );
-
-        if(!estimated || estimated <= 0){
-            throw new Error("No liquidity pool");
-        }
-
-        const slippage = window.CONFIG?.SLIPPAGE_DEFAULT || 0.5;
-
-        const minOut = estimated * (1 - slippage / 100);
-
-        const amountOutMin = await parseAmount(
-            tokenOut,
-            minOut.toFixed(6)
-        );
-
-        return {
-            tokenIn: toRouterAddress(tokenIn),
-            tokenOut: toRouterAddress(tokenOut),
-            fee: window.CONFIG?.FEE || 3000,
-            recipient: wallet.address,
-            deadline: Math.floor(Date.now()/1000) + 300,
-            amountIn,
-            amountOutMinimum: amountOutMin,
-            sqrtPriceLimitX96: 0
-        };
-    }
-
-    // ==========================
-    // MAIN SWAP (MULTICALL ENGINE)
-    // ==========================
-    async function swapExactInput(){
-
-        if(isLoading) return;
-
-        try{
-
-            const wallet = getWallet();
-            if(!wallet) throw new Error("Wallet not found");
-
-            const tokenIn  = swapState.payToken;
-            const tokenOut = swapState.receiveToken;
-
-            const amountUI = document.getElementById("payAmount")?.value;
-
-            if(!amountUI || Number(amountUI) <= 0){
-                throw new Error("Invalid amount");
-            }
-
-            isLoading = true;
-            setLoading(true);
-
-            const router = new ethers.Contract(
-                ROUTER_ADDR,
-                ROUTER_ABI,
-                wallet
-            );
-
-            const params = await buildParams(
-                wallet,
-                tokenIn,
-                tokenOut,
-                amountUI
-            );
-
-            // ==========================
-            // APPROVE FIRST (SAFE STANDARD)
-            // ==========================
-            await approveIfNeeded(
-                tokenIn === "native" ? WSDA_ADDR : tokenIn,
-                params.amountIn,
-                wallet
-            );
-
-            // ==========================
-            // MULTICALL BUILD
-            // ==========================
-            const iface = new ethers.utils.Interface(ROUTER_ABI);
-
-            const calls = [];
-
-            const swapData = iface.encodeFunctionData(
-                "exactInputSingle",
-                [params]
-            );
-
-            calls.push(swapData);
-
-            log("Executing multicall...");
-
-            const tx = await router.multicall(calls, {
-                gasLimit: 900000
-            });
-
-            log("TX: " + tx.hash);
-
-            const receipt = await tx.wait();
-
-            if(receipt.status !== 1){
-                throw new Error("Swap failed on-chain");
-            }
-
-            log("Swap success");
-
-            showToast?.("Swap success", "success");
-
-            // ==========================
-            // HISTORY (FIXED GUARANTEED)
-            // ==========================
-            try{
-
-                const history = JSON.parse(localStorage.getItem("txHistory") || "[]");
-
-                history.unshift({
-                    hash: tx.hash,
-                    value: amountUI,
-                    symbol: tokenOut === "native" ? "SDA" : (swapState?.receiveSymbol || "TOKEN"),
-                    tokenAddress: tokenOut,
-                    timestamp: Date.now()
-                });
-
-                localStorage.setItem("txHistory", JSON.stringify(history));
-
-                renderTxHistory?.();
-                updateBellBadge?.();
-
-            }catch(e){
-                console.warn("history fail", e);
-            }
-
-            loadBalance?.();
-
-            return receipt;
-
-        }catch(e){
-
-            console.error(e);
-            log("Swap failed");
-
-            showToast?.(e.message || "Swap failed", "error");
-
-        }finally{
-
-            isLoading = false;
-            setLoading(false);
-        }
+    if(!estimated || estimated <= 0){
+        throw new Error("No liquidity pool");
     }
 
     // ==========================
-    // INIT
+    // 🔥 PRICE IMPACT SIMULATION
     // ==========================
-    function init(){
-        document.getElementById("btnReviewSwap")
-            ?.addEventListener("click", swapExactInput);
+    let impactFactor;
+
+    if(amountNum < 0.00001){
+        impactFactor = 0.98;   // hampir tanpa impact
+    }else if(amountNum < 0.001){
+        impactFactor = 0.95;
+    }else if(amountNum < 0.01){
+        impactFactor = 0.9;
+    }else if(amountNum < 0.1){
+        impactFactor = 0.85;
+    }else{
+        impactFactor = 0.8;    // besar → lebih konservatif
     }
 
-    document.addEventListener("DOMContentLoaded", init);
+    // ==========================
+    // 🔥 SLIPPAGE USER
+    // ==========================
+    const slippage = getSlippage() / 100;
+
+    // ==========================
+    // 🔥 FINAL MIN OUT (ANTI FAIL)
+    // ==========================
+    let minOut = estimated * impactFactor * (1 - slippage);
+
+    if(!isFinite(minOut) || minOut <= 0){
+        throw new Error("Invalid output calculation");
+    }
+
+    // 🔥 safety floor (hindari 0 karena rounding)
+    if(minOut < 0.0000000001){
+        minOut = estimated * 0.5;
+    }
+
+    const amountOutMinimum = await parseAmount(
+        tokenOut,
+        minOut.toFixed(8) // 🔥 lebih presisi dari sebelumnya
+    );
 
     return {
-        swapExactInput
+        tokenIn: toWSDA(tokenIn),
+        tokenOut: toWSDA(tokenOut),
+        fee: window.CONFIG?.FEE || 3000,
+        recipient: wallet.address,
+        deadline: Math.floor(Date.now()/1000) + 300,
+        amountIn,
+        amountOutMinimum,
+        sqrtPriceLimitX96: 0
     };
+}
 
-})();
+// ==========================
+// MAIN SWAP (FINAL FIX)
+// ==========================
+async function swapExactInput(){
+
+    if(isLoading) return;
+
+    try{
+
+        const wallet = getWallet();
+        if(!wallet) throw new Error("Wallet not found");
+
+        const tokenIn  = swapState.payToken;
+        const tokenOut = swapState.receiveToken;
+
+        const amountUI = document.getElementById("payAmount")?.value;
+
+        if(!amountUI || Number(amountUI) <= 0){
+            throw new Error("Invalid amount");
+        }
+
+        isLoading = true;
+        setLoading(true);
+
+        const isNativeIn = isNative(tokenIn);
+
+        const router = new ethers.Contract(
+            ROUTER_ADDR,
+            ROUTER_ABI,
+            wallet
+        );
+
+        const params = await buildParams(
+            wallet,
+            tokenIn,
+            tokenOut,
+            amountUI
+        );
+
+        // ==========================
+        // EXECUTE SWAP (NO MULTICALL)
+        // ==========================
+        log("Executing swap...");
+
+        let tx;
+
+        if(isNativeIn){
+            // 🔥 SDA langsung kirim ke router
+            tx = await router.exactInputSingle(
+                params,
+                {
+                    value: params.amountIn,
+                    gasLimit: 1200000
+                }
+            );
+        }else{
+            await approveIfNeeded(params.tokenIn, params.amountIn, wallet);
+
+            tx = await router.exactInputSingle(
+                params,
+                {
+                    gasLimit: 1200000
+                }
+            );
+        }
+
+        log("TX: " + tx.hash);
+
+        const receipt = await tx.wait();
+
+        if(receipt.status !== 1){
+            throw new Error("Swap failed");
+        }
+
+        // ==========================
+        // TOKEN META
+        // ==========================
+        let meta = {
+            symbol: "TOKEN",
+            logo: "img/default.png"
+        };
+
+        try{
+            const list = window.TOKEN_LIST || [];
+
+            const found = list.find(t =>
+                t.address?.toLowerCase() === params.tokenOut?.toLowerCase()
+            );
+
+            if(found){
+                meta.symbol = found.symbol || "TOKEN";
+                meta.logo   = found.logo || "img/default.png";
+            }
+        }catch(e){
+            console.warn("meta error", e);
+        }
+
+// ==========================
+//  SAVE OBJECT (FIXED CLEAN VERSION)
+// ==========================
+try {
+
+    const history = JSON.parse(localStorage.getItem("txHistory") || "[]");
+
+    let amountIn = Number(amountUI) || 0;
+
+    let amountOut = 0;
+    const receiveEl = document.getElementById("receiveAmount");
+
+    amountOut = Number(receiveEl?.value || 0);
+
+    if (!amountOut || amountOut <= 0) {
+        amountOut = amountIn;
+    }
+
+    const inSymbol =
+        swapState?.payToken === "native"
+            ? "SDA"
+            : (getTokenData(swapState.payToken)?.symbol || "TOKEN");
+
+    const outSymbol = meta?.symbol;
+
+if(!outSymbol || outSymbol === "TOKEN"){
+    const found = getTokenData(params.tokenOut);
+    meta.symbol = found?.symbol || "UNKNOWN";
+}
+
+    history.unshift({
+        hash: tx.hash,
+        from: wallet.address,
+        to: wallet.address,
+
+        value: amountOut,
+
+        symbol: outSymbol,
+        logo: meta.logo,
+        tokenAddress: params.tokenOut,
+
+        type: "SWAP",
+
+        amountIn,
+        amountOut,
+
+        inSymbol,
+        outSymbol,
+
+        inLogo: getTokenData(swapState.payToken)?.logo || "img/default.png",
+        outLogo: meta.logo || "img/default.png",
+
+        timestamp: Date.now(),
+        status: "success",
+        read: false
+    });
+
+    if (history.length > 50) {
+        history.pop();
+    }
+
+    localStorage.setItem("txHistory", JSON.stringify(history));
+
+} catch (e) {
+    console.warn("history save error", e);
+}
+
+// ==========================
+// UPDATE UI
+// ==========================
+renderTxHistory?.();
+updateBellBadge?.();
+
+log("Swap success");
+showToast?.("Swap success", "success");
+loadBalance?.();
+
+return receipt;
+
+}catch(e){
+
+    console.error(e);
+    log("Swap failed");
+    showToast?.(e.message || "Swap failed", "error");
+
+}finally{
+
+    isLoading = false;
+    setLoading(false);
+}
+} //  INI PENUTUP swapExactInput()
+
+// ==========================
+// INIT
+// ==========================
+function init(){
+    document.getElementById("btnReviewSwap")
+        ?.addEventListener("click", swapExactInput);
+}
+
+document.addEventListener("DOMContentLoaded", init);
+
+return {
+    swapExactInput
+};
+
+})(); //  PENUTUP IIFE
