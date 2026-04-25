@@ -10,7 +10,7 @@ function getSwapDisplaySymbol(symbol){
 }
 
 // ==========================
-// REALISTIC OUTPUT (MATCH SWAP)
+// REALISTIC OUTPUT (MATCH OFFICIAL)
 // ==========================
 function getRealisticOut(amount, estimated){
 
@@ -19,13 +19,13 @@ function getRealisticOut(amount, estimated){
     let correction;
 
     if(amount < 0.00001){
-        correction = 0.995;
+        correction = 1.043;
     }else if(amount < 0.001){
-        correction = 0.992;
+        correction = 1.040;
     }else if(amount < 0.01){
-        correction = 0.989;   // 🔥 naikkan dikit
+        correction = 1.037;
     }else{
-        correction = 0.985;
+        correction = 1.033;
     }
 
     const result = estimated * correction;
