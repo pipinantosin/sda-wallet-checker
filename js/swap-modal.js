@@ -236,6 +236,7 @@ async function updateReceiveEstimate(){
     async function updatePayEstimate(){
 
     const val = parseFloat(receiveInput.value);
+
     if(!payInput) return;
 
     if(isNaN(val) || val <= 0){
@@ -244,20 +245,41 @@ async function updateReceiveEstimate(){
     }
 
     try{
-        const estimated = await PRICE_ENGINE.getAmountOut(
-            swapState.receiveToken,
-            swapState.payToken,
-            val
-        );
 
-        const realistic = getRealisticOut(val, estimated);
+        const forwardPrice =
+            await PRICE_ENGINE.getPrice(
+                swapState.payToken,
+                swapState.receiveToken
+            );
 
-        payInput.value = realistic > 0
-            ? realistic.toFixed(6)
-            : "";
+        if(
+            !forwardPrice ||
+            forwardPrice <= 0
+        ){
+            payInput.value = "";
+            return;
+        }
+
+        const estimatedPay =
+            val / forwardPrice;
+
+        const realistic =
+            getRealisticOut(
+                estimatedPay,
+                estimatedPay
+            );
+
+        payInput.value =
+            realistic > 0
+                ? realistic.toFixed(6)
+                : "";
 
     }catch(e){
-        console.warn("reverse estimate error:", e);
+        console.warn(
+            "reverse estimate error:",
+            e
+        );
+
         payInput.value = "";
     }
 }
@@ -347,35 +369,98 @@ setTimeout(() => {
     });
 
     // ==========================
-    // PAY BALANCE
-    // ==========================
-    async function updatePayBalance(){
+// PAY BALANCE
+// ==========================
+async function updatePayBalance(){
 
+    try{
         const w = getSelectedWallet?.();
-        if (!w) return;
+        if(!w) return;
 
-        const bal = await getTokenBalance(w.address, swapState.payToken);
-        const data = getTokenData(swapState.payToken);
+        const bal =
+            await getTokenBalance(
+                w.address,
+                swapState.payToken
+            );
+
+        const data =
+            getTokenData(
+                swapState.payToken
+            );
+
+        const safeBal =
+            isFinite(parseFloat(bal))
+                ? parseFloat(bal)
+                : 0;
+
+        payBalanceEl.innerHTML = `
+            ${safeBal.toFixed(4)} ${data.symbol}
+            <span class="max" id="btnMax">MAX</span>
+        `;
+
+        const btnMax =
+            document.getElementById(
+                "btnMax"
+            );
+
+        if(btnMax){
+            btnMax.onclick = () => {
+                payInput.value =
+                    safeBal.toFixed(6);
+
+                updateReceiveEstimate?.();
+            };
+        }
+
+    }catch(e){
+        console.warn(
+            "updatePayBalance error:",
+            e
+        );
 
         payBalanceEl.innerHTML =
-            `${parseFloat(bal).toFixed(4)} ${data.symbol}
-             <span class="max" id="btnMax">MAX</span>`;
+            `0.0000 <span class="max" id="btnMax">MAX</span>`;
     }
+}
 
-    // ==========================
-    // RECEIVE BALANCE (DIHIDUPKAN LAGI)
-    // ==========================
-    async function updateReceiveBalance(){
+// ==========================
+// RECEIVE BALANCE
+// ==========================
+async function updateReceiveBalance(){
 
+    try{
         const w = getSelectedWallet?.();
-        if (!w) return;
+        if(!w) return;
 
-        const bal = await getTokenBalance(w.address, swapState.receiveToken);
-        const data = getTokenData(swapState.receiveToken);
+        const bal =
+            await getTokenBalance(
+                w.address,
+                swapState.receiveToken
+            );
+
+        const data =
+            getTokenData(
+                swapState.receiveToken
+            );
+
+        const safeBal =
+            isFinite(parseFloat(bal))
+                ? parseFloat(bal)
+                : 0;
 
         receiveBalanceEl.innerText =
-            `${parseFloat(bal).toFixed(4)} ${data.symbol}`;
+            `${safeBal.toFixed(4)} ${data.symbol}`;
+
+    }catch(e){
+        console.warn(
+            "updateReceiveBalance error:",
+            e
+        );
+
+        receiveBalanceEl.innerText =
+            "0.0000";
     }
+}
 
     // ==========================
     // DROPDOWN
