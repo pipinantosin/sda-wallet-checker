@@ -1,5 +1,6 @@
 // ==========================
-// PRICE ENGINE FIXED PRO
+// ADVANCED PRICE ENGINE
+// Router-like Estimator
 // ==========================
 
 const WSDA = window.CONFIG?.WSDA;
@@ -14,9 +15,13 @@ const FACTORY_ABI = [
 const POOL_ABI = [
     "function slot0() view returns (uint160 sqrtPriceX96,int24,uint16,uint16,uint16,uint8,bool)",
     "function token0() view returns (address)",
-    "function token1() view returns (address)"
+    "function token1() view returns (address)",
+    "function liquidity() view returns (uint128)"
 ];
 
+// ==========================
+// HELPERS
+// ==========================
 function isNative(t){
     return !t || t === "native";
 }
@@ -26,20 +31,30 @@ function normalize(t){
 }
 
 // ==========================
-// SAFE sqrt → price (NO NUMBER LOSS)
+// SAFE SQRT -> PRICE
 // ==========================
 function sqrtToPrice(sqrt){
 
     try{
         const sqrtBig = BigInt(sqrt.toString());
 
-        const priceX192 = sqrtBig * sqrtBig;
-        const denom = 2n ** 192n;
+        const numerator = sqrtBig * sqrtBig;
+        const denominator = 2n ** 192n;
 
-        // 🔥 FIX: jangan Number langsung → pakai precision safe
-        const ratio = Number(priceX192) / Number(denom);
+        const SCALE = 10n ** 18n;
 
-        if(!isFinite(ratio) || ratio === 0) return 0;
+        const scaled =
+            (numerator * SCALE) / denominator;
+
+        const ratio =
+            Number(scaled) / 1e18;
+
+        if(
+            !isFinite(ratio) ||
+            ratio <= 0
+        ){
+            return 0;
+        }
 
         return ratio;
 
@@ -55,82 +70,213 @@ function sqrtToPrice(sqrt){
 async function getPool(tokenA, tokenB, fee){
 
     try{
-        const factory = new ethers.Contract(FACTORY, FACTORY_ABI, provider);
+        const factory =
+            new ethers.Contract(
+                FACTORY,
+                FACTORY_ABI,
+                provider
+            );
 
-        const pool = await factory.getPool(tokenA, tokenB, fee);
+        const pool =
+            await factory.getPool(
+                tokenA,
+                tokenB,
+                fee
+            );
 
-        if(!pool || pool === ethers.constants.AddressZero) return null;
+        if(
+            !pool ||
+            pool === ethers.constants.AddressZero
+        ){
+            return null;
+        }
 
         return pool;
 
-    }catch(e){
+    }catch{
         return null;
     }
 }
 
 // ==========================
-// PRICE ENGINE CORE FIX
+// GET BEST DIRECT POOL
 // ==========================
-async function getPrice(tokenIn, tokenOut){
+async function getBestPool(tokenA, tokenB){
 
-    if(isNative(tokenIn) && isNative(tokenOut)) return 1;
+    let best = null;
+
+    for(const fee of FEES){
+
+        const poolAddr =
+            await getPool(
+                tokenA,
+                tokenB,
+                fee
+            );
+
+        if(!poolAddr) continue;
+
+        try{
+            const pool =
+                new ethers.Contract(
+                    poolAddr,
+                    POOL_ABI,
+                    provider
+                );
+
+            const [
+                token0,
+                token1,
+                slot0,
+                liquidity
+            ] = await Promise.all([
+                pool.token0(),
+                pool.token1(),
+                pool.slot0(),
+                pool.liquidity()
+            ]);
+
+            if(
+                !liquidity ||
+                liquidity.eq(0)
+            ){
+                continue;
+            }
+
+            const liq =
+                Number(liquidity.toString());
+
+            if(
+                !best ||
+                liq > best.liquidity
+            ){
+                best = {
+                    fee,
+                    poolAddr,
+                    token0,
+                    token1,
+                    slot0,
+                    liquidity: liq
+                };
+            }
+
+        }catch{}
+    }
+
+    return best;
+}
+
+// ==========================
+// DIRECT PRICE
+// ==========================
+async function getDirectPrice(tokenIn, tokenOut){
 
     const A = normalize(tokenIn);
     const B = normalize(tokenOut);
 
-    for(const fee of FEES){
+    const best =
+        await getBestPool(A, B);
 
-        const poolAddr = await getPool(A, B, fee);
-        if(!poolAddr) continue;
+    if(!best) return 0;
 
-        try{
-            const pool = new ethers.Contract(poolAddr, POOL_ABI, provider);
+    let price =
+        sqrtToPrice(
+            best.slot0.sqrtPriceX96
+        );
 
-            const [token0, token1, slot0] = await Promise.all([
-                pool.token0(),
-                pool.token1(),
-                pool.slot0()
-            ]);
+    if(price <= 0) return 0;
 
-            const sqrt = slot0.sqrtPriceX96;
-            if(!sqrt) continue;
+    if(
+        A.toLowerCase() ===
+        best.token1.toLowerCase()
+    ){
+        price = 1 / price;
+    }
 
-            let price = sqrtToPrice(sqrt);
-            if(price <= 0) continue;
+    // apply fee deduction
+    price *= (1 - best.fee / 1_000_000);
 
-            // ==========================
-            // FIXED DIRECTION LOGIC (IMPORTANT)
-            // ==========================
-            const tokenInNorm = A.toLowerCase();
-            const t0 = token0.toLowerCase();
-            const t1 = token1.toLowerCase();
+    return price;
+}
 
-            if(tokenInNorm === t1 && tokenInNorm !== t0){
-                price = 1 / price;
-            }
+// ==========================
+// SMART PRICE
+// direct or multihop
+// ==========================
+async function getPrice(tokenIn, tokenOut){
 
-            return price;
+    if(
+        isNative(tokenIn) &&
+        isNative(tokenOut)
+    ){
+        return 1;
+    }
 
-        }catch(e){
-            console.warn("pool read fail", e);
-        }
+    // Try direct first
+    const direct =
+        await getDirectPrice(
+            tokenIn,
+            tokenOut
+        );
+
+    if(direct > 0){
+        return direct;
+    }
+
+    // Fallback multihop via WSDA
+    const leg1 =
+        await getDirectPrice(
+            tokenIn,
+            WSDA
+        );
+
+    const leg2 =
+        await getDirectPrice(
+            WSDA,
+            tokenOut
+        );
+
+    if(
+        leg1 > 0 &&
+        leg2 > 0
+    ){
+        return leg1 * leg2;
     }
 
     return 0;
 }
 
 // ==========================
-// AMOUNT OUT SAFE
+// AMOUNT OUT
 // ==========================
-async function getAmountOut(tokenIn, tokenOut, amountIn){
+async function getAmountOut(
+    tokenIn,
+    tokenOut,
+    amountIn
+){
 
-    const price = await getPrice(tokenIn, tokenOut);
+    const price =
+        await getPrice(
+            tokenIn,
+            tokenOut
+        );
 
-    if(!price || price <= 0) return 0;
+    if(
+        !price ||
+        price <= 0
+    ){
+        return 0;
+    }
 
-    const out = Number(amountIn) * price;
+    const out =
+        Number(amountIn) * price;
 
-    if(!isFinite(out) || out <= 0) return 0;
+    if(
+        !isFinite(out) ||
+        out <= 0
+    ){
+        return 0;
+    }
 
     return out;
 }
