@@ -122,7 +122,7 @@ async function syncPoolData(){
 
     try{
 
-        if(!lpState.token1 || !window.LP_FACTORY){
+        if(!lpState.token1){
             return;
         }
 
@@ -138,27 +138,28 @@ async function syncPoolData(){
         const rangeBox  = document.getElementById("lpCustomRange");
 
         // ==========================
-        // GET PRICE
+        // GET PRICE (UNIFIED ENGINE)
         // ==========================
-        const price = await LP_FACTORY.getCurrentPrice(
+        const price = await window.PRICE_ENGINE.getPrice(
             token0,
-            token1,
-            lpState.fee
+            token1
         );
 
-        const isNumber = typeof price === "number" && isFinite(price) && price > 0;
-        const isNotInit = price === "NOT_INITIALIZED";
-        const isNoPool = price === null || price === undefined;
+        const isValidPrice =
+            typeof price === "number" &&
+            isFinite(price) &&
+            price > 0;
 
         // ==========================
         // POOL NOT ACTIVE
         // ==========================
-        if(isNoPool || isNotInit || !isNumber){
+        if(!isValidPrice){
 
             lpState.priceMode = "manual";
 
             if(statusEl){
-                statusEl.innerText = "Pool belum aktif  set harga manual";
+                statusEl.innerText =
+                    "Pool belum aktif • set harga manual";
             }
 
             if(manualBox){
@@ -168,20 +169,24 @@ async function syncPoolData(){
             setLPPriceUI(0);
             updatePairUI();
 
-            // clear auto amount
-            const inputB = document.getElementById("lpAmount1");
-            if(inputB) inputB.value = "";
+            const inputB =
+                document.getElementById("lpAmount1");
+
+            if(inputB){
+                inputB.value = "";
+            }
 
             return;
         }
 
         // ==========================
-        // POOL ACTIVE (AUTO MODE)
+        // POOL ACTIVE
         // ==========================
         lpState.priceMode = "auto";
 
         if(statusEl){
-            statusEl.innerText = "Pool aktif  auto price";
+            statusEl.innerText =
+                "Pool aktif • auto price";
         }
 
         if(manualBox){
@@ -191,74 +196,90 @@ async function syncPoolData(){
         updatePairUI();
         setLPPriceUI(price);
 
-        // ==========================
-        // AMOUNT AUTO SYNC
-        // ==========================
-        const inputA = document.getElementById("lpAmount0");
-        const inputB = document.getElementById("lpAmount1");
+        const inputA =
+            document.getElementById("lpAmount0");
+
+        const inputB =
+            document.getElementById("lpAmount1");
 
         if(inputA && inputB){
 
-            inputA.oninput = () => {
+            inputA.oninput = ()=>{
 
-                const val = parseFloat(inputA.value || 0);
+                const val =
+                    parseFloat(inputA.value || 0);
 
-                if(!val || !isFinite(val)){
+                if(!val){
+
                     inputB.value = "";
                     return;
                 }
 
-                inputB.value = (val * price).toFixed(6);
+                inputB.value =
+                    (val * price).toFixed(6);
             };
         }
 
+        // lanjut range logic di bawah sini...
+
         // ==========================
-        // RANGE LOGIC FIX (INI YANG KAMU MAU)
-        // ==========================
-        const minEl = document.getElementById("lpMinPrice");
-        const maxEl = document.getElementById("lpMaxPrice");
+// RANGE LOGIC FIXED
+// ==========================
+const minEl = document.getElementById("lpMinPrice");
+const maxEl = document.getElementById("lpMaxPrice");
 
-        if(rangeBox){
-            rangeBox.style.display = lpState.fullRange ? "none" : "block";
-        }
+if(rangeBox){
+    rangeBox.style.display =
+        lpState.fullRange
+            ? "none"
+            : "block";
+}
 
-        //  FULL RANGE = IGNORE CUSTOM
-        if(lpState.fullRange){
+// ==========================
+// FULL RANGE MODE
+// ==========================
+if(lpState.fullRange){
 
-            if(minEl && maxEl){
-                minEl.value = "";
-                maxEl.value = "";
-            }
+    if(minEl && maxEl){
 
-        } 
-        //  CUSTOM RANGE = AUTO FILL FIRST TIME ONLY
-        else {
+        minEl.value = "";
+        maxEl.value = "";
 
-            if(minEl && maxEl){
-
-                const hasUserInput =
-                    minEl.dataset.locked === "1" ||
-                    maxEl.dataset.locked === "1";
-
-                // hanya auto isi kalau belum pernah user edit
-                if(!hasUserInput){
-
-                    const min = price * 0.95;
-                    const max = price * 1.05;
-
-                    minEl.value = min.toFixed(6);
-                    maxEl.value = max.toFixed(6);
-
-                    // lock supaya tidak overwrite lagi
-                    minEl.dataset.locked = "1";
-                    maxEl.dataset.locked = "1";
-                }
-            }
-        }
-
-    }catch(err){
-        console.warn("syncPoolData error:", err);
+        // reset manual edit state
+        delete minEl.dataset.userEdited;
+        delete maxEl.dataset.userEdited;
     }
+}
+
+// ==========================
+// CUSTOM RANGE MODE
+// ==========================
+else{
+
+    if(minEl && maxEl){
+
+        const userEdited =
+            minEl.dataset.userEdited === "1" ||
+            maxEl.dataset.userEdited === "1";
+
+        // auto fill only if user never edited manually
+        if(!userEdited){
+
+            const min = price * 0.95;
+            const max = price * 1.05;
+
+            minEl.value = min.toFixed(6);
+            maxEl.value = max.toFixed(6);
+        }
+    }
+}
+
+}catch(err){
+    console.warn(
+        "syncPoolData error:",
+        err
+    );
+}
 }
 
 
@@ -329,13 +350,42 @@ async function updateLPBalance(){
             const newBtn = maxBtn.cloneNode(true);
             maxBtn.replaceWith(newBtn);
 
-            newBtn.addEventListener("click", ()=>{
+            newBtn.addEventListener("click", async ()=>{
 
-                const input = document.getElementById("lpAmount0");
-                if(input){
-                    input.value = b0 > 0 ? b0.toFixed(6) : "";
-                }
-            });
+    const input = document.getElementById("lpAmount0");
+
+    if(input){
+        input.value = b0 > 0
+            ? b0.toFixed(6)
+            : "";
+    }
+
+    // auto sync pair amount
+    if(lpState.token1){
+
+        const token0 =
+            lpState.token0 === "native"
+                ? window.CONFIG.WSDA
+                : lpState.token0;
+
+        let price = 0;
+
+        if(lpState.priceMode === "auto"){
+            price = await window.PRICE_ENGINE.getPrice(
+                token0,
+                lpState.token1
+            );
+        }else{
+            price = parseFloat(lpState.manualPrice || 0);
+        }
+
+        if(price > 0){
+            await syncAmountFromPrice(price);
+        }
+    }
+
+    await validateLPBalances();
+});
         }
 
 
@@ -712,6 +762,67 @@ function setLPPriceUI(price){
     el.innerText =
         `Price: 1 ${symbol0} = ${price.toFixed(6)} ${symbol1}`;
 }
+
+
+// ==========================
+// BALANCE VALIDATION UI
+// ==========================
+async function validateLPBalances(){
+
+    const w = getSelectedWallet?.();
+    if(!w) return;
+
+    const input0 = document.getElementById("lpAmount0");
+    const input1 = document.getElementById("lpAmount1");
+
+    const bal0El = document.getElementById("lpBalance0");
+    const bal1El = document.getElementById("lpBalance1");
+
+    if(!input0 || !input1) return;
+
+    const amount0 = parseFloat(input0.value || 0);
+    const amount1 = parseFloat(input1.value || 0);
+
+    const bal0 = parseFloat(
+        await getTokenBalance(w.address, "native")
+    );
+
+    const bal1 = lpState.token1
+        ? parseFloat(
+            await getTokenBalance(
+                w.address,
+                lpState.token1
+            )
+        )
+        : 0;
+
+    // TOKEN 0 CHECK
+    if(bal0El){
+        bal0El.style.color =
+            amount0 > bal0
+                ? "#ff4d4f"
+                : "";
+    }
+
+    // TOKEN 1 CHECK
+    if(bal1El){
+        bal1El.style.color =
+            amount1 > bal1
+                ? "#ff4d4f"
+                : "";
+    }
+
+    // OPTIONAL INPUT BORDER RED
+    input0.style.borderColor =
+        amount0 > bal0
+            ? "#ff4d4f"
+            : "";
+
+    input1.style.borderColor =
+        amount1 > bal1
+            ? "#ff4d4f"
+            : "";
+}
 // ==========================
 // EVENTS (FINAL FIX)
 // ==========================
@@ -766,7 +877,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
 
 // ==========================
-// RANGE SELECT (CHECK STYLE)
+// RANGE SELECT
 // ==========================
 document.querySelectorAll(".range-item").forEach(item => {
 
@@ -778,21 +889,44 @@ document.querySelectorAll(".range-item").forEach(item => {
         item.classList.add("active");
 
         const mode = item.dataset.mode;
-        lpState.fullRange = (mode === "full");
 
-        const rangeBox = document.getElementById("lpCustomRange");
+        lpState.fullRange =
+            (mode === "full");
 
-        if (rangeBox) {
-            rangeBox.style.display = lpState.fullRange ? "none" : "block";
+        const rangeBox =
+            document.getElementById(
+                "lpCustomRange"
+            );
+
+        if(rangeBox){
+            rangeBox.style.display =
+                lpState.fullRange
+                    ? "none"
+                    : "block";
         }
 
-        await syncPoolData(); //  aman sekarang
+        // RESET AUTO-FILL LOCK
+        if(!lpState.fullRange){
+
+            const minEl =
+                document.getElementById("lpMinPrice");
+
+            const maxEl =
+                document.getElementById("lpMaxPrice");
+
+            if(minEl) delete minEl.dataset.userEdited;
+            if(maxEl) delete maxEl.dataset.userEdited;
+        }
+
+        await syncPoolData();
     });
 
 });
 
-
-
+// ==========================
+// AMOUNT0 -> AUTO AMOUNT1
+// SINGLE LISTENER ONLY
+// ==========================
 document.getElementById("lpAmount0")
 ?.addEventListener("input", async ()=>{
 
@@ -800,25 +934,28 @@ document.getElementById("lpAmount0")
 
     const token0 =
         lpState.token0 === "native"
-        ? window.CONFIG.WSDA
-        : lpState.token0;
+            ? window.CONFIG.WSDA
+            : lpState.token0;
 
-    const price = await LP_FACTORY.getCurrentPrice(
-        token0,
-        lpState.token1,
-        lpState.fee
-    );
+    const price =
+        await window.PRICE_ENGINE.getPrice(
+            token0,
+            lpState.token1
+        );
 
     syncAmountFromPrice(price);
 });
 
-
-
+// ==========================
+// MANUAL PRICE INPUT
+// ==========================
 document.getElementById("lpManualPrice")
 ?.addEventListener("input", ()=>{
 
     const price = parseFloat(
-        document.getElementById("lpManualPrice").value || 0
+        document.getElementById(
+            "lpManualPrice"
+        )?.value || 0
     );
 
     lpState.manualPrice = price;
@@ -827,33 +964,66 @@ document.getElementById("lpManualPrice")
     fillAutoRange(price);
 });
 
+// ==========================
+// USER EDIT CUSTOM RANGE
+// ==========================
+document.getElementById("lpMinPrice")
+?.addEventListener("input", (e)=>{
+    e.target.dataset.userEdited = "1";
+});
 
+document.getElementById("lpMaxPrice")
+?.addEventListener("input", (e)=>{
+    e.target.dataset.userEdited = "1";
+});
+
+// ==========================
+// AMOUNT1 -> AUTO AMOUNT0
+// REVERSE SYNC
+// ==========================
 document.getElementById("lpAmount0")
+?.addEventListener("input", validateLPBalances);
+
+document.getElementById("lpAmount1")
+?.addEventListener("input", validateLPBalances);
+
+document.getElementById("lpAmount1")
 ?.addEventListener("input", async ()=>{
 
     if(!lpState.token1) return;
 
     const token0 =
         lpState.token0 === "native"
-        ? window.CONFIG.WSDA
-        : lpState.token0;
+            ? window.CONFIG.WSDA
+            : lpState.token0;
 
-    const price = await window.PRICE_ENGINE.getPrice(
-        token0,
-        lpState.token1
+    let price = 0;
+
+    if(lpState.priceMode === "auto"){
+        price = await window.PRICE_ENGINE.getPrice(
+            token0,
+            lpState.token1
+        );
+    }else{
+        price = parseFloat(lpState.manualPrice || 0);
+    }
+
+    if(!price || price <= 0) return;
+
+    const valB = parseFloat(
+        document.getElementById("lpAmount1").value || 0
     );
 
-    syncAmountFromPrice(price);
-});
+    const inputA =
+        document.getElementById("lpAmount0");
 
+    if(!valB || !isFinite(valB)){
+        inputA.value = "";
+        await validateLPBalances();
+        return;
+    }
 
+    inputA.value = (valB / price).toFixed(6);
 
-document.getElementById("lpMinPrice")
-?.addEventListener("input", (e)=>{
-    e.target.dataset.locked = "1";
-});
-
-document.getElementById("lpMaxPrice")
-?.addEventListener("input", (e)=>{
-    e.target.dataset.locked = "1";
+    await validateLPBalances();
 });
