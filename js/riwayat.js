@@ -76,10 +76,7 @@ function getTxHistory(){
 
 
 // =============================
-// TX HISTORY RENDER (PRO VERSION)
-// =============================
-// =============================
-// TX HISTORY RENDER (FINAL FIXED)
+// TX HISTORY RENDER (FULL FIXED)
 // =============================
 function renderTxHistory(){
 
@@ -90,7 +87,6 @@ function renderTxHistory(){
     const wallet = getSelectedWallet?.();
     const myAddr = wallet?.address?.toLowerCase();
 
-    // EMPTY STATE
     if(history.length === 0){
         list.innerHTML = `
         <div style="text-align:center;color:#888;padding:30px;">
@@ -102,53 +98,42 @@ function renderTxHistory(){
 
     list.innerHTML = "";
 
-    // =============================
-    // RENDER LIST
-    // =============================
     history.forEach(tx => {
 
         if(!tx) return;
 
         const isSwap = tx.type === "SWAP";
 
-        // =============================
-        // FIX LEGACY DATA (ANTI TOKEN / EMPTY)
-        // =============================
-        const inSym  = tx.inSymbol || tx.symbol || "SDA";
-        const outSym = tx.outSymbol || tx.symbol || "SDA";
+        const inSym  = tx.inSymbol || "SDA";
+        const outSym = tx.outSymbol || "TOKEN";
 
         const symbolDisplay = isSwap
             ? `${inSym} → ${outSym}`
             : (tx.symbol || "SDA");
 
-        const logo = isSwap
-            ? (tx.outLogo || tx.logo || "img/default.png")
-            : (tx.logo || "img/sda.png");
+        const logo = tx.logo || "img/sda.png";
 
         const from = tx.from?.toLowerCase();
         const to   = tx.to?.toLowerCase();
 
-        // =============================
-        // TYPE DETECTION
-        // =============================
-        let type = "SEND";
+        let type  = "SEND";
         let color = "#ff4d4f";
         let icon  = "↑";
 
         if (isSwap) {
-            type = "SWAP";
+            type  = "SWAP";
             color = "#3b82f6";
-            icon = "⇄";
+            icon  = "⇄";
         } else if (myAddr && to === myAddr) {
-            type = "RECEIVE";
+            type  = "RECEIVE";
             color = "#00d084";
-            icon = "↓";
+            icon  = "↓";
         }
 
-        // =============================
-        // VALUE FORMAT
-        // =============================
-        let value = Number(tx.value || 0);
+        let value = isSwap
+            ? Number(tx.amountOut || 0)
+            : Number(tx.value || 0);
+
         let valueFormatted;
 
         if (value === 0) {
@@ -159,36 +144,82 @@ function renderTxHistory(){
             valueFormatted = value.toFixed(6).replace(/\.?0+$/, "");
         }
 
-        // =============================
-        // ADDRESS DISPLAY
-        // =============================
-        let targetAddr = type === "SEND" ? tx.to : tx.from;
+        const targetAddr = type === "SEND" ? tx.to : tx.from;
 
         const shortAddr = targetAddr
             ? targetAddr.slice(0,6) + "..." + targetAddr.slice(-4)
             : "-";
 
         // =============================
-        // ELEMENT
+        // DUAL ICON FOR SWAP
         // =============================
+        const logoHTML = isSwap
+            ? `
+                <div style="
+                    position:relative;
+                    width:46px;
+                    height:34px;
+                    flex-shrink:0;
+                ">
+                    <img src="${tx.inLogo || 'img/sda.png'}"
+                         style="
+                            width:24px;
+                            height:24px;
+                            border-radius:50%;
+                            position:absolute;
+                            left:0;
+                            top:5px;
+                            background:#111;
+                            padding:3px;
+                            z-index:1;
+                            object-fit:contain;
+                         ">
+
+                    <img src="${tx.outLogo || 'img/default.png'}"
+                         style="
+                            width:24px;
+                            height:24px;
+                            border-radius:50%;
+                            position:absolute;
+                            right:0;
+                            top:5px;
+                            background:#111;
+                            padding:3px;
+                            border:2px solid #0b0f17;
+                            z-index:2;
+                            object-fit:contain;
+                         ">
+                </div>
+            `
+            : `
+                <img src="${logo}"
+                     style="
+                        width:34px;
+                        height:34px;
+                        border-radius:50%;
+                        background:#111;
+                        padding:5px;
+                        object-fit:contain;
+                     ">
+            `;
+
         const el = document.createElement("div");
         el.className = "asset-item";
 
         el.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
 
-    <!-- LEFT -->
     <div style="display:flex;align-items:center;gap:10px;">
 
         <div style="position:relative;">
-            <img src="${logo}" 
-                 style="width:34px;height:34px;border-radius:50%;background:#111;padding:5px;" />
+            ${logoHTML}
 
             <div style="
                 position:absolute;
                 bottom:-2px;
                 right:-2px;
-                width:16px;height:16px;
+                width:16px;
+                height:16px;
                 font-size:10px;
                 background:${color};
                 color:#fff;
@@ -196,6 +227,7 @@ function renderTxHistory(){
                 display:flex;
                 align-items:center;
                 justify-content:center;
+                z-index:5;
             ">
                 ${icon}
             </div>
@@ -217,7 +249,6 @@ function renderTxHistory(){
         </div>
     </div>
 
-    <!-- RIGHT -->
     <div style="text-align:right;">
 
         <div style="font-size:13px;font-weight:600;color:${color};">
@@ -248,7 +279,6 @@ function renderTxHistory(){
 </div>
 `;
 
-        // CLICK DETAIL
         el.onclick = (e) => {
             if(e.target.classList.contains("copy-btn")) return;
             if(e.target.classList.contains("open-tx")) return;
