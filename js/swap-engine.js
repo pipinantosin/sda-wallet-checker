@@ -15,8 +15,9 @@ window.SWAP_ENGINE = (function () {
 const ROUTER_ABI = [
     "function multicall(bytes[] data) payable returns (bytes[] results)",
 
-    // 🔥 FIX: tambahin nama field (WAJIB buat ethers)
-    "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256)"
+    "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)) payable returns (uint256)",
+
+    "function unwrapWETH9(uint256 amountMinimum, address recipient)"
 ];
 
 const ERC20_ABI = [
@@ -39,11 +40,29 @@ function isNative(token){
 }
 
 function toWSDA(token){
-    return isNative(token) ? WSDA_ADDR : token;
+    if (!token || token === "native") return WSDA_ADDR;
+    return token;
 }
 
 function getWallet(){
     return getPKWallet?.() || getSelectedWallet?.() || window.wallet || null;
+}
+
+// ==========================
+// ENCODER (GLOBAL HELPER)
+// ==========================
+function encodeSwap(router, params) {
+    return router.interface.encodeFunctionData(
+        "exactInputSingle",
+        [params]
+    );
+}
+
+function encodeUnwrap(router, recipient) {
+    return router.interface.encodeFunctionData(
+        "unwrapWETH9",
+        [0, recipient]
+    );
 }
 
 function log(msg){
@@ -179,19 +198,25 @@ async function buildParams(wallet, tokenIn, tokenOut, amountUI){
     );
 
     return {
-        tokenIn: toWSDA(tokenIn),
-        tokenOut: toWSDA(tokenOut),
-        fee: window.CONFIG?.FEE || 3000,
-        recipient: wallet.address,
-        deadline: Math.floor(Date.now()/1000) + 300,
-        amountIn,
-        amountOutMinimum,
-        sqrtPriceLimitX96: 0
-    };
+    tokenIn: toWSDA(tokenIn),
+    tokenOut: isNative(tokenOut) ? WSDA_ADDR : tokenOut,
+
+    fee: window.CONFIG?.FEE || 3000,
+
+    recipient: isNative(tokenOut)
+        ? ROUTER_ADDR
+        : wallet.address,
+
+    deadline: Math.floor(Date.now()/1000) + 300,
+
+    amountIn,
+    amountOutMinimum,
+    sqrtPriceLimitX96: 0
+};
 }
 
 // ==========================
-// MAIN SWAP (FINAL FIX)
+// MAIN SWAP (FINAL FIXED MULTICALL + UNWRAP)
 // ==========================
 async function swapExactInput(){
 
@@ -215,6 +240,7 @@ async function swapExactInput(){
         setLoading(true);
 
         const isNativeIn = isNative(tokenIn);
+        const isNativeOut = isNative(tokenOut);
 
         const router = new ethers.Contract(
             ROUTER_ADDR,
@@ -229,163 +255,138 @@ async function swapExactInput(){
             amountUI
         );
 
+
+
+log("Executing swap...");
+
+const calls = [];
+
+// ==========================
+// 1. SWAP ALWAYS
+// ==========================
+if (!isNativeIn) {
+    await approveIfNeeded(params.tokenIn, params.amountIn, wallet);
+}
+
+calls.push(
+    encodeSwap(router, params)
+);
+
+// ==========================
+// 2. UNWRAP IF OUTPUT IS NATIVE
+// ==========================
+if (isNativeOut) {
+    calls.push(
+        encodeUnwrap(router, wallet.address)
+    );
+}
+
+// ==========================
+// EXECUTE MULTICALL (1 TX FLOW)
+// ==========================
+const tx = await router.multicall(calls, {
+    value: isNative(tokenIn) ? params.amountIn : 0,
+    gasLimit: 1200000
+});
+
+log("TX: " + tx.hash);
+
+const receipt = await tx.wait();
+
+if (receipt.status !== 1) {
+    throw new Error("Swap failed");
+}
+
         // ==========================
-        // EXECUTE SWAP (NO MULTICALL)
+        // SAVE HISTORY
         // ==========================
-        log("Executing swap...");
+        try {
 
-        let tx;
+            const history = JSON.parse(localStorage.getItem("txHistory") || "[]");
 
-        if(isNativeIn){
-            // 🔥 SDA langsung kirim ke router
-            tx = await router.exactInputSingle(
-                params,
-                {
-                    value: params.amountIn,
-                    gasLimit: 1200000
-                }
-            );
-        }else{
-            await approveIfNeeded(params.tokenIn, params.amountIn, wallet);
+            let amountIn = Number(amountUI) || 0;
 
-            tx = await router.exactInputSingle(
-                params,
-                {
-                    gasLimit: 1200000
-                }
-            );
-        }
+            let amountOut = 0;
+            const receiveEl = document.getElementById("receiveAmount");
 
-        log("TX: " + tx.hash);
+            amountOut = Number(receiveEl?.value || 0);
 
-        const receipt = await tx.wait();
-
-        if(receipt.status !== 1){
-            throw new Error("Swap failed");
-        }
-
-        // ==========================
-        // TOKEN META
-        // ==========================
-        let meta = {
-            symbol: "TOKEN",
-            logo: "img/default.png"
-        };
-
-        try{
-            const list = window.TOKEN_LIST || [];
-
-            const found = list.find(t =>
-                t.address?.toLowerCase() === params.tokenOut?.toLowerCase()
-            );
-
-            if(found){
-                meta.symbol = found.symbol || "TOKEN";
-                meta.logo = found.icon ? `img/${found.icon}` : "img/default.png";
+            if (!amountOut || amountOut <= 0) {
+                amountOut = amountIn;
             }
-        }catch(e){
-            console.warn("meta error", e);
+
+            const inSymbol =
+                isNative(tokenIn)
+                    ? "SDA"
+                    : (getTokenData(tokenIn)?.symbol || "TOKEN");
+
+const meta = getTokenData(tokenOut) || {};
+
+            const outSymbol =
+                meta?.symbol || getTokenData(tokenOut)?.symbol || "UNKNOWN";
+
+            const inToken  = getTokenData(tokenIn);
+            const outToken = getTokenData(tokenOut);
+
+            history.unshift({
+    hash: tx.hash,
+    from: wallet.address,
+    to: wallet.address,
+
+    value: amountOut,
+
+    symbol: outSymbol,
+    logo: meta?.logo || "",
+    tokenAddress: tokenOut,
+
+    type: "SWAP",
+
+    amountIn,
+    amountOut,
+
+    inSymbol,
+    outSymbol,
+
+    inLogo: inToken?.icon ? `img/${inToken.icon}` : "img/default.png",
+    outLogo: outToken?.icon ? `img/${outToken.icon}` : "img/default.png",
+
+    timestamp: Date.now(),
+    status: "success",
+    read: false
+});
+
+            if (history.length > 50) history.pop();
+
+            localStorage.setItem("txHistory", JSON.stringify(history));
+
+        } catch (e) {
+            console.warn("history save error", e);
         }
 
-// ==========================
-//  SAVE OBJECT (FIXED CLEAN VERSION)
-// ==========================
-try {
+        // ==========================
+        // UI UPDATE
+        // ==========================
+        renderTxHistory?.();
+        updateBellBadge?.();
 
-    const history = JSON.parse(localStorage.getItem("txHistory") || "[]");
+        log("Swap success");
+        showToast?.("Swap success", "success");
+        loadBalance?.();
 
-    let amountIn = Number(amountUI) || 0;
+        return receipt;
 
-    let amountOut = 0;
-    const receiveEl = document.getElementById("receiveAmount");
+    } catch(e){
 
-    amountOut = Number(receiveEl?.value || 0);
+        console.error(e);
+        log("Swap failed");
+        showToast?.(e.message || "Swap failed", "error");
 
-    if (!amountOut || amountOut <= 0) {
-        amountOut = amountIn;
+    } finally {
+
+        isLoading = false;
+        setLoading(false);
     }
-
-    const inSymbol =
-        swapState?.payToken === "native"
-            ? "SDA"
-            : (getTokenData(swapState.payToken)?.symbol || "TOKEN");
-
-    let outSymbol = meta?.symbol;
-
-    if (!outSymbol || outSymbol === "TOKEN") {
-        const found = getTokenData(params.tokenOut);
-        outSymbol = found?.symbol || "UNKNOWN";
-        meta.symbol = outSymbol;
-    }
-
-    // ==========================
-    // FIX: ambil token DI LUAR object (WAJIB)
-    // ==========================
-    const inToken  = getTokenData(swapState.payToken);
-    const outToken = getTokenData(params.tokenOut);
-
-    history.unshift({
-        hash: tx.hash,
-        from: wallet.address,
-        to: wallet.address,
-
-        value: amountOut,
-
-        symbol: outSymbol,
-        logo: meta.logo,
-        tokenAddress: params.tokenOut,
-
-        type: "SWAP",
-
-        amountIn,
-        amountOut,
-
-        inSymbol,
-        outSymbol,
-
-        inLogo: inToken?.icon ? `img/${inToken.icon}` : "img/default.png",
-        outLogo: outToken?.icon ? `img/${outToken.icon}` : "img/default.png",
-
-        timestamp: Date.now(),
-        status: "success",
-        read: false
-    });
-
-    if (history.length > 50) {
-        history.pop();
-    }
-
-    localStorage.setItem("txHistory", JSON.stringify(history));
-
-} catch (e) {
-    console.warn("history save error", e);
 }
-
-// ==========================
-// UPDATE UI
-// ==========================
-renderTxHistory?.();
-updateBellBadge?.();
-
-log("Swap success");
-showToast?.("Swap success", "success");
-loadBalance?.();
-
-return receipt;
-
-}catch(e){
-
-    console.error(e);
-    log("Swap failed");
-    showToast?.(e.message || "Swap failed", "error");
-
-}finally{
-
-    isLoading = false;
-    setLoading(false);
-}
-} // ✅ penutup swapExactInput()
-
 // ==========================
 // INIT
 // ==========================
