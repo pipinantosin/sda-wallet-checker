@@ -325,8 +325,13 @@ const meta = getTokenData(tokenOut) || {};
             const outSymbol =
                 meta?.symbol || getTokenData(tokenOut)?.symbol || "UNKNOWN";
 
-            const inToken  = getTokenData(tokenIn);
-            const outToken = getTokenData(tokenOut);
+            const inToken = isNative(tokenIn)
+    ? { icon: "sda.png" }
+    : getTokenData(tokenIn);
+
+const outToken = isNative(tokenOut)
+    ? { icon: "sda.png" }
+    : getTokenData(tokenOut);
 
             history.unshift({
     hash: tx.hash,
