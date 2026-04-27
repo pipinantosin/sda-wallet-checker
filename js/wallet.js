@@ -158,16 +158,35 @@ function saveWallet() {
 // ==========================
 // GET SELECTED WALLET (SAFE)
 // ==========================
-function getSelectedWallet() {
+function getSelectedWallet(){
 
     const wallets = getWallets();
+    if(!wallets?.length) return null;
 
-    if (!selectEl) return null;
+    let index = null;
 
-    const index = parseInt(selectEl.value);
+    // Priority 1: dropdown
+    if(typeof selectEl !== "undefined" && selectEl){
+        index = parseInt(selectEl.value);
+    }
 
-    // safety check
-    if (isNaN(index) || !wallets[index]) return null;
+    // Priority 2: localStorage fallback
+    if(
+        index === null ||
+        isNaN(index) ||
+        !wallets[index]
+    ){
+        index = parseInt(
+            localStorage.getItem("selectedWalletIndex")
+        );
+    }
+
+    if(
+        isNaN(index) ||
+        !wallets[index]
+    ){
+        index = 0;
+    }
 
     return wallets[index];
 }
@@ -278,8 +297,9 @@ function saveWalletName() {
         "success"
     );
 }
+
 // ==========================
-// DELETE WALLET (CUSTOM MODAL CONFIRM + FULL SAFE)
+// DELETE WALLET (FULL FIXED)
 // ==========================
 function deleteWallet() {
 
@@ -298,38 +318,67 @@ function deleteWallet() {
     }
 
     // ==========================
-    // CUSTOM CONFIRM MODAL (NO BROWSER CONFIRM)
+    // CUSTOM CONFIRM MODAL
     // ==========================
     showConfirm(
         LANG?.[CURRENT_LANG]?.delete_wallet_confirm || "Hapus wallet ini?",
         function () {
 
+            const deletedWallet = wallets[index];
+
             // ==========================
-            // REMOVE WALLET
+            // CLEAR PK STATE IF PK WALLET
+            // ==========================
+            if (deletedWallet?.type === "pk") {
+
+    window.pkWallet = null;
+
+    localStorage.removeItem(PK_STORAGE_KEY);
+
+    const pkInput = document.getElementById("walletPK");
+    if (pkInput) {
+        pkInput.value = "";
+    }
+
+    console.log("✔ PK runtime/storage/input cleared");
+}
+
+            // ==========================
+            // REMOVE WALLET FROM LIST
             // ==========================
             wallets.splice(index, 1);
+
             setWallets(wallets);
+
             renderWallets();
 
             // ==========================
-            // CLOSE ALL RELATED MODALS
+            // CLOSE RELATED MODALS
             // ==========================
             closeWalletSetting?.();
             closeQRModal?.();
             closeReceiveModal?.();
 
             // ==========================
-            // IF STILL HAS WALLET
+            // STILL HAS WALLET
             // ==========================
             if (wallets.length > 0) {
 
                 const newIndex = Math.max(0, index - 1);
-                selectEl.value = String(newIndex);
+
+                localStorage.setItem(
+                    "selectedWalletIndex",
+                    String(newIndex)
+                );
+
+                if (selectEl) {
+                    selectEl.value = String(newIndex);
+                }
 
                 updateActiveWalletName?.();
                 updateAddressUI?.();
-                renderAssets();
-                loadBalance();
+                renderAssets?.();
+                loadBalance?.();
 
                 setTimeout(() => {
                     autoRefreshIfNeeded?.();
@@ -338,31 +387,40 @@ function deleteWallet() {
             } else {
 
                 // ==========================
-                // RESET UI FULL STATE
+                // NO WALLET LEFT
                 // ==========================
-                if (balanceEl) balanceEl.textContent = "0.00 SDA";
+                localStorage.removeItem("selectedWalletIndex");
 
-                const tabAssets = document.getElementById("tab-assets");
+                if (balanceEl) {
+                    balanceEl.textContent = "0.00 SDA";
+                }
+
+                const tabAssets =
+                    document.getElementById("tab-assets");
+
                 if (tabAssets) {
                     tabAssets.innerHTML =
                         "<div style='text-align:center;color:#888;'>No wallet</div>";
                 }
 
-                const activeName = document.getElementById("activeWalletName");
+                const activeName =
+                    document.getElementById("activeWalletName");
+
                 if (activeName) {
                     activeName.textContent =
-                        LANG?.[CURRENT_LANG]?.no_wallet || "No Wallet Selected";
+                        LANG?.[CURRENT_LANG]?.no_wallet ||
+                        "No Wallet Selected";
                 }
 
-                // restart guide
                 startGuide?.();
             }
 
             // ==========================
-            // SUCCESS TOAST
+            // SUCCESS
             // ==========================
             showToast(
-                LANG?.[CURRENT_LANG]?.wallet_deleted || "Wallet dihapus",
+                LANG?.[CURRENT_LANG]?.wallet_deleted ||
+                "Wallet dihapus",
                 "success"
             );
         }
