@@ -82,28 +82,43 @@ window.provider =
     );
 
 // ==========================
-// CREATE WALLET FROM PRIVATE KEY
-// ==========================
-window.createWallet = function(privateKey) {
-
-    if (!window.provider) {
-        throw new Error("Provider belum siap");
-    }
-
-    return new ethers.Wallet(privateKey, window.provider);
-};
-
-// ==========================
 // FEES ABI (ONLY FIX)
 // ==========================
 window.CONFIG.ABI_FEES = [
     "function collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) payable returns (uint256 amount0,uint256 amount1)"
 ];
 
+// ==========================
+// POSITION MANAGER ABI FIXED
+// ==========================
 window.CONFIG.ABI = window.CONFIG.ABI || {};
 
 window.CONFIG.ABI.POSITION_MANAGER = [
-    "function positions(uint256 tokenId) view returns (uint96,address,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128)",
-    "function collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) payable returns (uint256,uint256)",
-    "function callStaticCollect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) view returns (uint256,uint256)"
+
+    // EXACT ABI FROM NONFUNGIBLE POSITION MANAGER
+    "function positions(uint256 tokenId) view returns (" +
+        "uint96 nonce," +
+        "address operator," +
+        "address token0," +
+        "address token1," +
+        "uint24 fee," +
+        "int24 tickLower," +
+        "int24 tickUpper," +
+        "uint128 liquidity," +
+        "uint256 feeGrowthInside0LastX128," +
+        "uint256 feeGrowthInside1LastX128," +
+        "uint128 tokensOwed0," +
+        "uint128 tokensOwed1" +
+    ")",
+
+    // COLLECT REAL
+    "function collect((" +
+        "uint256 tokenId," +
+        "address recipient," +
+        "uint128 amount0Max," +
+        "uint128 amount1Max" +
+    ")) payable returns (" +
+        "uint256 amount0," +
+        "uint256 amount1" +
+    ")"
 ];
