@@ -92,3 +92,18 @@ window.createWallet = function(privateKey) {
 
     return new ethers.Wallet(privateKey, window.provider);
 };
+
+// ==========================
+// FEES ABI (ONLY FIX)
+// ==========================
+window.CONFIG.ABI_FEES = [
+    "function collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) payable returns (uint256 amount0,uint256 amount1)"
+];
+
+window.CONFIG.ABI = window.CONFIG.ABI || {};
+
+window.CONFIG.ABI.POSITION_MANAGER = [
+    "function positions(uint256 tokenId) view returns (uint96,address,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128)",
+    "function collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) payable returns (uint256,uint256)",
+    "function callStaticCollect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) view returns (uint256,uint256)"
+];
