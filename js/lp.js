@@ -64,24 +64,51 @@ async function getPoolAddress(token0, token1, fee){
     return pool;
 }
 
-async function getRealClaimableFees(tokenId, walletAddress){
+
+function getWalletSigner(){
+
+    const wallet = getSelectedWallet();
+
+    if(!wallet){
+        throw new Error("No wallet selected");
+    }
+
+    // Wallet internal private key
+    if(wallet.type === "pk" && wallet.privateKey){
+        return new ethers.Wallet(
+            wallet.privateKey,
+            provider
+        );
+    }
+
+    // Browser / injected wallet
+    return provider.getSigner();
+}
+
+async function getRealClaimableFees(tokenId){
 
     try{
+
+        const wallet = getSelectedWallet();
+
+        if(!wallet?.address){
+            throw new Error("walletAddress undefined!");
+        }
 
         const NFT_CONTRACT =
             "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
 
         const contract = new ethers.Contract(
             NFT_CONTRACT,
-            window.CONFIG.ABI_FEES, // ✅ FIX WAJIB DI SINI
+            window.CONFIG.ABI_FEES,
             provider
         );
 
         const result = await contract.callStatic.collect({
             tokenId,
-            recipient: walletAddress,
-            amount0Max: ethers.constants.MaxUint128,
-            amount1Max: ethers.constants.MaxUint128
+            recipient: wallet.address,
+            amount0Max: ethers.BigNumber.from("0xffffffffffffffffffffffffffffffff"),
+            amount1Max: ethers.BigNumber.from("0xffffffffffffffffffffffffffffffff")
         });
 
         return {
@@ -91,10 +118,9 @@ async function getRealClaimableFees(tokenId, walletAddress){
 
     }catch(e){
 
-        console.error("fee read error DETAIL:", {
-            tokenId,
-            error: e?.reason || e?.message || e
-        });
+        console.error("DEBUG STATIC COLLECT ERROR ===");
+        console.error("TOKEN ID:", tokenId.toString());
+        console.error("ERROR:", e);
 
         return {
             amount0: 0,
@@ -109,6 +135,8 @@ async function getRealClaimableFees(tokenId, walletAddress){
 async function loadNFTs(){
 
     const wallet = getSelectedWallet();
+
+console.log("DEBUG WALLET:", wallet);
 
 if(!wallet || !wallet.address){
     console.warn("Wallet invalid:", wallet);
@@ -197,10 +225,7 @@ if(!wallet || !wallet.address){
                     previewFees
                 ] = await Promise.all([
                     pool.slot0(),
-                    getRealClaimableFees(
-                        tokenId,
-                        wallet.address
-                    )
+                    getRealClaimableFees(tokenId)
                 ]);
 
                 const priceKey =
@@ -264,8 +289,8 @@ if(!wallet || !wallet.address){
                 );
 
                 return {
-
-                    id: tokenId.toString(),
+    id: tokenId.toString(),
+    owner: wallet.address,
 
                     token0,
                     token1,
@@ -351,6 +376,13 @@ function openLPDetail(id){
     const lp = window.currentLPs.find(x => x.id == id);
     if(!lp) return;
 
+    const wallet = getSelectedWallet();
+
+    const canTransact =
+    !!wallet &&
+    !!wallet.privateKey &&
+    wallet.address?.toLowerCase() === lp.owner?.toLowerCase();
+
     document.getElementById("tab-lp").innerHTML = `
         <div class="lp-detail">
 
@@ -359,19 +391,25 @@ function openLPDetail(id){
             <h2>${lp.symbol0}/${lp.symbol1}</h2>
             <div>${lp.fee} #${lp.id}</div>
 
-            <div class="lp-status ${lp.status==='Active'?'active':'inactive'}">
+            <div class="lp-status ${lp.status==='Active' ? 'active' : 'inactive'}">
                 ${lp.status}
             </div>
 
             <div class="lp-detail-card">
                 <h3>Manage Liquidity</h3>
 
-                <button onclick="boostLiquidity('${lp.id}')">
-                    Boost Liquidity
+                <button
+                    onclick="boostLiquidity('${lp.id}')"
+                    ${!canTransact ? "disabled" : ""}
+                >
+                    ${canTransact ? "Boost Liquidity" : "PK Required"}
                 </button>
 
-                <button onclick="removeLiquidity('${lp.id}')">
-                    Remove Liquidity
+                <button
+                    onclick="removeLiquidity('${lp.id}')"
+                    ${!canTransact ? "disabled" : ""}
+                >
+                    ${canTransact ? "Remove Liquidity" : "PK Required"}
                 </button>
             </div>
 
@@ -379,18 +417,28 @@ function openLPDetail(id){
                 <h3>Collect Fees</h3>
 
                 <div>
-    Claimable: ${lp.fees0} ${lp.symbol0}
-</div>
-<div>
-    Claimable: ${lp.fees1} ${lp.symbol1}
-</div>
+                    Claimable: ${lp.fees0} ${lp.symbol0}
+                </div>
+
+                <div>
+                    Claimable: ${lp.fees1} ${lp.symbol1}
+                </div>
 
                 <button 
-    onclick="collectFees('${lp.id}')"
-    ${(+lp.fees0 <= 0 && +lp.fees1 <= 0) ? "disabled" : ""}
->
-    Collect Fees
-</button>
+                    onclick="collectFees('${lp.id}')"
+                    ${
+                        (!canTransact || (+lp.fees0 <= 0 && +lp.fees1 <= 0))
+                        ? "disabled"
+                        : ""
+                    }
+                >
+                    ${
+                        !canTransact
+                        ? "PK Required"
+                        : "Collect Fees"
+                    }
+                </button>
+
             </div>
 
         </div>
@@ -404,7 +452,7 @@ async function collectFees(tokenId){
         const wallet = getSelectedWallet();
         if(!wallet) return;
 
-        const signer = provider.getSigner();
+        const signer = getWalletSigner();
 
         const NFT_CONTRACT =
             "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
@@ -422,8 +470,8 @@ async function collectFees(tokenId){
         const tx = await contract.collect({
             tokenId,
             recipient: wallet.address,
-            amount0Max: ethers.constants.MaxUint128,
-            amount1Max: ethers.constants.MaxUint128
+            amount0Max: ethers.BigNumber.from("0xffffffffffffffffffffffffffffffff"),
+            amount1Max: ethers.BigNumber.from("0xffffffffffffffffffffffffffffffff")
         });
 
         await tx.wait();
