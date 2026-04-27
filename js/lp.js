@@ -1,22 +1,32 @@
-function getAmounts(liquidity, sqrtPrice, sqrtLower, sqrtUpper){
+// ==========================
+// GLOBAL RUNTIME CACHE
+// ==========================
+const poolAddressCache = {};
+const priceCache = {};
 
-    //  JANGAN formatUnits
-    const L = parseFloat(liquidity.toString());
 
-    if(!L || L === 0){
-        return { amount0: 0, amount1: 0 };
-    }
+function getAmounts(liquidity, sqrtPriceX96, tickLower, tickUpper){
+
+    const Q96 = 2 ** 96;
+
+    const sqrtLower = Math.pow(1.0001, tickLower / 2);
+    const sqrtUpper = Math.pow(1.0001, tickUpper / 2);
+    const sqrtPrice = Number(sqrtPriceX96) / Q96;
+
+    const L = Number(liquidity);
+
+    if(!L) return { amount0: 0, amount1: 0 };
 
     if(sqrtPrice <= sqrtLower){
         return {
-            amount0: L * (sqrtUpper - sqrtLower) / (sqrtLower * sqrtUpper),
+            amount0: L * ((sqrtUpper - sqrtLower) / (sqrtLower * sqrtUpper)),
             amount1: 0
         };
     }
 
     if(sqrtPrice < sqrtUpper){
         return {
-            amount0: L * (sqrtUpper - sqrtPrice) / (sqrtPrice * sqrtUpper),
+            amount0: L * ((sqrtUpper - sqrtPrice) / (sqrtPrice * sqrtUpper)),
             amount1: L * (sqrtPrice - sqrtLower)
         };
     }
@@ -29,15 +39,68 @@ function getAmounts(liquidity, sqrtPrice, sqrtLower, sqrtUpper){
 
 async function getPoolAddress(token0, token1, fee){
 
-    const FACTORY = "0xCFE41fb5dA87916D84E7F22889087b4Ff7163cDE"; //  ganti sesuai DEX
+    const key = `${token0}_${token1}_${fee}`;
+
+    if(poolAddressCache[key]){
+        return poolAddressCache[key];
+    }
+
+    const FACTORY = "0xCFE41fb5dA87916D84E7F22889087b4Ff7163cDE";
 
     const factoryAbi = [
         "function getPool(address,address,uint24) view returns (address)"
     ];
 
-    const factory = new ethers.Contract(FACTORY, factoryAbi, provider);
+    const factory = new ethers.Contract(
+        FACTORY,
+        factoryAbi,
+        provider
+    );
 
-    return await factory.getPool(token0, token1, fee);
+    const pool = await factory.getPool(token0, token1, fee);
+
+    poolAddressCache[key] = pool;
+
+    return pool;
+}
+
+async function getRealClaimableFees(tokenId, walletAddress){
+
+    try{
+
+        const NFT_CONTRACT =
+            "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
+
+        const contract = new ethers.Contract(
+            NFT_CONTRACT,
+            window.CONFIG.ABI_FEES, // ✅ FIX WAJIB DI SINI
+            provider
+        );
+
+        const result = await contract.callStatic.collect({
+            tokenId,
+            recipient: walletAddress,
+            amount0Max: ethers.constants.MaxUint128,
+            amount1Max: ethers.constants.MaxUint128
+        });
+
+        return {
+            amount0: result.amount0,
+            amount1: result.amount1
+        };
+
+    }catch(e){
+
+        console.error("fee read error DETAIL:", {
+            tokenId,
+            error: e?.reason || e?.message || e
+        });
+
+        return {
+            amount0: 0,
+            amount1: 0
+        };
+    }
 }
 
 // ======================
@@ -46,289 +109,552 @@ async function getPoolAddress(token0, token1, fee){
 async function loadNFTs(){
 
     const wallet = getSelectedWallet();
-    if(!wallet) return [];
+
+if(!wallet || !wallet.address){
+    console.warn("Wallet invalid:", wallet);
+    return [];
+}
 
     try{
 
-        const NFT_CONTRACT = "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
+        const NFT_CONTRACT =
+            "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
 
         const abi = [
             "function balanceOf(address owner) view returns (uint256)",
-            "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+            "function tokenOfOwnerByIndex(address owner,uint256 index) view returns (uint256)",
             "function positions(uint256 tokenId) view returns (uint96 nonce,address operator,address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint128 liquidity,uint256 feeGrowthInside0LastX128,uint256 feeGrowthInside1LastX128,uint128 tokensOwed0,uint128 tokensOwed1)"
         ];
 
         const POOL_ABI = [
-            "function slot0() view returns (uint160 sqrtPriceX96,int24,int24,int24,int24,int24,int24)"
+            "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint8 feeProtocol,bool unlocked)"
         ];
 
-        const contract = new ethers.Contract(NFT_CONTRACT, abi, provider);
+        const contract = new ethers.Contract(
+            NFT_CONTRACT,
+            abi,
+            provider
+        );
 
-        const balance = await contract.balanceOf(wallet.address);
+        const balance = Number(
+            await contract.balanceOf(wallet.address)
+        );
 
-        const list = [];
+        if(balance === 0) return [];
 
-        for(let i = 0; i < balance; i++){
+        const tasks = Array.from(
+            { length: balance },
+            async (_, i) => {
 
-            const tokenId = await contract.tokenOfOwnerByIndex(wallet.address, i);
-            const pos = await contract.positions(tokenId);
+                const tokenId =
+                    await contract.tokenOfOwnerByIndex(
+                        wallet.address,
+                        i
+                    );
 
-            // =========================
-            // BASIC DATA
-            // =========================
-            const token0 = pos.token0;
-            const token1 = pos.token1;
-            const fee = pos.fee; //  FIX (dipindah ke atas)
-            const tickLower = pos.tickLower;
-            const tickUpper = pos.tickUpper;
-            const liquidity = pos.liquidity;
+                const pos =
+                    await contract.positions(tokenId);
 
-            // =========================
-            // POOL
-            // =========================
-            const poolAddress = await getPoolAddress(token0, token1, fee);
+                const token0 = pos.token0;
+                const token1 = pos.token1;
+                const fee = pos.fee;
 
-            if(!poolAddress || poolAddress === ethers.constants.AddressZero){
-                continue;
+                const poolKey =
+                    `${token0}_${token1}_${fee}`;
+
+                let poolAddress =
+                    poolAddressCache[poolKey];
+
+                if(!poolAddress){
+
+                    poolAddress =
+                        await getPoolAddress(
+                            token0,
+                            token1,
+                            fee
+                        );
+
+                    poolAddressCache[poolKey] =
+                        poolAddress;
+                }
+
+                if(
+                    !poolAddress ||
+                    poolAddress ===
+                    ethers.constants.AddressZero
+                ){
+                    return null;
+                }
+
+                const pool = new ethers.Contract(
+                    poolAddress,
+                    POOL_ABI,
+                    provider
+                );
+
+                const [
+                    slot0,
+                    previewFees
+                ] = await Promise.all([
+                    pool.slot0(),
+                    getRealClaimableFees(
+                        tokenId,
+                        wallet.address
+                    )
+                ]);
+
+                const priceKey =
+                    `${token0}_${token1}`;
+
+                let currentPrice =
+                    priceCache[priceKey];
+
+                if(!currentPrice){
+
+                    currentPrice =
+                        await PRICE_ENGINE.getPrice(
+                            token0,
+                            token1
+                        );
+
+                    priceCache[priceKey] =
+                        currentPrice;
+                }
+
+                let priceLower =
+                    Math.pow(
+                        1.0001,
+                        pos.tickLower
+                    );
+
+                let priceUpper =
+                    Math.pow(
+                        1.0001,
+                        pos.tickUpper
+                    );
+
+                if(priceLower > priceUpper){
+                    [priceLower, priceUpper] =
+                        [priceUpper, priceLower];
+                }
+
+                const status =
+                    slot0.tick >= pos.tickLower &&
+                    slot0.tick < pos.tickUpper
+                        ? "Active"
+                        : "Inactive";
+
+                const t0 = TOKENS.find(
+                    t =>
+                        t.address.toLowerCase() ===
+                        token0.toLowerCase()
+                );
+
+                const t1 = TOKENS.find(
+                    t =>
+                        t.address.toLowerCase() ===
+                        token1.toLowerCase()
+                );
+
+                const amounts = getAmounts(
+                    pos.liquidity,
+                    slot0.sqrtPriceX96,
+                    pos.tickLower,
+                    pos.tickUpper
+                );
+
+                return {
+
+                    id: tokenId.toString(),
+
+                    token0,
+                    token1,
+
+                    fee:
+                        (fee / 10000) + "%",
+
+                    status,
+
+                    symbol0:
+                        t0?.symbol || "T0",
+
+                    symbol1:
+                        t1?.symbol || "T1",
+
+                    logo0:
+                        t0?.logo ||
+                        "img/default.png",
+
+                    logo1:
+                        t1?.logo ||
+                        "img/default.png",
+
+                    amount0: (
+                        amounts.amount0 /
+                        10 ** (t0?.decimals || 18)
+                    ).toFixed(4),
+
+                    amount1: (
+                        amounts.amount1 /
+                        10 ** (t1?.decimals || 18)
+                    ).toFixed(4),
+
+                    fees0: parseFloat(
+                        ethers.utils.formatUnits(
+                            previewFees.amount0,
+                            t0?.decimals || 18
+                        )
+                    ).toFixed(4),
+
+                    fees1: parseFloat(
+                        ethers.utils.formatUnits(
+                            previewFees.amount1,
+                            t1?.decimals || 18
+                        )
+                    ).toFixed(4),
+
+                    liquidity:
+                        pos.liquidity.toString(),
+
+                    tickLower:
+                        pos.tickLower,
+
+                    tickUpper:
+                        pos.tickUpper,
+
+                    priceLower,
+                    priceUpper,
+                    currentPrice
+                };
             }
+        );
 
-            const pool = new ethers.Contract(poolAddress, POOL_ABI, provider);
-
-            const slot0 = await pool.slot0();
-
-const sqrtPrice = parseFloat(
-    ethers.utils.formatUnits(slot0.sqrtPriceX96, 96)
-);
-
-            // =========================
-            // PRICE RANGE
-            // =========================
-            const priceLower = Math.pow(1.0001, tickLower);
-            const priceUpper = Math.pow(1.0001, tickUpper);
-
-            let rangeText = "";
-
-            const isFullRange =
-                tickLower <= -887000 && tickUpper >= 887000;
-
-            const isExtremePrice =
-                priceLower < 1e-8 && priceUpper > 1e10;
-
-            if(isFullRange || isExtremePrice){
-                rangeText = "Full Range";
-            }else{
-                rangeText =
-                    priceLower.toFixed(5) + "  " +
-                    priceUpper.toFixed(5);
-            }
-
-            // =========================
-            // STATUS
-            // =========================
-            const currentPrice = sqrtPrice * sqrtPrice; //  FIX
-
-            let status = "Active";
-
-            if(currentPrice < priceLower || currentPrice > priceUpper){
-                status = "Out of Range";
-            }
-
-            // =========================
-            // TOKEN INFO
-            // =========================
-            const t0 = TOKENS.find(t => t.address.toLowerCase() === token0.toLowerCase());
-            const t1 = TOKENS.find(t => t.address.toLowerCase() === token1.toLowerCase());
-
-            const symbol0 = t0?.symbol || "T0";
-            const symbol1 = t1?.symbol || "T1";
-
-            const logo0 = t0?.logo || "img/default.png";
-            const logo1 = t1?.logo || "img/default.png";
-
-            // =========================
-            // AMOUNT CALC
-            // =========================
-            const sqrtLower = Math.sqrt(priceLower);
-            const sqrtUpper = Math.sqrt(priceUpper);
-
-            const amounts = getAmounts(
-                liquidity,
-                sqrtPrice,
-                sqrtLower,
-                sqrtUpper
-            );
-
-            // =========================
-            // PUSH DATA
-            // =========================
-            list.push({
-                id: tokenId.toString(),
-
-                token0,
-                token1,
-
-                fee: (fee / 10000) + "%",
-                range: rangeText,
-                status,
-
-                symbol0,
-                symbol1,
-                logo0,
-                logo1,
-
-                amount0: amounts.amount0 > 0
-                    ? amounts.amount0.toFixed(4)
-                    : "-",
-
-                amount1: amounts.amount1 > 0
-                    ? amounts.amount1.toFixed(4)
-                    : "-",
-
-                liquidity: liquidity.toString(),
-
-                tickLower,
-                tickUpper
-            });
-        }
+        const list =
+            (await Promise.all(tasks))
+            .filter(Boolean);
 
         return list;
 
     }catch(e){
-        console.warn("NFT load error", e);
+
+        console.warn(
+            "NFT load error",
+            e
+        );
+
         return [];
     }
 }
 
+function openLPDetail(id){
+
+    const lp = window.currentLPs.find(x => x.id == id);
+    if(!lp) return;
+
+    document.getElementById("tab-lp").innerHTML = `
+        <div class="lp-detail">
+
+            <button onclick="renderLP()">← Back</button>
+
+            <h2>${lp.symbol0}/${lp.symbol1}</h2>
+            <div>${lp.fee} #${lp.id}</div>
+
+            <div class="lp-status ${lp.status==='Active'?'active':'inactive'}">
+                ${lp.status}
+            </div>
+
+            <div class="lp-detail-card">
+                <h3>Manage Liquidity</h3>
+
+                <button onclick="boostLiquidity('${lp.id}')">
+                    Boost Liquidity
+                </button>
+
+                <button onclick="removeLiquidity('${lp.id}')">
+                    Remove Liquidity
+                </button>
+            </div>
+
+            <div class="lp-detail-card">
+                <h3>Collect Fees</h3>
+
+                <div>
+    Claimable: ${lp.fees0} ${lp.symbol0}
+</div>
+<div>
+    Claimable: ${lp.fees1} ${lp.symbol1}
+</div>
+
+                <button 
+    onclick="collectFees('${lp.id}')"
+    ${(+lp.fees0 <= 0 && +lp.fees1 <= 0) ? "disabled" : ""}
+>
+    Collect Fees
+</button>
+            </div>
+
+        </div>
+    `;
+}
+
+async function collectFees(tokenId){
+
+    try{
+
+        const wallet = getSelectedWallet();
+        if(!wallet) return;
+
+        const signer = provider.getSigner();
+
+        const NFT_CONTRACT =
+            "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
+
+        const abi = [
+            "function collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) payable returns (uint256 amount0,uint256 amount1)"
+        ];
+
+        const contract = new ethers.Contract(
+            NFT_CONTRACT,
+            abi,
+            signer
+        );
+
+        const tx = await contract.collect({
+            tokenId,
+            recipient: wallet.address,
+            amount0Max: ethers.constants.MaxUint128,
+            amount1Max: ethers.constants.MaxUint128
+        });
+
+        await tx.wait();
+
+        clearCachedLP();
+        renderLP(true);
+
+        alert("Fees collected!");
+
+    }catch(e){
+
+        console.error(e);
+        alert("Collect failed");
+    }
+}
+
 function formatPrice(p){
+
     if(p < 0.000001) return "0";
-    if(p > 1e9) return "";
+    if(p > 1e9) return "∞";
+
     return p.toFixed(5);
 }
 
-function getAmounts(liquidity, sqrtPrice, sqrtLower, sqrtUpper){
 
-    const L = parseFloat(liquidity.toString()); //  FIX
-
-    if(!L || L === 0){
-        return { amount0: 0, amount1: 0 };
-    }
-
-    if(sqrtPrice <= sqrtLower){
-        return {
-            amount0: L * (sqrtUpper - sqrtLower) / (sqrtLower * sqrtUpper),
-            amount1: 0
-        };
-    }
-
-    if(sqrtPrice < sqrtUpper){
-        return {
-            amount0: L * (sqrtUpper - sqrtPrice) / (sqrtPrice * sqrtUpper),
-            amount1: L * (sqrtPrice - sqrtLower)
-        };
-    }
-
-    return {
-        amount0: 0,
-        amount1: L * (sqrtUpper - sqrtLower)
-    };
-}
 
 function tickToPrice(tick){
     return Math.pow(1.0001, tick);
 }
 
-function renderLP(){
+
+const LP_CACHE_KEY = "lp_cache_v1";
+const LP_CACHE_TTL = 60 * 1000; // 1 menit
+
+function getCachedLP(wallet){
+
+    if(!wallet) return null;
+
+    const raw = localStorage.getItem(
+        LP_CACHE_KEY + "_" + wallet.address
+    );
+
+    if(!raw) return null;
+
+    try{
+
+        const parsed = JSON.parse(raw);
+
+        if(Date.now() - parsed.time > LP_CACHE_TTL){
+            return null;
+        }
+
+        return parsed.data;
+
+    }catch{
+        return null;
+    }
+}
+
+function setCachedLP(wallet, data){
+
+    if(!wallet) return;
+
+    localStorage.setItem(
+        LP_CACHE_KEY + "_" + wallet.address,
+        JSON.stringify({
+            time: Date.now(),
+            data
+        })
+    );
+}
+
+function clearCachedLP(){
+
+    const wallet = getSelectedWallet();
+    if(!wallet) return;
+
+    localStorage.removeItem(
+        LP_CACHE_KEY + "_" + wallet.address
+    );
+}
+
+function renderLPCards(list){
+
+    const container = document.getElementById("tab-lp");
+
+    if(!list?.length){
+        container.innerHTML =
+            "<div style='text-align:center;color:#888;'>No liquidity found</div>";
+        return;
+    }
+
+    let html = "";
+
+    list.forEach(lp => {
+
+        const active = lp.status === "Active";
+
+        const progress = Math.max(
+            0,
+            Math.min(
+                100,
+                ((lp.currentPrice - lp.priceLower) /
+                (lp.priceUpper - lp.priceLower)) * 100
+            )
+        );
+
+        html += `
+            <div class="lp-card" onclick="openLPDetail('${lp.id}')">
+
+                <div class="lp-header">
+                    <div class="lp-pair">
+                        <img src="${lp.logo0}" class="lp-icon">
+                        <img src="${lp.logo1}" class="lp-icon overlap">
+
+                        <div>
+                            <div class="lp-title">
+                                ${lp.symbol0}/${lp.symbol1}
+                            </div>
+
+                            <div class="lp-sub">
+                                ${lp.fee} #${lp.id}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lp-status ${active ? 'active' : 'inactive'}">
+                        ${active ? 'Active' : 'Inactive'}
+                    </div>
+                </div>
+
+                <div class="lp-price">
+                    Current: 1 ${lp.symbol0} = ${lp.currentPrice.toFixed(6)} ${lp.symbol1}
+                </div>
+
+                <div class="lp-range-bar">
+                    <div class="lp-range-dot" style="left:${progress}%"></div>
+                </div>
+
+                <div class="lp-range-labels">
+                    <span>${formatPrice(lp.priceLower)}</span>
+                    <span>${formatPrice(lp.priceUpper)}</span>
+                </div>
+
+                <div class="lp-balances">
+                    <span>${lp.amount0} ${lp.symbol0}</span>
+                    <span>${lp.amount1} ${lp.symbol1}</span>
+                </div>
+
+                <div class="lp-fees">
+                    ${lp.fees0} ${lp.symbol0} + ${lp.fees1} ${lp.symbol1}
+                </div>
+
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+async function renderLP(forceRefresh = false){
 
     const container = document.getElementById("tab-lp");
     const wallet = getSelectedWallet();
 
     if(!wallet){
         container.innerHTML =
-        "<div style='text-align:center;color:#888;'>No wallet</div>";
+            "<div style='text-align:center;color:#888;'>No wallet</div>";
         return;
     }
 
-    container.innerHTML = "Loading LP...";
+    // =====================
+    // USE CACHE FIRST
+    // =====================
+    if(!forceRefresh){
 
-    loadNFTs().then(list => {
+        const cached = getCachedLP(wallet);
 
-        if(!list || list.length === 0){
-            container.innerHTML =
-            "<div style='text-align:center;color:#888;'>No LP found</div>";
+        if(cached?.length){
+
+            window.currentLPs = cached;
+
+            renderLPCards(cached);
+
+            refreshLPBackground();
+
             return;
         }
+    }
 
-        let html = "";
+    // =====================
+    // LOAD BLOCKCHAIN
+    // =====================
+    container.innerHTML = "Loading Liquidity...";
 
-        list.forEach(lp => {
+    try{
 
-            const t0 = getTokenData(lp.token0);
-            const t1 = getTokenData(lp.token1);
+        const list = await loadNFTs();
 
-            //  convert tick  price
-            const priceMin = tickToPrice(lp.tickLower);
-            const priceMax = tickToPrice(lp.tickUpper);
+        window.currentLPs = list;
 
-            //  format
-            let rangeText;
+        setCachedLP(wallet, list);
 
-const isFullRange =
-    lp.tickLower <= -887000 && lp.tickUpper >= 887000;
+        renderLPCards(list);
 
-if(isFullRange){
-    rangeText = "Full Range";
-}else{
-    rangeText =
-        priceMin.toFixed(5) + "  " +
-        priceMax.toFixed(5);
+    }catch(e){
+
+        console.error(e);
+
+        container.innerHTML =
+            "<div style='text-align:center;color:#f66;'>Failed load LP</div>";
+    }
 }
 
-            //  dummy status (bisa upgrade nanti)
-            const status = "Active";
+async function refreshLPBackground(){
 
-            html += `
-            <div class="asset-item" style="flex-direction:column; align-items:flex-start; gap:8px;">
+    try{
 
-                <!-- TOKEN ICON -->
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <img src="${t0.logo}" style="width:22px;height:22px;border-radius:50%;">
-                    <img src="${t1.logo}" style="width:22px;height:22px;border-radius:50%; margin-left:-8px;">
-                    
-                    <b>${t0.symbol} / ${t1.symbol}</b>
-                </div>
+        const wallet = getSelectedWallet();
+        if(!wallet) return;
 
-                <!-- LP ID -->
-                <div style="font-size:12px;color:#888;">
-                    LP NFT #${lp.id}
-                </div>
+        const fresh = await loadNFTs();
 
-                <!-- FEE -->
-                <div style="font-size:12px;color:#aaa;">
-                    Fee: ${lp.fee}
-                </div>
+        window.currentLPs = fresh;
 
-                <!-- RANGE -->
-                <div style="font-size:12px;color:#aaa;">
-                    Range:<br>
-                    ${rangeText}
-                </div>
+        setCachedLP(wallet, fresh);
 
-                <!-- STATUS -->
-                <div style="font-size:12px;color:${status==='Active'?'#00ff99':'#ff4d4d'};">
-                    ${status}
-                </div>
+    }catch(e){
 
-                <!-- LIQ -->
-                <div style="font-size:11px;color:#888;">
-                    <small style="color:#555;">LP Position</small>
-                </div>
-
-            </div>
-            `;
-        });
-
-        container.innerHTML = html;
-    });
+        console.warn("LP background refresh fail", e);
+    }
 }
 
 function getLPs(){
