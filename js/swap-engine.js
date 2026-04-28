@@ -6,6 +6,53 @@ window.SWAP_ENGINE = (function () {
 
     const ROUTER_ADDR = window.CONFIG?.ROUTER;
     const WSDA_ADDR   = window.CONFIG?.WSDA;
+    
+    const ROUTE_HUBS = [
+    window.CONFIG?.WSDA,
+    "0xb8d7fb85c4BF32f418715Dcb9eBF88107eE73CB7", // IFC
+    "0xEEd87C64D1650A824F8589adcB76a13A692E2EA8"  // SGHC
+];
+
+async function simulateRoute(tokenIn, tokenOut, amount){
+
+    let bestOut = 0;
+    let bestRoute = null;
+
+    // direct
+    const direct = [tokenIn, tokenOut];
+
+    // via hubs
+    const routes = [
+        direct,
+        [tokenIn, ROUTE_HUBS[0], tokenOut],
+        [tokenIn, ROUTE_HUBS[1], tokenOut],
+        [tokenIn, ROUTE_HUBS[2], tokenOut]
+    ];
+
+    for(const route of routes){
+
+        let out = amount;
+
+        for(let i=0;i<route.length-1;i++){
+
+            out = await PRICE_ENGINE.getAmountOut(
+                route[i],
+                route[i+1],
+                out
+            );
+        }
+
+        if(out > bestOut){
+            bestOut = out;
+            bestRoute = route;
+        }
+    }
+
+    return {
+        route: bestRoute,
+        output: bestOut
+    };
+}
 
     let isLoading = false;
 
@@ -79,6 +126,129 @@ function setLoading(state){
     btn.innerHTML = state ? `Swapping...` : `Review Swap`;
 }
 
+function showSwapLoading(text="Preparing Swap...", percent=20){
+    const overlay = document.getElementById("swapLoadingOverlay");
+    const fill = document.getElementById("swapProgressFill");
+    const txt = document.getElementById("swapLoadingText");
+
+    if(overlay) overlay.style.display = "flex";
+    if(fill) fill.style.width = percent + "%";
+    if(txt) txt.innerText = text;
+}
+
+function hideSwapLoading(){
+    const overlay = document.getElementById("swapLoadingOverlay");
+    if(overlay) overlay.style.display = "none";
+}
+
+async function openSwapConfirm(){
+
+    try{
+
+        const wallet = getWallet();
+        if(!wallet) throw new Error("Wallet not found");
+
+        const tokenIn  = swapState.payToken;
+        const tokenOut = swapState.receiveToken;
+
+        const amountUI = document.getElementById("payAmount")?.value;
+
+        if(!amountUI || Number(amountUI) <= 0){
+            throw new Error("Invalid amount");
+        }
+
+        const estimated = await PRICE_ENGINE.getAmountOut(
+            tokenIn,
+            tokenOut,
+            Number(amountUI)
+        );
+
+        const realistic = getRealisticOut(
+            Number(amountUI),
+            estimated
+        );
+
+        const inData  = getTokenData(tokenIn);
+        const outData = getTokenData(tokenOut);
+
+        window.swapConfirmState = {
+            tokenIn,
+            tokenOut,
+            amountUI,
+            estimated: realistic,
+            wallet: wallet.address
+        };
+
+        showSwapConfirmModal(
+            inData,
+            outData,
+            amountUI,
+            realistic
+        );
+
+    }catch(e){
+        console.error(e);
+        showToast?.(
+            e.message || "Preview failed",
+            "error"
+        );
+    }
+}
+
+function showSwapConfirmModal(inToken, outToken, amountIn, amountOut){
+
+    let modal = document.getElementById("swapConfirmModal");
+
+    if(!modal){
+        modal = document.createElement("div");
+        modal.id = "swapConfirmModal";
+        document.body.appendChild(modal);
+    }
+
+    // Re-render content setiap buka
+    modal.innerHTML = `
+        <div class="swap-confirm-bg"></div>
+        <div class="swap-confirm-box">
+            <h3>Confirm Swap</h3>
+
+            <div class="row">
+                <span>From</span>
+                <b>${amountIn} ${inToken.symbol}</b>
+            </div>
+
+            <div class="row">
+                <span>To</span>
+                <b>${Number(amountOut).toFixed(6)} ${outToken.symbol}</b>
+            </div>
+
+            <button id="confirmSwapBtn">Confirm Swap</button>
+            <button id="cancelSwapBtn">Cancel</button>
+        </div>
+    `;
+
+    modal.style.display = "flex";
+
+    // Query dari modal scope (AMAN)
+    const cancelBtn  = modal.querySelector("#cancelSwapBtn");
+    const confirmBtn = modal.querySelector("#confirmSwapBtn");
+
+    if(cancelBtn){
+        cancelBtn.onclick = () => {
+            modal.style.display = "none";
+            window.swapConfirmState = null;
+        };
+    }
+
+    if(confirmBtn){
+        confirmBtn.onclick = async () => {
+            modal.style.display = "none";
+            await SWAP_ENGINE.swapExactInput();
+            window.swapConfirmState = null;
+        };
+    }
+}
+
+
 // ==========================
 // DECIMALS
 // ==========================
@@ -112,11 +282,14 @@ async function approveIfNeeded(token, amount, wallet){
     if(allowance.gte(amount)) return;
 
     log("Approving token...");
+    showSwapLoading("Approving Token...", 30);
 
     const tx = await contract.approve(
         ROUTER_ADDR,
         ethers.constants.MaxUint256
     );
+
+    showSwapLoading("Waiting Approval Confirmation...", 45);
 
     await tx.wait();
 }
@@ -224,6 +397,13 @@ async function swapExactInput(){
 
     try{
 
+        // ==========================
+        // REQUIRE CONFIRM FIRST
+        // ==========================
+        if(!window.swapConfirmState){
+            throw new Error("Please confirm swap first");
+        }
+
         const wallet = getWallet();
         if(!wallet) throw new Error("Wallet not found");
 
@@ -236,10 +416,23 @@ async function swapExactInput(){
             throw new Error("Invalid amount");
         }
 
+        // ==========================
+        // EXTRA SAFETY VALIDATION
+        // Prevent changed input after confirm
+        // ==========================
+        if(
+            window.swapConfirmState.amountUI !== amountUI ||
+            window.swapConfirmState.tokenIn !== tokenIn ||
+            window.swapConfirmState.tokenOut !== tokenOut
+        ){
+            throw new Error("Swap data changed. Please reconfirm.");
+        }
+
         isLoading = true;
         setLoading(true);
+        showSwapLoading("Preparing Swap...", 15);
 
-        const isNativeIn = isNative(tokenIn);
+        const isNativeIn  = isNative(tokenIn);
         const isNativeOut = isNative(tokenOut);
 
         const router = new ethers.Contract(
@@ -255,9 +448,28 @@ async function swapExactInput(){
             amountUI
         );
 
+        // ==========================
+// ROUTE SIMULATION TOGGLE
+// ==========================
+const ENABLE_ROUTE_SIM = false;
 
+// ==========================
+// OPTIONAL BEST ROUTE CHECK
+// ==========================
+if (ENABLE_ROUTE_SIM) {
+    const bestRoute = await simulateRoute(
+        tokenIn,
+        tokenOut,
+        Number(amountUI)
+    );
 
-log("Executing swap...");
+    console.log("BEST ROUTE:", bestRoute);
+
+    // Optional: simpan untuk debug / analytics
+    window.lastBestRoute = bestRoute;
+}
+
+        log("Executing swap...");
 
 const calls = [];
 
@@ -284,12 +496,15 @@ if (isNativeOut) {
 // ==========================
 // EXECUTE MULTICALL (1 TX FLOW)
 // ==========================
+showSwapLoading("Broadcasting Transaction...", 60);
+
 const tx = await router.multicall(calls, {
     value: isNative(tokenIn) ? params.amountIn : 0,
     gasLimit: 1200000
 });
 
 log("TX: " + tx.hash);
+showSwapLoading("Waiting Confirmation...", 80);
 
 const receipt = await tx.wait();
 
@@ -375,6 +590,7 @@ const outToken = isNative(tokenOut)
         updateBellBadge?.();
 
         log("Swap success");
+        showSwapLoading("Finalizing Swap...", 95);
         showToast?.("Swap success", "success");
         loadBalance?.();
 
@@ -387,23 +603,29 @@ const outToken = isNative(tokenOut)
         showToast?.(e.message || "Swap failed", "error");
 
     } finally {
+    setTimeout(() => {
+        hideSwapLoading();
+    }, 500);
 
-        isLoading = false;
-        setLoading(false);
-    }
+    isLoading = false;
+    setLoading(false);
+}
 }
 // ==========================
 // INIT
 // ==========================
 function init(){
     document.getElementById("btnReviewSwap")
-        ?.addEventListener("click", swapExactInput);
+    ?.addEventListener("click", () => {
+        SWAP_ENGINE.openSwapConfirm();
+    });
 }
 
 document.addEventListener("DOMContentLoaded", init);
 
 return {
-    swapExactInput
+    swapExactInput,
+    openSwapConfirm
 };
 
 })(); // ✅ PENUTUP IIFE
