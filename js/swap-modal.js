@@ -28,7 +28,13 @@ function getRealisticOut(amount, estimated){
         correction = 1.033;
     }
 
-    const result = estimated * correction;
+    let result = estimated * correction;
+
+    // ==========================
+    // GLOBAL CALIBRATION FIX (TARGET: 12.93 -> 1.92 SDA)
+    // ==========================
+    const adjustFactor = 0.96;
+    result = result * adjustFactor;
 
     return (!isFinite(result) || result <= 0) ? 0 : result;
 }
@@ -39,6 +45,8 @@ window.swapState = {
     payToken: "native",
     receiveToken: null
 };
+
+window.swapConfirmState = null;
 
 let activeInput = "pay"; // "pay" | "receive"
 // ==========================
