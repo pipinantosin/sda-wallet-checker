@@ -56,6 +56,40 @@ function updatePairUI(){
 
     el.innerText = `${a} / ${b}`;
 }
+
+
+async function getTokenDecimals(token){
+
+    try{
+
+        // Native SDA / wrapped SDA
+        if(
+            token === "native" ||
+            token === window.CONFIG.WSDA
+        ){
+            return 18;
+        }
+
+        const erc20 = new ethers.Contract(
+            token,
+            [
+                "function decimals() view returns (uint8)"
+            ],
+            window.provider
+        );
+
+        return await erc20.decimals();
+
+    }catch(err){
+
+        console.warn(
+            "getTokenDecimals fallback 18:",
+            err
+        );
+
+        return 18;
+    }
+}
 // ==========================
 // TOKEN DATA
 // ==========================
@@ -202,23 +236,7 @@ async function syncPoolData(){
         const inputB =
             document.getElementById("lpAmount1");
 
-        if(inputA && inputB){
-
-            inputA.oninput = ()=>{
-
-                const val =
-                    parseFloat(inputA.value || 0);
-
-                if(!val){
-
-                    inputB.value = "";
-                    return;
-                }
-
-                inputB.value =
-                    (val * price).toFixed(6);
-            };
-        }
+        
 
         // lanjut range logic di bawah sini...
 
@@ -329,89 +347,89 @@ async function updateLPBalance(){
 
     try{
 
-        // ==========================
-        // TOKEN A (SDA)
-        // ==========================
-        const b0Raw = await getTokenBalance(w.address, "native");
-        const b0 = parseFloat(b0Raw || 0);
+        // TOKEN0 DYNAMIC
+        const bal0Raw = await getTokenBalance(
+            w.address,
+            lpState.token0
+        );
+
+        const bal0 = parseFloat(bal0Raw || 0);
+
+        const symbol0 = getLPToken(lpState.token0).symbol;
 
         if(el0){
             el0.innerHTML = `
-                ${b0.toFixed(4)} SDA 
+                ${bal0.toFixed(4)} ${symbol0}
                 <span class="max" id="lpMax0">MAX</span>
             `;
         }
 
-        // 🔥 FIX MAX BUTTON (NO DUPLICATE EVENT)
+        // MAX BUTTON
         const maxBtn = document.getElementById("lpMax0");
         if(maxBtn){
 
-            // clone biar event lama kehapus (anti double click bug)
             const newBtn = maxBtn.cloneNode(true);
             maxBtn.replaceWith(newBtn);
 
             newBtn.addEventListener("click", async ()=>{
 
-    const input = document.getElementById("lpAmount0");
+                const input = document.getElementById("lpAmount0");
 
-    if(input){
-        input.value = b0 > 0
-            ? b0.toFixed(6)
-            : "";
-    }
+                if(input){
+                    input.value = bal0 > 0
+                        ? bal0.toFixed(6)
+                        : "";
+                }
 
-    // auto sync pair amount
-    if(lpState.token1){
+                if(lpState.token1){
 
-        const token0 =
-            lpState.token0 === "native"
-                ? window.CONFIG.WSDA
-                : lpState.token0;
+                    let price = 0;
 
-        let price = 0;
+                    if(lpState.priceMode === "auto"){
+                        const token0 =
+                            lpState.token0 === "native"
+                                ? window.CONFIG.WSDA
+                                : lpState.token0;
 
-        if(lpState.priceMode === "auto"){
-            price = await window.PRICE_ENGINE.getPrice(
-                token0,
-                lpState.token1
-            );
-        }else{
-            price = parseFloat(lpState.manualPrice || 0);
+                        price = await window.PRICE_ENGINE.getPrice(
+                            token0,
+                            lpState.token1
+                        );
+                    }else{
+                        price = parseFloat(lpState.manualPrice || 0);
+                    }
+
+                    if(price > 0){
+                        await syncAmountFromPrice(price);
+                    }
+                }
+
+                await validateLPBalances();
+            });
         }
 
-        if(price > 0){
-            await syncAmountFromPrice(price);
-        }
-    }
-
-    await validateLPBalances();
-});
-        }
-
-
-        // ==========================
-        // TOKEN B
-        // ==========================
+        // TOKEN1
         if(!lpState.token1){
 
-            if(el1){
-                el1.innerText = "0.00";
-            }
-
+            if(el1) el1.innerText = "0.00";
             return;
         }
 
-        const b1Raw = await getTokenBalance(w.address, lpState.token1);
-        const b1 = parseFloat(b1Raw || 0);
+        const bal1Raw = await getTokenBalance(
+            w.address,
+            lpState.token1
+        );
+
+        const bal1 = parseFloat(bal1Raw || 0);
 
         if(el1){
-            el1.innerText = b1.toFixed(4);
+            el1.innerText = bal1.toFixed(4);
         }
 
     }catch(err){
         console.error("LP Balance Error:", err);
 
-        if(el0) el0.innerText = "0.00 SDA";
+        if(el0) el0.innerText = "0.00";
         if(el1) el1.innerText = "0.00";
     }
 }
@@ -482,9 +500,6 @@ function openLPSelector(type){
 box.remove();
 updateLPUI();
 await syncPoolData();
-
-    // 🔥 TAMBAHAN WAJIB
-    await syncPoolData();
 });
 }
 
@@ -584,6 +599,9 @@ async function handleAddLP(){
 
         const a0 = document.getElementById("lpAmount0").value;
         const a1 = document.getElementById("lpAmount1").value;
+        
+        let amount0Input = a0;
+let amount1Input = a1;
 
         if(!a0 || !a1){
             return alert("Isi amount dulu");
@@ -598,7 +616,7 @@ async function handleAddLP(){
             return alert("Private key diperlukan");
         }
 
-        const wallet = createWallet(pk);
+        window.walletPK = pk;
 
         const token0 =
             lpState.token0 === "native"
@@ -606,6 +624,15 @@ async function handleAddLP(){
             : lpState.token0;
 
         const token1 = lpState.token1;
+        
+        // SORT TOKEN + AMOUNT AGAR SESUAI URUTAN POOL
+let finalToken0 = token0;
+let finalToken1 = token1;
+
+if (token0.toLowerCase() > token1.toLowerCase()) {
+    [finalToken0, finalToken1] = [token1, token0];
+    [amount0Input, amount1Input] = [amount1Input, amount0Input];
+}
 
         // ==========================
         // CHECK POOL
@@ -623,8 +650,19 @@ async function handleAddLP(){
         // ==========================
         if(lpState.fullRange){
 
-            tickLower = -887220;
-            tickUpper =  887220;
+            const spacingMap = {
+    500: 10,
+    3000: 60,
+    10000: 200
+};
+
+const spacing = spacingMap[lpState.fee] || 60;
+
+const MIN_TICK = -887272;
+const MAX_TICK = 887272;
+
+tickLower = Math.ceil(MIN_TICK / spacing) * spacing;
+tickUpper = Math.floor(MAX_TICK / spacing) * spacing;
         }
 
         // ==========================
@@ -649,8 +687,16 @@ async function handleAddLP(){
                 return Math.floor(Math.log(price) / Math.log(1.0001));
             };
 
-            tickLower = tickFromPrice(minPrice);
-            tickUpper = tickFromPrice(maxPrice);
+            const spacingMap = {
+    500: 10,
+    3000: 60,
+    10000: 200
+};
+
+const spacing = spacingMap[lpState.fee] || 60;
+
+tickLower = Math.floor(tickFromPrice(minPrice) / spacing) * spacing;
+tickUpper = Math.floor(tickFromPrice(maxPrice) / spacing) * spacing;
         }
 
         // ==========================
@@ -675,23 +721,87 @@ async function handleAddLP(){
         // ==========================
         // EXECUTE LP
         // ==========================
-        await LP_ENGINE.addLP({
-            token0,
-            token1,
-            fee: lpState.fee,
-            tickLower,
-            tickUpper,
-            amount0: ethers.utils.parseUnits(a0, 18),
-            amount1: ethers.utils.parseUnits(a1, 18),
-            wallet
-        });
+        window.walletPK = pk;
 
-        alert("LP Success");
-        closeLPModal();
+const dec0 = await getTokenDecimals(finalToken0);
+const dec1 = await getTokenDecimals(finalToken1);
+
+const lpTx = await LP_ENGINE.addLP({
+    token0: finalToken0,
+    token1: finalToken1,
+    fee: lpState.fee,
+    tickLower,
+    tickUpper,
+    amount0: ethers.utils.parseUnits(amount0Input, dec0),
+    amount1: ethers.utils.parseUnits(amount1Input, dec1)
+});
+
+// ==========================
+// FORCE SUCCESS IF TX EXISTS
+// ==========================
+if(lpTx?.hash){
+
+    await saveLPToHistory(lpTx, {
+        token0: finalToken0,
+        token1: finalToken1,
+        amount0: amount0Input,
+        amount1: amount1Input
+    });
+
+    renderTxHistory?.();
+    updateBellBadge?.();
+
+    alert("LP Success");
+    document.getElementById("lpAmount0").value = "";
+document.getElementById("lpAmount1").value = "";
+    closeLPModal();
+
+}else{
+    throw new Error("LP tx invalid");
+}
 
     }catch(e){
         console.error(e);
         alert("LP Failed");
+    }
+}
+
+
+// ==========================
+// SAVE LP HISTORY
+// ==========================
+async function saveLPToHistory(tx, data){
+
+    try{
+
+        const history = getTxHistory();
+
+        history.unshift({
+            hash: tx.hash,
+            type: "ADD_LP",
+
+            token0: data.token0,
+            token1: data.token1,
+
+            inSymbol: getLPToken(data.token0).symbol,
+            outSymbol: getLPToken(data.token1).symbol,
+
+            inLogo: getLPToken(data.token0).logo,
+            outLogo: getLPToken(data.token1).logo,
+
+            amount0: parseFloat(data.amount0),
+            amount1: parseFloat(data.amount1),
+
+            timestamp: Math.floor(Date.now()/1000),
+            read: false
+        });
+
+        saveTxHistory(history);
+
+        console.log("✔ LP history saved");
+
+    }catch(e){
+        console.warn("LP history save failed:", e);
     }
 }
 
@@ -725,11 +835,11 @@ async function updateLPPrice(){
         }
 
         const token0 =
-            lpState.token0 === "native"
-            ? window.CONFIG.WSDA
-            : lpState.token0;
+    lpState.token0 === "native"
+    ? window.CONFIG.WSDA
+    : lpState.token0;
 
-        const token1 = lpState.token1;
+const token1 = lpState.token1;
 
         //  pakai PRICE ENGINE (bukan factory)
         const price = await window.PRICE_ENGINE.getPrice(
@@ -784,7 +894,10 @@ async function validateLPBalances(){
     const amount1 = parseFloat(input1.value || 0);
 
     const bal0 = parseFloat(
-        await getTokenBalance(w.address, "native")
+        await getTokenBalance(
+            w.address,
+            lpState.token0
+        ) || 0
     );
 
     const bal1 = lpState.token1
@@ -792,36 +905,21 @@ async function validateLPBalances(){
             await getTokenBalance(
                 w.address,
                 lpState.token1
-            )
+            ) || 0
         )
         : 0;
 
-    // TOKEN 0 CHECK
-    if(bal0El){
-        bal0El.style.color =
-            amount0 > bal0
-                ? "#ff4d4f"
-                : "";
-    }
+    bal0El.style.color =
+        amount0 > bal0 ? "#ff4d4f" : "";
 
-    // TOKEN 1 CHECK
-    if(bal1El){
-        bal1El.style.color =
-            amount1 > bal1
-                ? "#ff4d4f"
-                : "";
-    }
+    bal1El.style.color =
+        amount1 > bal1 ? "#ff4d4f" : "";
 
-    // OPTIONAL INPUT BORDER RED
     input0.style.borderColor =
-        amount0 > bal0
-            ? "#ff4d4f"
-            : "";
+        amount0 > bal0 ? "#ff4d4f" : "";
 
     input1.style.borderColor =
-        amount1 > bal1
-            ? "#ff4d4f"
-            : "";
+        amount1 > bal1 ? "#ff4d4f" : "";
 }
 // ==========================
 // EVENTS (FINAL FIX)
@@ -875,6 +973,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
 });
 
 
+document.getElementById("btnAddLP")
+?.addEventListener("click", handleAddLP);
 
 // ==========================
 // RANGE SELECT
