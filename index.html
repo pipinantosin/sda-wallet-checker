@@ -672,9 +672,9 @@
                     <div id="slippageVal">--</div>
                 </div>
 
-                <!-- BUTTON -->
+                <!-- PREVIEW BUTTON -->
                 <button class="btn" id="btnReviewSwap">
-                    <span id="swapBtnText">Swap</span>
+                    <span id="swapBtnText">Preview Swap</span>
                 </button>
 
             </div>
@@ -686,7 +686,48 @@
 </div>
 
 
+<!-- CONFIRM SWAP MODAL (SEPARATE OVERLAY) -->
+<div id="swapConfirmModal" class="swap-modal" style="display:none; z-index:10000;">
 
+    <div class="swap-container">
+
+        <div class="app">
+
+            <div class="swap-card">
+
+                <div class="swap-title">Confirm Swap</div>
+                <div class="swap-sub">Review before execution</div>
+
+                <div class="info" id="confirmSwapDetails">
+                    Loading...
+                </div>
+
+                <button class="btn" id="btnConfirmSwap">
+                    Confirm Swap
+                </button>
+
+                <button class="btn" id="btnCancelConfirm"
+                    style="margin-top:10px;background:#333;">
+                    Cancel
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div id="swapLoadingOverlay" class="swap-loading-overlay" style="display:none;">
+  <div class="swap-loading-box">
+    <div class="swap-progress-bar">
+      <div id="swapProgressFill"></div>
+    </div>
+    <div id="swapLoadingText">Preparing Swap...</div>
+  </div>
+</div>
 
 <!-- ========================= -->
 <!-- LP MODAL PREMIUM -->
