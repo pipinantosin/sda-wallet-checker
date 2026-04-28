@@ -398,6 +398,13 @@ function openLPDetail(id){
             <div class="lp-detail-card">
                 <h3>Manage Liquidity</h3>
 
+<button
+    onclick="transferLP('${lp.id}')"
+    ${!canTransact ? "disabled" : ""}
+>
+    ${canTransact ? "Send LP NFT" : "PK Required"}
+</button>
+
                 <button
                     onclick="boostLiquidity('${lp.id}')"
                     ${!canTransact ? "disabled" : ""}
@@ -485,6 +492,54 @@ async function collectFees(tokenId){
 
         console.error(e);
         alert("Collect failed");
+    }
+}
+
+// ======================
+// TRANSFER LP NFT
+// ======================
+async function transferLP(tokenId){
+
+    try{
+
+        const wallet = getSelectedWallet();
+        if(!wallet) return;
+
+        const to = prompt("Enter recipient address:");
+        if(!to) return;
+
+        const signer = getWalletSigner();
+
+        const NFT_CONTRACT =
+            "0x8b9bCc8C722778f30146e20e44E8d8e28adD8df8";
+
+        const abi = [
+            "function safeTransferFrom(address from,address to,uint256 tokenId)"
+        ];
+
+        const contract = new ethers.Contract(
+            NFT_CONTRACT,
+            abi,
+            signer
+        );
+
+        const tx = await contract.safeTransferFrom(
+            wallet.address,
+            to,
+            tokenId
+        );
+
+        await tx.wait();
+
+        alert("LP NFT sent!");
+
+        clearCachedLP();
+        renderLP(true);
+
+    }catch(e){
+
+        console.error(e);
+        alert("Transfer failed");
     }
 }
 
