@@ -317,5 +317,37 @@ body{
 
 
 
+.swap-loading-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:99999;
+}
 
+.swap-loading-box{
+    width:280px;
+    background:#111;
+    padding:20px;
+    border-radius:16px;
+    text-align:center;
+}
+
+.swap-progress-bar{
+    width:100%;
+    height:6px;
+    background:#222;
+    border-radius:999px;
+    overflow:hidden;
+    margin-bottom:12px;
+}
+
+#swapProgressFill{
+    width:20%;
+    height:100%;
+    background:#00ff88;
+    transition:width .4s ease;
+}
 
