@@ -546,22 +546,34 @@ function showReceive() {
     // ==========================
     amountInput.oninput = function () {
 
-        const amount = amountInput.value.trim();
+    const amount = amountInput.value.trim();
 
-        // format link (pakai query param)
-        const link = amount
-            ? `${location.origin}?to=${wallet.address}&amount=${amount}`
-            : `${location.origin}?to=${wallet.address}`;
+    const baseUrl = "https://www.sidrachain.com/wallets/send";
 
-        linkEl.value = link;
+    // default currency (bisa kamu ubah dinamis kalau ada selector)
+    const currency = "SDA";
 
-        document.getElementById("receiveResult").style.display = "block";
+    // build query
+    const params = new URLSearchParams({
+        to: wallet.address,
+        currency: currency
+    });
 
-        // QR ikut berubah
-        qr.src =
-            "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data="
-            + encodeURIComponent(link);
-    };
+    if (amount && Number(amount) > 0) {
+        params.append("amount", amount);
+    }
+
+    const link = `${baseUrl}?${params.toString()}`;
+
+    linkEl.value = link;
+
+    document.getElementById("receiveResult").style.display = "block";
+
+    // QR ikut update ke link resmi
+    qr.src =
+        "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" +
+        encodeURIComponent(link);
+};
 }
 
 function closeReceiveModal() {
