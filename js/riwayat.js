@@ -4,18 +4,16 @@
 function showTxDetail(tx){
 
     const block = parseInt(tx.blockNumber || "0x0", 16) || 0;
-    const confirmations = tx.latestBlock
-        ? (tx.latestBlock - block)
-        : 0;
+    const confirmations = tx.latestBlock ? (tx.latestBlock - block) : 0;
 
     const isSwap = tx.type === "SWAP";
 
     const symbolLine = isSwap
-        ? `${tx.inSymbol || "?"} → ${tx.outSymbol || "?"}`
+        ? `${tx.inSymbol || "?"} -> ${tx.outSymbol || "?"}`
         : (tx.symbol || "SDA");
 
     const valueLine = isSwap
-        ? `${tx.amountIn || 0} ${tx.inSymbol || ""} → ${tx.amountOut || 0} ${tx.outSymbol || ""}`
+        ? `${tx.amountIn || 0} ${tx.inSymbol || ""} -> ${tx.amountOut || 0} ${tx.outSymbol || ""}`
         : `${tx.value} ${symbolLine}`;
 
     showConfirm(`
@@ -55,28 +53,48 @@ function updateBellBadge(){
 }
 
 
-
-
 function formatAddress(addr){
     if(!addr) return "-";
     return addr.slice(0,6) + "..." + addr.slice(-4);
 }
+
+
 // =============================
 // TX HISTORY GETTER (SAFE)
 // =============================
 function getTxHistory(){
-    try{
-        return JSON.parse(localStorage.getItem("txHistory")) || [];
-    }catch{
-        return [];
-    }
+    try   { return JSON.parse(localStorage.getItem("txHistory")) || []; }
+    catch { return []; }
 }
 
 
+// =============================
+// LOGO PATH NORMALISER
+// Pastikan path selalu "img/xxx.png"
+// tanpa double prefix atau path kosong
+// =============================
+function normalizeLogo(raw, fallback) {
+
+    if (!raw || typeof raw !== "string" || raw.trim() === "") {
+        return fallback || "img/sda.png";
+    }
+
+    // Sudah lengkap dengan prefix img/
+    if (raw.startsWith("img/")) return raw;
+
+    // URL http / https â€” pakai langsung
+    if (raw.startsWith("http")) return raw;
+
+    // Hanya nama file â€” tambah prefix
+    if (!raw.includes("/")) return "img/" + raw;
+
+    // Path lain â€” pakai apa adanya
+    return raw;
+}
 
 
 // =============================
-// TX HISTORY RENDER (FULL FIXED)
+// TX HISTORY RENDER
 // =============================
 function renderTxHistory(){
 
@@ -84,8 +102,8 @@ function renderTxHistory(){
     if(!list) return;
 
     const history = getTxHistory();
-    const wallet = getSelectedWallet?.();
-    const myAddr = wallet?.address?.toLowerCase();
+    const wallet  = getSelectedWallet?.();
+    const myAddr  = wallet?.address?.toLowerCase();
 
     if(history.length === 0){
         list.innerHTML = `
@@ -104,35 +122,36 @@ function renderTxHistory(){
 
         const isSwap = tx.type === "SWAP";
 
-        const inSym  = tx.inSymbol || "SDA";
+        const inSym  = tx.inSymbol  || "SDA";
         const outSym = tx.outSymbol || "TOKEN";
 
         const symbolDisplay = isSwap
-            ? `${inSym} → ${outSym}`
+            ? `${inSym} -> ${outSym}`
             : (tx.symbol || "SDA");
 
-        const logo = tx.logo || "img/sda.png";
+        // FIX: normalise logo â€” hindari path rusak / double img/
+        const logo = normalizeLogo(tx.logo, "img/sda.png");
 
         const from = tx.from?.toLowerCase();
         const to   = tx.to?.toLowerCase();
 
         let type  = "SEND";
         let color = "#ff4d4f";
-        let icon  = "↑";
+        let icon  = "up";
 
         if (isSwap) {
             type  = "SWAP";
             color = "#3b82f6";
-            icon  = "⇄";
+            icon  = "swap";
         } else if (myAddr && to === myAddr) {
             type  = "RECEIVE";
             color = "#00d084";
-            icon  = "↓";
+            icon  = "down";
         }
 
         let value = isSwap
             ? Number(tx.amountOut || 0)
-            : Number(tx.value || 0);
+            : Number(tx.value     || 0);
 
         let valueFormatted;
 
@@ -145,63 +164,41 @@ function renderTxHistory(){
         }
 
         const targetAddr = type === "SEND" ? tx.to : tx.from;
-
-        const shortAddr = targetAddr
+        const shortAddr  = targetAddr
             ? targetAddr.slice(0,6) + "..." + targetAddr.slice(-4)
             : "-";
 
         // =============================
-        // DUAL ICON FOR SWAP
+        // ICON TEXT (FA tidak bisa di innerHTML aman)
         // =============================
-        const logoHTML = isSwap
-            ? `
-                <div style="
-                    position:relative;
-                    width:46px;
-                    height:34px;
-                    flex-shrink:0;
-                ">
-                    <img src="${tx.inLogo || 'img/sda.png'}"
-                         style="
-                            width:24px;
-                            height:24px;
-                            border-radius:50%;
-                            position:absolute;
-                            left:0;
-                            top:5px;
-                            background:#111;
-                            padding:3px;
-                            z-index:1;
-                            object-fit:contain;
-                         ">
+        const iconHTML = {
+            up:   '<i class="fa-solid fa-arrow-up"></i>',
+            down: '<i class="fa-solid fa-arrow-down"></i>',
+            swap: '<i class="fa-solid fa-right-left"></i>'
+        }[icon];
 
-                    <img src="${tx.outLogo || 'img/default.png'}"
-                         style="
-                            width:24px;
-                            height:24px;
-                            border-radius:50%;
-                            position:absolute;
-                            right:0;
-                            top:5px;
-                            background:#111;
-                            padding:3px;
-                            border:2px solid #0b0f17;
-                            z-index:2;
-                            object-fit:contain;
-                         ">
-                </div>
-            `
-            : `
-                <img src="${logo}"
-                     style="
-                        width:34px;
-                        height:34px;
-                        border-radius:50%;
-                        background:#111;
-                        padding:5px;
-                        object-fit:contain;
-                     ">
-            `;
+        // =============================
+        // DUAL LOGO FOR SWAP â€” FIX path
+        // =============================
+        const inLogo  = normalizeLogo(tx.inLogo,  "img/sda.png");
+        const outLogo = normalizeLogo(tx.outLogo, "img/default.png");
+
+        const logoHTML = isSwap
+            ? `<div style="position:relative;width:46px;height:34px;flex-shrink:0;">
+                <img src="${inLogo}"
+                     onerror="this.src='img/default.png'"
+                     style="width:24px;height:24px;border-radius:50%;position:absolute;
+                            left:0;top:5px;background:#111;padding:3px;z-index:1;object-fit:contain;">
+                <img src="${outLogo}"
+                     onerror="this.src='img/default.png'"
+                     style="width:24px;height:24px;border-radius:50%;position:absolute;
+                            right:0;top:5px;background:#111;padding:3px;
+                            border:2px solid #0b0f17;z-index:2;object-fit:contain;">
+               </div>`
+            : `<img src="${logo}"
+                    onerror="this.src='img/default.png'"
+                    style="width:34px;height:34px;border-radius:50%;
+                           background:#111;padding:5px;object-fit:contain;">`;
 
         const el = document.createElement("div");
         el.className = "asset-item";
@@ -213,39 +210,18 @@ function renderTxHistory(){
 
         <div style="position:relative;">
             ${logoHTML}
-
-            <div style="
-                position:absolute;
-                bottom:-2px;
-                right:-2px;
-                width:16px;
-                height:16px;
-                font-size:10px;
-                background:${color};
-                color:#fff;
-                border-radius:50%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                z-index:5;
-            ">
-                ${icon}
+            <div style="position:absolute;bottom:-2px;right:-2px;
+                        width:16px;height:16px;font-size:9px;
+                        background:${color};color:#fff;border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;z-index:5;">
+                ${iconHTML}
             </div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:3px;">
-
-            <div style="font-size:13px;font-weight:600;">
-                ${type}
-            </div>
-
-            <div style="font-size:11px;color:#888;">
-                ${shortAddr}
-            </div>
-
-            <div style="font-size:10px;color:#666;">
-                ${formatDate(tx.timestamp)}
-            </div>
+            <div style="font-size:13px;font-weight:600;">${type}</div>
+            <div style="font-size:11px;color:#888;">${shortAddr}</div>
+            <div style="font-size:10px;color:#666;">${formatDate(tx.timestamp)}</div>
         </div>
     </div>
 
@@ -255,33 +231,24 @@ function renderTxHistory(){
             ${type === "SEND" ? "-" : "+"}${valueFormatted}
         </div>
 
-        <div style="font-size:11px;color:#aaa;margin-top:2px;">
-            ${symbolDisplay}
-        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:2px;">${symbolDisplay}</div>
 
         <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
-
-            <button class="copy-btn"
-                data-copy="${tx.hash || ""}"
-                style="font-size:10px;padding:3px 6px;">
-                Copy
+            <button class="copy-btn" data-copy="${tx.hash || ""}"
+                    style="font-size:10px;padding:3px 6px;">
+                <i class="fa-regular fa-copy"></i>
             </button>
-
-            <button class="open-tx"
-                data-hash="${tx.hash || ""}"
-                style="font-size:10px;padding:3px 6px;">
-                Ledger
+            <button class="open-tx" data-hash="${tx.hash || ""}"
+                    style="font-size:10px;padding:3px 6px;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
             </button>
-
         </div>
-
     </div>
-</div>
-`;
+</div>`;
 
         el.onclick = (e) => {
-            if(e.target.classList.contains("copy-btn")) return;
-            if(e.target.classList.contains("open-tx")) return;
+            if(e.target.closest(".copy-btn")) return;
+            if(e.target.closest(".open-tx"))  return;
             showTxDetail(tx);
         };
 
@@ -289,7 +256,9 @@ function renderTxHistory(){
     });
 }
 
+
 let activeModal = null;
+
 
 // =============================
 // OPEN HISTORY MODAL
@@ -297,7 +266,6 @@ let activeModal = null;
 function openTxHistory(){
 
     const list = getTxHistory();
-
     list.forEach(t => t.read = true);
     saveTxHistory?.(list);
 
@@ -310,20 +278,14 @@ function openTxHistory(){
     modal.classList.add("show");
     modal.style.display = "flex";
 
-    // =============================
-    // set active modal (for back button)
-    // =============================
     activeModal = modal;
 
-    // =============================
-    // push history state (BACK BUTTON SUPPORT)
-    // =============================
     history.pushState({ modal: "txModal" }, "");
 }
 
 
 // =============================
-// CLOSE HISTORY MODAL (SAFE)
+// CLOSE HISTORY MODAL
 // =============================
 function closeTxModal(){
 
@@ -338,62 +300,41 @@ function closeTxModal(){
 
 
 // =============================
-// BACK BUTTON HANDLER (ANDROID + MOBILE)
+// BACK BUTTON HANDLER
 // =============================
 window.addEventListener("popstate", () => {
-
-    // kalau ada modal aktif → tutup modal, STOP navigation
     if(activeModal){
-
         activeModal.classList.remove("show");
         activeModal.style.display = "none";
-
         activeModal = null;
     }
 });
 
 
+// =============================
+// CLICK HANDLER â€” copy & ledger
+// =============================
 document.addEventListener("click", async (e) => {
 
-    // =============================
-    // COPY HASH (FIX REAL BUG)
-    // =============================
     const copyBtn = e.target.closest(".copy-btn");
 
     if (copyBtn) {
-
         const val = copyBtn.dataset.copy;
-
-        if (!val) {
-            return showToast?.("Hash tidak tersedia", "error");
-        }
+        if (!val) return showToast?.("Hash tidak tersedia", "error");
 
         try {
             await navigator.clipboard.writeText(val);
-
             showToast?.("Hash copied", "success");
-
-        } catch (err) {
-            console.warn("Copy error:", err);
+        } catch {
             showToast?.("Gagal copy", "error");
         }
     }
 
-    // =============================
-    // OPEN TX (LEDGER)
-    // =============================
     const txBtn = e.target.closest(".open-tx");
 
     if (txBtn) {
-
         const hash = txBtn.dataset.hash;
-
-        if (!hash) {
-            return showToast?.("Hash tidak tersedia", "error");
-        }
-
-        const url = "https://ledger.sidrachain.com/tx/" + hash;
-
-        window.open(url, "_blank");
+        if (!hash) return showToast?.("Hash tidak tersedia", "error");
+        window.open("https://ledger.sidrachain.com/tx/" + hash, "_blank");
     }
 });
