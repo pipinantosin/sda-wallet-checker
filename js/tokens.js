@@ -1,5 +1,5 @@
 // =====================================
-// TOKENS.JS — Token Manager + State
+// TOKENS.JS â€” Token Manager + State
 // Gabungan tokenManager.js + tokens.js
 // =====================================
 
@@ -15,7 +15,7 @@ let customTokens   = JSON.parse(localStorage.getItem("customTokens") || "[]");
 
 
 // =====================================
-// NORMALIZER — satu sumber kebenaran
+// NORMALIZER â€” satu sumber kebenaran
 // =====================================
 function normalizeToken(t) {
     return {
@@ -96,14 +96,13 @@ function getTokenData(addr) {
     };
 }
 
-// syncCustomTokens dipanggil di ui.js — alias rebuildTokens
-function syncCustomTokens() {
-    rebuildTokens();
-}
+// alias â€” dipanggil di ui.js dan app.js
+function syncCustomTokens() { rebuildTokens(); }
+function syncTokenState()   { rebuildTokens(); }
 
 
 // =====================================
-// SET GLOBAL TOKEN — satu-satunya pintu
+// SET GLOBAL TOKEN â€” satu-satunya pintu
 // untuk ganti token aktif
 // =====================================
 function setGlobalToken(val) {
@@ -229,7 +228,7 @@ function openTokenDropdown(target) {
     });
 }
 
-// Intercept native dropdown — pakai popup
+// Intercept native dropdown â€” pakai popup
 document.getElementById("tokenSelect")?.addEventListener("mousedown", (e) => {
     e.preventDefault();
     openTokenDropdown("home");
@@ -379,7 +378,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 // =====================================
-// EXPOSE — kompatibilitas modul lain
+// EXPOSE â€” kompatibilitas modul lain
 // =====================================
 window.tokenmanager = {
     loadDefaultTokens,
