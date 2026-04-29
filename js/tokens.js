@@ -1,94 +1,157 @@
-// ==========================
+// =====================================
+// TOKENS.JS — Token Manager + State
+// Gabungan tokenManager.js + tokens.js
+// =====================================
+
+// =====================================
 // GLOBAL TOKEN STATE
-// ==========================
-window.selectedToken = localStorage.getItem("selectedToken") || "native";
+// =====================================
+window.selectedToken     = localStorage.getItem("selectedToken") || "native";
+window.selectedTokenData = null;
+window.TOKENS            = [];
 
-// ==========================
+let DEFAULT_TOKENS = [];
+let customTokens   = JSON.parse(localStorage.getItem("customTokens") || "[]");
+
+
+// =====================================
+// NORMALIZER — satu sumber kebenaran
+// =====================================
+function normalizeToken(t) {
+    return {
+        symbol:   t.symbol,
+        name:     t.name     || t.symbol,
+        address:  t.address,
+        logo:     t.logo     || ("img/" + (t.icon || "default.png")),
+        decimals: t.decimals || 18,
+        type:     t.type     || "erc20",
+        isNative: t.address  === "native"
+    };
+}
+
+
+// =====================================
 // STORAGE HELPERS
-// ==========================
+// =====================================
 function getCustomTokens() {
-    return JSON.parse(localStorage.getItem("customTokens") || "[]");
+    try   { return JSON.parse(localStorage.getItem("customTokens") || "[]"); }
+    catch { return []; }
 }
 
-function saveCustomTokens(tokens) {
-    localStorage.setItem("customTokens", JSON.stringify(tokens));
+function saveCustomTokens(data) {
+    localStorage.setItem("customTokens", JSON.stringify(data));
 }
 
-// ==========================
-// GLOBAL TOKEN CONTROLLER (🔥 WAJIB ADA)
-// ==========================
-function setGlobalToken(val){
+
+// =====================================
+// REBUILD GLOBAL TOKENS
+// =====================================
+function rebuildTokens() {
+    customTokens  = getCustomTokens();
+    window.TOKENS = [
+        ...DEFAULT_TOKENS,
+        ...customTokens.map(normalizeToken)
+    ];
+}
+
+
+// =====================================
+// LOAD TOKENS.JSON
+// =====================================
+async function loadDefaultTokens() {
+    try {
+        const res  = await fetch("./data/tokens.json");
+        const raw  = await res.json();
+        DEFAULT_TOKENS = raw.map(normalizeToken);
+        rebuildTokens();
+    } catch (e) {
+        console.error("Failed to load tokens.json", e);
+    }
+}
+
+
+// =====================================
+// GETTERS
+// =====================================
+function getAllTokens()  { return window.TOKENS || []; }
+function getHomeTokens() { return getAllTokens(); }
+function getSendTokens() { return getAllTokens(); }
+
+function getSwapTokens() {
+    return getAllTokens().filter(t => t.symbol !== "WSDA");
+}
+
+function getTokenData(addr) {
+    if (!addr) return { symbol: "?", logo: "img/default.png" };
+
+    const token = getAllTokens().find(
+        t => t.address?.toLowerCase() === addr.toLowerCase()
+    );
+
+    if (token) return { ...token };
+
+    return {
+        symbol: addr.slice(0, 6) + "...",
+        logo:   "img/default.png"
+    };
+}
+
+// syncCustomTokens dipanggil di ui.js — alias rebuildTokens
+function syncCustomTokens() {
+    rebuildTokens();
+}
+
+
+// =====================================
+// SET GLOBAL TOKEN — satu-satunya pintu
+// untuk ganti token aktif
+// =====================================
+function setGlobalToken(val) {
 
     window.selectedToken = val || "native";
     localStorage.setItem("selectedToken", window.selectedToken);
 
     let logo = "img/sda.png";
 
-    if (val === "native") {
-
+    if (val === "native" || !val) {
         window.selectedTokenData = {
-            symbol: "SDA",
-            type: "native",
+            symbol:   "SDA",
+            type:     "native",
             decimals: 18,
-            logo: logo
+            logo:     "img/sda.png"
         };
-
     } else {
-
-        const token = (window.TOKENS || []).find(t => t.address === val);
-
+        const token = getAllTokens().find(t => t.address === val);
         if (token) {
             logo = token.logo || "img/default.png";
-
-            window.selectedTokenData = {
-                ...token,
-                type: "erc20",
-                decimals: token.decimals || 18
-            };
+            window.selectedTokenData = { ...token, type: "erc20" };
         }
     }
 
-    // ==========================
-    // SYNC DROPDOWN
-    // ==========================
+    // Sync dropdown
     const mainSelect = document.getElementById("tokenSelect");
     const sendSelect = document.getElementById("sendTokenSelect");
-
     if (mainSelect) mainSelect.value = val;
     if (sendSelect) sendSelect.value = val;
 
-    // ==========================
-    // SYNC ICON
-    // ==========================
-    if (window.tokenLogoBalance) {
-        window.tokenLogoBalance.src = logo;
-    }
+    // Sync icon
+    const logoBalance  = document.getElementById("tokenLogoBalance");
+    const logoDropdown = document.getElementById("tokenLogoDropdown");
+    if (logoBalance)  logoBalance.src  = logo;
+    if (logoDropdown) logoDropdown.src = logo;
 
-    if (window.tokenLogoDropdown) {
-        window.tokenLogoDropdown.src = logo;
-    }
-
-    // ==========================
-    // SYNC SEND MODAL
-    // ==========================
-    if (typeof syncSendTokenUI === "function") syncSendTokenUI();
-    if (typeof applySendTokenState === "function") applySendTokenState();
-
-    // ==========================
-    // SYNC BALANCE
-    // ==========================
-    if (typeof loadBalance === "function") loadBalance();
-    if (typeof updateSendBalance === "function") updateSendBalance();
-
-    // ==========================
-    // SYNC UI LAIN
-    // ==========================
-    if (typeof renderAssets === "function") renderAssets();
+    // Sync semua modul
+    syncSendTokenUI?.();
+    applySendTokenState?.();
+    loadBalance?.();
+    updateSendBalance?.();
+    renderAssets?.();
 }
 
-// ==========================
-// RENDER TOKEN SELECT (HOME)
-// ==========================
+
+// =====================================
+// RENDER TOKEN SELECT (HOME DROPDOWN)
+// =====================================
 function renderTokenSelect() {
 
     const select = document.getElementById("tokenSelect");
@@ -96,286 +159,188 @@ function renderTokenSelect() {
 
     select.innerHTML = "";
 
-    const tokens = window.TOKENS || [];
-
-    tokens.forEach(t => {
-
-        const opt = document.createElement("option");
-
-        opt.value = t.address;
-        opt.textContent = `${t.symbol}`;
-
-        //  icon tetap aman (PNG SYSTEM TIDAK DIHAPUS)
-        opt.dataset.icon = t.logo || "img/default.png";
-
+    getAllTokens().forEach(t => {
+        const opt          = document.createElement("option");
+        opt.value          = t.address;
+        opt.textContent    = t.symbol;
+        opt.dataset.icon   = t.logo || "img/default.png";
         select.appendChild(opt);
     });
 
     select.value = window.selectedToken || "native";
 
-    select.onchange = (e) => {
-        setGlobalToken(e.target.value);
-    };
+    select.onchange = (e) => setGlobalToken(e.target.value);
 }
 
-// ==========================
-// ADD TOKEN (SAFE)
-// ==========================
+
+// =====================================
+// TOKEN POPUP DROPDOWN
+// =====================================
+function openTokenDropdown(target) {
+
+    const tokens = getAllTokens();
+
+    const itemsHTML = tokens.map(t => `
+        <div class="token-item"
+             data-address="${t.address}"
+             data-symbol="${t.symbol.toLowerCase()}">
+            <img src="${t.logo || 'img/default.png'}"
+                 onerror="this.src='img/default.png'"
+                 style="width:28px;height:28px;border-radius:50%;object-fit:contain;">
+            <div>
+                <b>${t.symbol}</b><br>
+                <small style="color:#888;">${t.name}</small>
+            </div>
+        </div>
+    `).join("");
+
+    const box = document.createElement("div");
+    box.id = "tokenPopup";
+    box.innerHTML = `
+        <div class="popup-bg"></div>
+        <div class="popup">
+            <div class="token-search">
+                <input id="tokenSearchInput" placeholder="Search token...">
+            </div>
+            <div id="tokenList">${itemsHTML}</div>
+        </div>
+    `;
+
+    document.body.appendChild(box);
+
+    // Search filter
+    box.querySelector("#tokenSearchInput")?.addEventListener("input", (e) => {
+        const kw = e.target.value.toLowerCase();
+        box.querySelectorAll(".token-item").forEach(item => {
+            item.style.display = item.dataset.symbol.includes(kw) ? "flex" : "none";
+        });
+    });
+
+    // Select token
+    box.addEventListener("click", (e) => {
+        if (e.target.classList.contains("popup-bg")) { box.remove(); return; }
+
+        const item = e.target.closest(".token-item");
+        if (!item) return;
+
+        const addr = item.dataset.address;
+        setGlobalToken(addr);
+        box.remove();
+    });
+}
+
+// Intercept native dropdown — pakai popup
+document.getElementById("tokenSelect")?.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    openTokenDropdown("home");
+});
+
+document.getElementById("sendTokenSelect")?.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    openTokenDropdown("send");
+});
+
+
+// =====================================
+// ADD TOKEN FROM LIST (token tab)
+// =====================================
 async function addTokenFromList(token) {
 
-    let customTokens = getCustomTokens();
+    let custom = getCustomTokens();
 
-    // MAX LIMIT
-    if (customTokens.length >= 10) {
+    if (custom.length >= 10) {
         return showToast("Max 10 token", "error");
     }
 
-    // DUPLICATE CHECK
-    const exist = customTokens.find(
+    const exist = custom.find(
         t => t.address.toLowerCase() === token.address.toLowerCase()
     );
+    if (exist) return showToast("Sudah ditambahkan", "error");
 
-    if (exist) {
-        return showToast("Sudah ditambahkan", "error");
-    }
-
-    // ADD
-    customTokens.push(token);
-    saveCustomTokens(customTokens);
-
-    window.TOKENS = [...DEFAULT_TOKENS, ...customTokens];
+    custom.push(token);
+    saveCustomTokens(custom);
+    rebuildTokens();
 
     showToast("Token ditambahkan", "success");
 
     const wallet = getSelectedWallet?.();
-
     switchTab?.("assets");
 
-    // ==========================
-    // FETCH BALANCE
-    // ==========================
     if (wallet) {
-
         try {
-
             const abi = [
                 "function balanceOf(address) view returns (uint256)",
                 "function decimals() view returns (uint8)"
             ];
-
-            const contract = new ethers.Contract(
-                token.address,
-                abi,
-                provider
-            );
-
-            const bal = await contract.balanceOf(wallet.address);
-
-            let decimals = 18;
-            try {
-                decimals = await contract.decimals();
-            } catch {}
-
-            const value = parseFloat(
-                ethers.utils.formatUnits(bal, decimals)
-            ).toFixed(4);
-
-            const final = value + " " + token.symbol;
-
-            const cacheKey = wallet.address + "_" + token.address;
-            localStorage.setItem(cacheKey, final);
-
-        } catch (e) {
-
-            const cacheKey = wallet.address + "_" + token.address;
-
-            if (!localStorage.getItem(cacheKey)) {
-                localStorage.setItem(cacheKey, "0.00 " + token.symbol);
+            const contract = new ethers.Contract(token.address, abi, provider);
+            const [bal, dec] = await Promise.all([
+                contract.balanceOf(wallet.address),
+                contract.decimals().catch(() => 18)
+            ]);
+            const value = parseFloat(ethers.utils.formatUnits(bal, dec)).toFixed(4);
+            localStorage.setItem(wallet.address + "_" + token.address, value + " " + token.symbol);
+        } catch {
+            const key = wallet.address + "_" + token.address;
+            if (!localStorage.getItem(key)) {
+                localStorage.setItem(key, "0.00 " + token.symbol);
             }
         }
     }
 
-    // REFRESH UI
     renderAssets?.();
     renderTokenTab?.();
     renderTokenSelect?.();
 }
 
 
-// ======================================================
-//  ADD TOKEN
-// ======================================================
-function addToken(symbol, address){
+// =====================================
+// ADD TOKEN MANUAL (dari input address)
+// =====================================
+function addToken(symbol, address) {
 
-    symbol = symbol.trim().toUpperCase();
+    symbol  = symbol.trim().toUpperCase();
     address = address.trim();
 
     if (!ethers.utils.isAddress(address)) {
-        alert("Invalid contract address");
-        return;
+        return showToast("Invalid contract address", "error");
     }
 
-    const exists = window.TOKENS.find(
+    const exists = getAllTokens().find(
         t => t.address.toLowerCase() === address.toLowerCase()
     );
+    if (exists) return showToast("Token already added", "error");
 
-    if (exists){
-        alert("Token already added");
-        return;
-    }
-
-    const newToken = normalizeToken({
-        symbol,
-        address
-    });
+    const newToken = normalizeToken({ symbol, address });
 
     customTokens.push(newToken);
-
-    saveTokens();
+    saveCustomTokens(customTokens);
     rebuildTokens();
-
-    renderTokenList();
+    renderTokenList?.();
 }
 
-// ======================================================
-//  REMOVE TOKEN
-// ======================================================
-function removeToken(address){
+
+// =====================================
+// REMOVE TOKEN
+// =====================================
+function removeToken(address) {
 
     customTokens = customTokens.filter(
         t => t.address.toLowerCase() !== address.toLowerCase()
     );
-
-    saveTokens();
+    saveCustomTokens(customTokens);
     rebuildTokens();
 
-    renderTokenList();
+    renderAssets?.();
+    renderTokenTab?.();
+    renderTokenSelect?.();
+    renderTokenList?.();
 }
 
-function openTokenDropdown(target){
 
-    const tokens = window.TOKENS || [];
-
-    let html = "";
-
-    tokens.forEach(t => {
-
-        html += `
-            <div class="token-item"
-                 data-address="${t.address}"
-                 data-symbol="${t.symbol.toLowerCase()}">
-
-                <img src="${t.logo || 'img/default.png'}">
-
-                <div>
-                    <b>${t.symbol}</b><br>
-                    <small style="color:#888;">${t.name}</small>
-                </div>
-
-            </div>
-        `;
-    });
-
-    const box = document.createElement("div");
-    box.id = "tokenPopup";
-
-    box.innerHTML = `
-        <div class="popup-bg"></div>
-
-        <div class="popup">
-
-            <div class="token-search">
-                <input id="tokenSearchInput" placeholder="Search token...">
-            </div>
-
-            <div id="tokenList">
-                ${html}
-            </div>
-
-        </div>
-    `;
-
-    document.body.appendChild(box);
-
-    const input = box.querySelector("#tokenSearchInput");
-    const list = box.querySelector("#tokenList");
-
-    // ==========================
-    // SEARCH FILTER
-    // ==========================
-    input.addEventListener("input", (e) => {
-
-        const keyword = e.target.value.toLowerCase();
-
-        list.querySelectorAll(".token-item").forEach(item => {
-
-            const symbol = item.dataset.symbol;
-
-            item.style.display =
-                symbol.includes(keyword) ? "flex" : "none";
-        });
-    });
-
-    // ==========================
-    // SELECT TOKEN ( CORE FIX)
-    // ==========================
-    box.addEventListener("click", (e) => {
-
-        if (e.target.classList.contains("popup-bg")) {
-            box.remove();
-            return;
-        }
-
-        const item = e.target.closest(".token-item");
-        if (!item) return;
-
-        const addr = item.dataset.address;
-
-        // ==========================
-        //  1 SOURCE OF TRUTH
-        // ==========================
-        window.activeToken = addr;
-        localStorage.setItem("selectedToken", addr);
-
-        // ==========================
-        // UPDATE SYSTEM HOME + SEND
-        // ==========================
-        setGlobalToken(addr);     // sync home
-        setSendToken(addr);       // sync send
-
-        // ==========================
-        // FORCE UI UPDATE ALL
-        // ==========================
-        syncSendTokenUI?.();
-        updateSendBalance?.();
-        loadBalance?.();
-        renderAssets?.();
-
-        box.remove();
-    });
-}
-
-document.getElementById("tokenSelect")?.addEventListener("mousedown", (e) => {
-    e.preventDefault(); //  STOP native dropdown
-    openTokenDropdown("home");
-});
-
-document.getElementById("sendTokenSelect")?.addEventListener("mousedown", (e) => {
-    e.preventDefault(); //  STOP native dropdown
-    openTokenDropdown("send");
-});
-
-// ======================================================
-//  SAVE CUSTOM TOKENS
-// ======================================================
-function saveTokens(){
-    localStorage.setItem("customTokens", JSON.stringify(customTokens));
-}
-
-// ======================================================
-//  RENDER CUSTOM TOKEN LIST (MANAGER PAGE)
-// ======================================================
-function renderTokenList(){
+// =====================================
+// RENDER TOKEN LIST (manager page)
+// =====================================
+function renderTokenList() {
 
     const list = document.getElementById("token-list");
     if (!list) return;
@@ -383,43 +348,48 @@ function renderTokenList(){
     list.innerHTML = "";
 
     customTokens.forEach(token => {
-
-        const div = document.createElement("div");
+        const div       = document.createElement("div");
         div.style.marginBottom = "6px";
-
         div.innerHTML = `
-            <img src="${getTokenIcon(token)}"
-                 style="width:16px;height:16px;margin-right:6px"
-                 onerror="this.src='img/default.png'">
-
+            <img src="${token.logo || 'img/default.png'}"
+                 onerror="this.src='img/default.png'"
+                 style="width:16px;height:16px;margin-right:6px;">
             <span>${token.symbol}</span>
-
-            <button onclick="removeToken('${token.address}')">
-                Remove
-            </button>
+            <button onclick="removeToken('${token.address}')">Remove</button>
         `;
-
         list.appendChild(div);
     });
 }
-// ==========================
-// GET TOKEN DATA
-// ==========================
-function getTokenData(addr) {
 
-    const token = (window.TOKENS || []).find(
-        t => t.address.toLowerCase() === addr.toLowerCase()
-    );
 
-    if (token) {
-        return {
-            symbol: token.symbol,
-            logo: token.logo || "img/default.png"
-        };
-    }
+// =====================================
+// INIT
+// =====================================
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadDefaultTokens();
 
-    return {
-        symbol: addr.slice(0, 6) + "...",
-        logo: "img/default.png"
-    };
-}
+    // set selectedTokenData awal
+    setGlobalToken(window.selectedToken);
+
+    renderTokenList?.();
+    renderTokenSelect?.();
+    renderTokenTab?.();
+    loadSendTokens?.();
+});
+
+
+// =====================================
+// EXPOSE — kompatibilitas modul lain
+// =====================================
+window.tokenmanager = {
+    loadDefaultTokens,
+    rebuildTokens,
+    getAllTokens,
+    getHomeTokens,
+    getSendTokens,
+    getSwapTokens,
+    getTokenData,
+    syncCustomTokens
+};
+
+window.SIDRAPULSE = window.tokenmanager;
