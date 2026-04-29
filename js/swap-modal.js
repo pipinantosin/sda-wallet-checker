@@ -1,558 +1,397 @@
+// =====================================
+// SWAP MODAL
+// =====================================
+
 const WSDA_ADDR = "0xE4095a910209D7BE03B55D02F40d4554B1666182";
 
-const SWAP_TOKEN_ALIAS = {
-    WSDA: "SDA"
-};
+const SWAP_TOKEN_ALIAS = { WSDA: "SDA" };
 
-function getSwapDisplaySymbol(symbol){
-    if(!symbol) return "???";
+function getSwapDisplaySymbol(symbol) {
+    if (!symbol) return "???";
     return SWAP_TOKEN_ALIAS[symbol] || symbol;
 }
 
-// ==========================
-// REALISTIC OUTPUT (MATCH OFFICIAL)
-// ==========================
-function getRealisticOut(amount, estimated){
 
-    if(!estimated || estimated <= 0) return 0;
+// =====================================
+// REALISTIC OUTPUT
+// =====================================
+function getRealisticOut(amount, estimated) {
+
+    if (!estimated || estimated <= 0) return 0;
 
     let correction;
+    if      (amount < 0.00001) correction = 1.043;
+    else if (amount < 0.001)   correction = 1.040;
+    else if (amount < 0.01)    correction = 1.037;
+    else                       correction = 1.033;
 
-    if(amount < 0.00001){
-        correction = 1.043;
-    }else if(amount < 0.001){
-        correction = 1.040;
-    }else if(amount < 0.01){
-        correction = 1.037;
-    }else{
-        correction = 1.033;
-    }
-
-    let result = estimated * correction;
-
-    // ==========================
-    // GLOBAL CALIBRATION FIX (TARGET: 12.93 -> 1.92 SDA)
-    // ==========================
-    const adjustFactor = 0.96;
-    result = result * adjustFactor;
+    const result = estimated * correction * 0.96;
 
     return (!isFinite(result) || result <= 0) ? 0 : result;
 }
-// ==========================
+
+
+// =====================================
 // GLOBAL STATE
-// ==========================
+// =====================================
 window.swapState = {
-    payToken: "native",
+    payToken:     "native",
     receiveToken: null
 };
 
 window.swapConfirmState = null;
 
-let activeInput = "pay"; // "pay" | "receive"
-// ==========================
+let activeInput = "pay";
+
+
+// =====================================
 // INIT
-// ==========================
+// =====================================
 document.addEventListener("DOMContentLoaded", () => {
 
-    const modal = document.getElementById("swapModal");
-    const openBtn = document.getElementById("openSwapBtn");
-    const closeBtn = document.getElementById("closeSwapModal");
-
-    const walletNameEl = document.getElementById("swapWalletName");
+    const modal          = document.getElementById("swapModal");
+    const openBtn        = document.getElementById("openSwapBtn");
+    const closeBtn       = document.getElementById("closeSwapModal");
+    const walletNameEl   = document.getElementById("swapWalletName");
     const walletBalanceEl = document.getElementById("swapWalletBalance");
-
-    const paySymbol = document.getElementById("payTokenSymbol");
-    const receiveSymbol = document.getElementById("receiveTokenSymbol");
-
-    const payIcon = document.getElementById("payTokenIcon");
-    const receiveIcon = document.getElementById("receiveTokenIcon");
-
-    const payBalanceEl = document.getElementById("payBalance");
+    const paySymbol      = document.getElementById("payTokenSymbol");
+    const receiveSymbol  = document.getElementById("receiveTokenSymbol");
+    const payIcon        = document.getElementById("payTokenIcon");
+    const receiveIcon    = document.getElementById("receiveTokenIcon");
+    const payBalanceEl   = document.getElementById("payBalance");
     const receiveBalanceEl = document.getElementById("receiveBalance");
-
-    const switchBtn = document.getElementById("switchSwap");
-    const payInput = document.getElementById("payAmount");
-    
-    payInput.addEventListener("input", function(){
-
-    activeInput = "pay";
-
-    this.value = this.value
-        .replace(/[^0-9.]/g, "")
-        .replace(/(\..*)\./g, '$1');
-
-    this.scrollLeft = this.scrollWidth;
-
-    updateReceiveEstimate();
-    updateRate();
-});
+    const switchBtn      = document.getElementById("switchSwap");
+    const payInput       = document.getElementById("payAmount");
+    const receiveInput   = document.getElementById("receiveAmount");
 
 
-const receiveInput = document.getElementById("receiveAmount");
+    // =====================================
+    // INPUT LISTENERS
+    // =====================================
+    payInput?.addEventListener("input", function () {
+        activeInput  = "pay";
+        this.value   = this.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+        this.scrollLeft = this.scrollWidth;
+        updateReceiveEstimate();
+        updateRate();
+    });
 
-receiveInput.addEventListener("input", function(){
+    receiveInput?.addEventListener("input", function () {
+        activeInput  = "receive";
+        this.value   = this.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+        this.scrollLeft = this.scrollWidth;
+        updatePayEstimate();
+        updateRate();
+    });
 
-    activeInput = "receive";
 
-    this.value = this.value
-        .replace(/[^0-9.]/g, "")
-        .replace(/(\..*)\./g, '$1');
-
-    this.scrollLeft = this.scrollWidth;
-
-    updatePayEstimate();
-    updateRate();
-});
-
-    // ==========================
-    // INIT TOKEN
-    // ==========================
-    function initTokens(){
-        const tokens = window.TOKENS || [];
-
-        swapState.payToken = "native";
-
-        const first = tokens.find(t => t.symbol !== "WSDA");
-        swapState.receiveToken = first?.address || "native";
-
-        updateUI();
-    }
-
-    // ==========================
-    // TOKEN DATA
-    // ==========================
-    function getTokenData(addr){
-
-        const isNative =
-    !addr ||
-    addr === "native";
-
-        if(isNative){
-            return {
-                symbol: "SDA",
-                logo: "img/sda.png"
-            };
-        }
+    // =====================================
+    // TOKEN DATA HELPER (local)
+    // =====================================
+    function getTokenData(addr) {
+        const isNativeAddr = !addr || addr === "native";
+        if (isNativeAddr) return { symbol: "SDA", logo: "img/sda.png" };
 
         const t = (window.TOKENS || []).find(x => x.address === addr);
-
         return {
             symbol: getSwapDisplaySymbol(t?.symbol || "???"),
-            logo: t?.logo || "img/default.png"
+            logo:   t?.logo || "img/default.png"
         };
     }
 
-    // ==========================
+
+    // =====================================
+    // INIT TOKENS
+    // =====================================
+    function initTokens() {
+        const tokens = window.TOKENS || [];
+        swapState.payToken     = "native";
+        const first            = tokens.find(t => t.symbol !== "WSDA");
+        swapState.receiveToken = first?.address || "native";
+        updateUI();
+    }
+
+
+    // =====================================
     // UPDATE UI
-    // ==========================
-    async function updateUI(){
+    // =====================================
+    async function updateUI() {
+        const pay  = getTokenData(swapState.payToken);
+        const recv = getTokenData(swapState.receiveToken);
 
-    const pay = getTokenData(swapState.payToken);
-    const recv = getTokenData(swapState.receiveToken);
+        if (paySymbol)     paySymbol.innerText     = pay.symbol;
+        if (receiveSymbol) receiveSymbol.innerText = recv.symbol;
+        if (payIcon)       payIcon.src             = pay.logo;
+        if (receiveIcon)   receiveIcon.src         = recv.logo;
 
-    paySymbol.innerText = pay.symbol;
-    receiveSymbol.innerText = recv.symbol;
+        await Promise.all([
+            updatePayBalance(),
+            updateReceiveBalance(),
+            refreshWalletBalance(),
+            updateRate()
+        ]);
 
-    payIcon.src = pay.logo;
-    receiveIcon.src = recv.logo;
+        setTimeout(updateReceiveEstimate, 50);
+    }
 
-    await Promise.all([
-    updatePayBalance(),
-    updateReceiveBalance(),
-    refreshWalletBalance(),
-    updateRate()
-]);
 
-// 🔥 TAMBAH INI
-setTimeout(updateReceiveEstimate, 50);
-updateReceiveBalance()
-}
-    
-    
- async function updateRate(){
+    // =====================================
+    // RATE
+    // =====================================
+    async function updateRate() {
+        const rateEl   = document.getElementById("swapRate");
+        if (!rateEl) return;
 
-    const rateEl = document.getElementById("swapRate");
-    if(!rateEl) return;
+        const payData  = getTokenData(swapState.payToken);
+        const recvData = getTokenData(swapState.receiveToken);
 
-    const payData  = getTokenData(swapState.payToken);
-    const recvData = getTokenData(swapState.receiveToken);
+        try {
+            const out = await PRICE_ENGINE.getAmountOut(
+                swapState.payToken,
+                swapState.receiveToken,
+                1
+            );
 
-    try{
+            rateEl.innerText = (!out || isNaN(out))
+                ? "No pool"
+                : `1 ${payData.symbol} = ${Number(out).toFixed(6)} ${recvData.symbol}`;
 
-        // 🔥 ambil langsung dari swap logic (bukan price)
-        const out = await PRICE_ENGINE.getAmountOut(
-            swapState.payToken,
-            swapState.receiveToken,
-            1 // 1 unit
-        );
-
-        if(!out || isNaN(out)){
-            rateEl.innerText = `No pool`;
-            return;
+        } catch {
+            rateEl.innerText = "No pool";
         }
-
-        rateEl.innerText =
-            `1 ${payData.symbol} ≈ ${Number(out).toFixed(6)} ${recvData.symbol}`;
-
-    }catch(e){
-        console.warn("rate error:", e);
-        rateEl.innerText = `No pool`;
-    }
-}
-
-
-let isUpdatingReceive = false;
-
-async function updateReceiveEstimate(){
-
-    if(activeInput !== "pay") return;
-
-    const val = parseFloat(payInput.value);
-    const outEl = document.getElementById("receiveAmount");
-
-    if(!outEl) return;
-
-    if(isNaN(val) || val <= 0){
-        outEl.value = "0.0";
-        return;
     }
 
-    try{
-        const estimated = await PRICE_ENGINE.getAmountOut(
-            swapState.payToken,
-            swapState.receiveToken,
-            val
-        );
 
-        // 🔥 FIX: pakai realistic
-        const realistic = getRealisticOut(val, estimated);
+    // =====================================
+    // ESTIMATE RECEIVE
+    // =====================================
+    async function updateReceiveEstimate() {
+        if (activeInput !== "pay") return;
 
-        console.log("EST:", estimated);
-        console.log("REAL:", realistic);
+        const val   = parseFloat(payInput?.value);
+        const outEl = document.getElementById("receiveAmount");
+        if (!outEl) return;
 
-        outEl.value = realistic > 0
-            ? realistic.toFixed(6)
-            : "0.0";
+        if (isNaN(val) || val <= 0) { outEl.value = "0.0"; return; }
 
-    }catch(e){
-        console.warn("estimate error:", e);
-        outEl.value = "0.0";
-    }
-}
-    
-    
-    async function updatePayEstimate(){
-
-    const val = parseFloat(receiveInput.value);
-
-    if(!payInput) return;
-
-    if(isNaN(val) || val <= 0){
-        payInput.value = "";
-        return;
+        try {
+            const estimated = await PRICE_ENGINE.getAmountOut(
+                swapState.payToken,
+                swapState.receiveToken,
+                val
+            );
+            const realistic = getRealisticOut(val, estimated);
+            outEl.value = realistic > 0 ? realistic.toFixed(6) : "0.0";
+        } catch {
+            outEl.value = "0.0";
+        }
     }
 
-    try{
 
-        const forwardPrice =
-            await PRICE_ENGINE.getPrice(
+    // =====================================
+    // ESTIMATE PAY (reverse)
+    // =====================================
+    async function updatePayEstimate() {
+        const val = parseFloat(receiveInput?.value);
+        if (!payInput) return;
+        if (isNaN(val) || val <= 0) { payInput.value = ""; return; }
+
+        try {
+            const forwardPrice = await PRICE_ENGINE.getPrice(
                 swapState.payToken,
                 swapState.receiveToken
             );
+            if (!forwardPrice || forwardPrice <= 0) { payInput.value = ""; return; }
 
-        if(
-            !forwardPrice ||
-            forwardPrice <= 0
-        ){
+            const estimatedPay = val / forwardPrice;
+            const realistic    = getRealisticOut(estimatedPay, estimatedPay);
+            payInput.value     = realistic > 0 ? realistic.toFixed(6) : "";
+        } catch {
             payInput.value = "";
-            return;
         }
-
-        const estimatedPay =
-            val / forwardPrice;
-
-        const realistic =
-            getRealisticOut(
-                estimatedPay,
-                estimatedPay
-            );
-
-        payInput.value =
-            realistic > 0
-                ? realistic.toFixed(6)
-                : "";
-
-    }catch(e){
-        console.warn(
-            "reverse estimate error:",
-            e
-        );
-
-        payInput.value = "";
     }
-}
 
-    async function refreshWalletBalance(){
+
+    // =====================================
+    // WALLET BALANCE
+    // =====================================
+    async function refreshWalletBalance() {
         const w = getSelectedWallet?.();
-        if(!w) return;
-
+        if (!w) return;
         const bal = await getTokenBalance(w.address, "native");
-
-        walletBalanceEl.innerText =
+        if (walletBalanceEl) walletBalanceEl.innerText =
             `${parseFloat(bal).toFixed(4)} SDA`;
     }
 
-    // ==========================
-    // OPEN MODAL
-    // ==========================
+    async function updatePayBalance() {
+        try {
+            const w = getSelectedWallet?.();
+            if (!w) return;
+
+            const bal  = await getTokenBalance(w.address, swapState.payToken);
+            const data = getTokenData(swapState.payToken);
+            const safe = isFinite(parseFloat(bal)) ? parseFloat(bal) : 0;
+
+            if (payBalanceEl) {
+                payBalanceEl.innerHTML =
+                    `${safe.toFixed(4)} ${data.symbol} <span class="max" id="btnMax">MAX</span>`;
+
+                document.getElementById("btnMax")?.addEventListener("click", () => {
+                    if (payInput) payInput.value = safe.toFixed(6);
+                    updateReceiveEstimate?.();
+                });
+            }
+        } catch {
+            if (payBalanceEl) payBalanceEl.innerHTML =
+                `0.0000 <span class="max" id="btnMax">MAX</span>`;
+        }
+    }
+
+    async function updateReceiveBalance() {
+        try {
+            const w = getSelectedWallet?.();
+            if (!w) return;
+
+            const bal  = await getTokenBalance(w.address, swapState.receiveToken);
+            const data = getTokenData(swapState.receiveToken);
+            const safe = isFinite(parseFloat(bal)) ? parseFloat(bal) : 0;
+
+            if (receiveBalanceEl) receiveBalanceEl.innerText =
+                `${safe.toFixed(4)} ${data.symbol}`;
+        } catch {
+            if (receiveBalanceEl) receiveBalanceEl.innerText = "0.0000";
+        }
+    }
+
+
+    // =====================================
+    // OPEN MODAL — cek PK dulu
+    // =====================================
     openBtn?.addEventListener("click", async () => {
 
-        modal.classList.add("show");
+        // GUARD — buka modal PK kalau belum import / locked
+        try {
+            requirePK();
+        } catch {
+            // requirePK sudah buka modal PK otomatis
+            return;
+        }
+
+        modal?.classList.add("show");
 
         const w = getSelectedWallet?.();
-
         if (w) {
-            walletNameEl.innerText = w.name || "Wallet";
-
+            if (walletNameEl) walletNameEl.innerText = w.name || "Wallet";
             const bal = await getTokenBalance(w.address, "native");
-
-            walletBalanceEl.innerText =
+            if (walletBalanceEl) walletBalanceEl.innerText =
                 `${parseFloat(bal).toFixed(4)} SDA`;
         }
 
         await updateUI();
-
-// 🔥 TAMBAH INI
-setTimeout(() => {
-    updateReceiveEstimate();
-}, 300);
-        
+        setTimeout(updateReceiveEstimate, 300);
     });
 
-    // ==========================
+
+    // =====================================
     // CLOSE
-    // ==========================
-    closeBtn?.addEventListener("click", () => modal.classList.remove("show"));
+    // =====================================
+    closeBtn?.addEventListener("click", () => modal?.classList.remove("show"));
 
     modal?.addEventListener("click", (e) => {
         if (e.target === modal) modal.classList.remove("show");
     });
 
-    // ==========================
-    // SWITCH TOKEN (FIX HIDUP)
-    // ==========================
+
+    // =====================================
+    // SWITCH TOKENS
+    // =====================================
     switchBtn?.addEventListener("click", () => {
+        const oldPay     = payInput?.value;
+        const oldReceive = receiveInput?.value;
 
-    const oldPay = payInput.value;
-    const oldReceive = receiveInput.value;
+        [swapState.payToken, swapState.receiveToken] =
+            [swapState.receiveToken, swapState.payToken];
 
-    [swapState.payToken, swapState.receiveToken] =
-    [swapState.receiveToken, swapState.payToken];
+        if (payInput)     payInput.value     = oldReceive || "";
+        if (receiveInput) receiveInput.value = oldPay     || "";
 
-    payInput.value = oldReceive || "";
-    receiveInput.value = oldPay || "";
+        activeInput = "pay";
+        updateUI();
+        setTimeout(updateReceiveEstimate, 100);
+    });
 
-    activeInput = "pay"; // 🔥 WAJIB
 
-    updateUI();
-
-    setTimeout(updateReceiveEstimate, 100);
-});
-
-    // ==========================
+    // =====================================
     // MAX BUTTON
-    // ==========================
+    // =====================================
     document.addEventListener("click", async (e) => {
-
-        if(e.target.id === "btnMax"){
-
+        if (e.target.id === "btnMax") {
             const w = getSelectedWallet?.();
             if (!w) return;
-
             const bal = await getTokenBalance(w.address, swapState.payToken);
-
-            payInput.value = parseFloat(bal).toFixed(6);
+            if (payInput) payInput.value = parseFloat(bal).toFixed(6);
             updateReceiveEstimate();
         }
     });
 
-    // ==========================
-// PAY BALANCE
-// ==========================
-async function updatePayBalance(){
 
-    try{
-        const w = getSelectedWallet?.();
-        if(!w) return;
+    // =====================================
+    // TOKEN SELECTOR DROPDOWN
+    // =====================================
+    document.getElementById("payToken")?.addEventListener("click", () => openSelector("pay"));
+    document.getElementById("receiveToken")?.addEventListener("click", () => openSelector("receive"));
 
-        const bal =
-            await getTokenBalance(
-                w.address,
-                swapState.payToken
-            );
+    function openSelector(type) {
 
-        const data =
-            getTokenData(
-                swapState.payToken
-            );
-
-        const safeBal =
-            isFinite(parseFloat(bal))
-                ? parseFloat(bal)
-                : 0;
-
-        payBalanceEl.innerHTML = `
-            ${safeBal.toFixed(4)} ${data.symbol}
-            <span class="max" id="btnMax">MAX</span>
-        `;
-
-        const btnMax =
-            document.getElementById(
-                "btnMax"
-            );
-
-        if(btnMax){
-            btnMax.onclick = () => {
-                payInput.value =
-                    safeBal.toFixed(6);
-
-                updateReceiveEstimate?.();
-            };
-        }
-
-    }catch(e){
-        console.warn(
-            "updatePayBalance error:",
-            e
-        );
-
-        payBalanceEl.innerHTML =
-            `0.0000 <span class="max" id="btnMax">MAX</span>`;
-    }
-}
-
-// ==========================
-// RECEIVE BALANCE
-// ==========================
-async function updateReceiveBalance(){
-
-    try{
-        const w = getSelectedWallet?.();
-        if(!w) return;
-
-        const bal =
-            await getTokenBalance(
-                w.address,
-                swapState.receiveToken
-            );
-
-        const data =
-            getTokenData(
-                swapState.receiveToken
-            );
-
-        const safeBal =
-            isFinite(parseFloat(bal))
-                ? parseFloat(bal)
-                : 0;
-
-        receiveBalanceEl.innerText =
-            `${safeBal.toFixed(4)} ${data.symbol}`;
-
-    }catch(e){
-        console.warn(
-            "updateReceiveBalance error:",
-            e
-        );
-
-        receiveBalanceEl.innerText =
-            "0.0000";
-    }
-}
-
-    // ==========================
-    // DROPDOWN
-    // ==========================
-    document.getElementById("payToken")?.addEventListener("click", () => {
-        openSelector("pay");
-    });
-
-    document.getElementById("receiveToken")?.addEventListener("click", () => {
-        openSelector("receive");
-    });
-
-    function openSelector(type){
-
-        const tokens = window.TOKENS || [];
-        let html = "";
-
-        tokens.forEach(t => {
-
-           if (t.symbol === "WSDA") return;
-if (t.address === WSDA_ADDR) return;
-
-            html += `
+        const tokens   = window.TOKENS || [];
+        const itemsHTML = tokens
+            .filter(t => t.symbol !== "WSDA" && t.address !== WSDA_ADDR)
+            .map(t => `
                 <div class="token-item"
                      data-type="${type}"
                      data-address="${t.address}"
                      data-symbol="${t.symbol.toLowerCase()}">
-
-                    <img src="${t.logo || 'img/default.png'}">
+                    <img src="${t.logo || 'img/default.png'}"
+                         onerror="this.src='img/default.png'"
+                         style="width:28px;height:28px;border-radius:50%;object-fit:contain;">
                     <span>${getSwapDisplaySymbol(t.symbol)}</span>
                 </div>
-            `;
-        });
+            `).join("");
 
         const box = document.createElement("div");
-        box.id = "tokenPopup";
-
+        box.id    = "tokenPopup";
         box.innerHTML = `
             <div class="popup-bg"></div>
             <div class="popup">
                 <div class="token-search">
                     <input type="text" id="tokenSearchInput" placeholder="Search token...">
                 </div>
-                <div id="tokenList">${html}</div>
+                <div id="tokenList">${itemsHTML}</div>
             </div>
         `;
 
         document.body.appendChild(box);
 
-        const input = box.querySelector("#tokenSearchInput");
-        const list  = box.querySelector("#tokenList");
-
-        input.addEventListener("input", (e) => {
-            const keyword = e.target.value.toLowerCase();
-            list.querySelectorAll(".token-item").forEach(item => {
-                item.style.display =
-                    item.dataset.symbol.includes(keyword) ? "flex" : "none";
+        box.querySelector("#tokenSearchInput")?.addEventListener("input", (e) => {
+            const kw = e.target.value.toLowerCase();
+            box.querySelectorAll(".token-item").forEach(item => {
+                item.style.display = item.dataset.symbol.includes(kw) ? "flex" : "none";
             });
         });
 
         box.addEventListener("click", (e) => {
-
-            if(e.target.classList.contains("popup-bg")){
-                box.remove();
-                return;
-            }
+            if (e.target.classList.contains("popup-bg")) { box.remove(); return; }
 
             const item = e.target.closest(".token-item");
-            if(!item) return;
+            if (!item) return;
 
             let tokenAddress = item.dataset.address;
-            const symbol = item.dataset.symbol;
+            const symbol     = item.dataset.symbol;
 
-            const isNative =
-    symbol === "sda" ||
-    tokenAddress === "native";
+            if (symbol === "sda" || tokenAddress === "native") tokenAddress = "native";
 
-            if(isNative) tokenAddress = "native";
-
-            if(type === "pay"){
-                swapState.payToken = tokenAddress;
-            } else {
-                swapState.receiveToken = tokenAddress;
-            }
+            if (type === "pay")     swapState.payToken     = tokenAddress;
+            else                    swapState.receiveToken = tokenAddress;
 
             updateUI();
             box.remove();
@@ -563,28 +402,25 @@ if (t.address === WSDA_ADDR) return;
 });
 
 
-
-
-document.getElementById("swapButton")
-?.addEventListener("click", () => {
+// =====================================
+// SWAP BUTTON (dari confirm modal)
+// =====================================
+document.getElementById("swapButton")?.addEventListener("click", () => {
     SWAP_ENGINE.swapExactInput();
 });
 
 
-
-// ==========================
-// TOKEN BALANCE
-// ==========================
-async function getTokenBalance(address, tokenAddr){
-
+// =====================================
+// TOKEN BALANCE HELPER
+// =====================================
+async function getTokenBalance(address, tokenAddr) {
     try {
-
-        const isNative =
+        const isNativeAddr =
             !tokenAddr ||
             tokenAddr === "native" ||
             tokenAddr === WSDA_ADDR;
 
-        if (isNative) {
+        if (isNativeAddr) {
             const bal = await provider.getBalance(address);
             return ethers.utils.formatEther(bal);
         }
@@ -593,9 +429,7 @@ async function getTokenBalance(address, tokenAddr){
             "function balanceOf(address) view returns (uint256)",
             "function decimals() view returns (uint8)"
         ];
-
         const contract = new ethers.Contract(tokenAddr, abi, provider);
-
         const [bal, dec] = await Promise.all([
             contract.balanceOf(address),
             contract.decimals().catch(() => 18)
@@ -604,10 +438,7 @@ async function getTokenBalance(address, tokenAddr){
         return ethers.utils.formatUnits(bal, dec);
 
     } catch (e) {
-        console.warn("Balance error:", e);
+        console.warn("getTokenBalance error:", e);
         return "0";
     }
 }
-
-
-
