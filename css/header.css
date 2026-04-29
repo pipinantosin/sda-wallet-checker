@@ -169,3 +169,52 @@
 
     box-shadow:0 0 6px rgba(255,0,0,0.6);
 }
+
+
+
+
+
+.pk-btn{
+    position:relative;
+}
+
+/* indikator di bawah icon */
+.pk-indicator{
+    position:absolute;
+    bottom:-14px;
+    left:50%;
+    transform:translateX(-50%);
+
+    display:flex;
+    align-items:center;
+    gap:4px;
+
+    font-size:9px;
+    padding:2px 6px;
+
+    background:#111;
+    border-radius:6px;
+
+    white-space:nowrap;
+}
+
+/* titik hijau */
+.pk-dot{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#00ff66;
+    box-shadow:0 0 5px #00ff66;
+    animation: blink 1s infinite;
+}
+
+/* animasi */
+@keyframes blink{
+    0%,100%{opacity:1;}
+    50%{opacity:0.3;}
+}
+
+.pk-text{
+    color:#aaa;
+    font-size:9px;
+}
