@@ -1,150 +1,146 @@
-window.__PK_RESTORING = false;
-
-const PK_STORAGE_KEY = "sda_pk_wallet";
-
 // =====================================
-// PRIVATE KEY WALLET MODULE (CLEAN + FIXED)
+// PK WALLET MODULE
+// Tanggung jawab: input listener, sync
+// ke wallet list, balance, send native
+// =====================================
+// CATATAN: fungsi restorePK, lockPK,
+// unlockPK, requirePK, savePKSession
+// ada di wallet-core.js — jangan duplikat
 // =====================================
 
-window.pkWallet = null;
+window.__PK_RESTORING  = window.__PK_RESTORING  || false;
+window.PK_STORAGE_KEY  = window.PK_STORAGE_KEY  || "sda_pk_wallet";
+
 window.pkProvider = window.pkProvider || new ethers.providers.JsonRpcProvider(
     "https://node.sidrachain.com"
 );
 
-// ===============================
-// INIT PRIVATE KEY INPUT
-// ===============================
+
+// =====================================
+// INIT — pasang listener ke input PK
+// =====================================
 function initPrivateKeyWallet() {
 
-    const input = document.getElementById("walletPK");
+    const input = document.getElementById("globalPKInput");
     if (!input) return;
 
     input.addEventListener("input", (e) => {
 
         const pk = e.target.value.trim();
 
+        // reset state kalau input kosong / terlalu pendek
         if (!pk || pk.length < 20) {
-            window.pkWallet = null;
+            window.WALLET_SESSION.pkWallet      = null;
+            window.WALLET_SESSION.activeAddress = null;
+            updatePKUI?.();
             return;
         }
 
         try {
-
             const wallet = new ethers.Wallet(pk, window.pkProvider);
-            window.pkWallet = wallet;
 
-            console.log("✔ PK Wallet aktif:", wallet.address);
+            window.WALLET_SESSION.pkWallet      = wallet;
+            window.WALLET_SESSION.activeAddress = wallet.address;
+            window.WALLET_SESSION.mode          = "pk";
 
-            
-
-            // ==========================
-            // 🔥 CORE FIX: INSERT INTO WALLET LIST
-            // ==========================
             if (!window.__PK_RESTORING) {
-    syncPKToWalletList(pk, wallet.address);
-}
+                syncPKToWalletList(pk, wallet.address);
+            }
 
-        } catch (err) {
-            console.warn("❌ Private Key invalid");
-            window.pkWallet = null;
+            updatePKUI?.();
+
+        } catch {
+            window.WALLET_SESSION.pkWallet      = null;
+            window.WALLET_SESSION.activeAddress = null;
+            updatePKUI?.();
         }
     });
 }
 
-// ===============================
-// GET ACTIVE WALLET (SAFE)
-// ===============================
-function getPKWallet() {
-    return window.pkWallet;
+
+// =====================================
+// SET ACTIVE WALLET BY ADDRESS
+// =====================================
+function setActiveWalletByPK(address) {
+
+    const select  = document.getElementById("walletSelect");
+    const wallets = getWallets?.() || [];
+
+    const index = wallets.findIndex(
+        w => w.address?.toLowerCase() === address.toLowerCase()
+    );
+
+    if (index !== -1 && select) {
+        select.value = String(index);
+        select.dispatchEvent(new Event("change"));
+    }
+
+    window.activeWallet = wallets[index] || null;
 }
 
-// ===============================
-// SEND TRANSACTION (PK ONLY)
-// ===============================
+
+// =====================================
+// GET PK WALLET (alias aman)
+// =====================================
+function getPKWallet() {
+    return window.WALLET_SESSION.pkWallet;
+}
+
+
+// =====================================
+// SEND — native & ERC20
+// =====================================
 async function sendWithPrivateKey(to, amount, tokenAddress = null) {
 
     const wallet = getPKWallet();
-
-    if (!wallet) {
-        alert("Private key belum diinput");
-        return;
-    }
+    if (!wallet) return showToast?.("Private key belum diinput", "error");
 
     try {
-
-        // =========================
-        // NATIVE TOKEN
-        // =========================
         if (!tokenAddress) {
-
             const tx = await wallet.sendTransaction({
                 to,
                 value: ethers.utils.parseEther(amount)
             });
-
-            alert("TX SENT:\n" + tx.hash);
+            showToast?.("TX sent: " + tx.hash, "success");
             return tx;
         }
 
-        // =========================
-        // ERC20 TOKEN
-        // =========================
-        const abi = [
-            "function transfer(address to,uint amount) returns (bool)"
-        ];
-
-        const contract = new ethers.Contract(
-            tokenAddress,
-            abi,
-            wallet
-        );
+        const abi      = ["function transfer(address to, uint256 amount) returns (bool)"];
+        const contract = new ethers.Contract(tokenAddress, abi, wallet);
 
         const tx = await contract.transfer(
             to,
             ethers.utils.parseUnits(amount, 18)
         );
-
-        alert("TX SENT:\n" + tx.hash);
+        showToast?.("TX sent: " + tx.hash, "success");
         return tx;
 
     } catch (err) {
         console.error(err);
-        alert("Send gagal");
+        showToast?.("Send gagal", "error");
     }
 }
 
-// ===============================
-// BALANCE CHECK (PK ONLY)
-// ===============================
+
+// =====================================
+// BALANCE — native & ERC20
+// =====================================
 async function getPKBalance(tokenAddress = null) {
 
     const wallet = getPKWallet();
     if (!wallet) return null;
 
     try {
-
-        // =========================
-        // NATIVE
-        // =========================
         if (!tokenAddress) {
-
             const bal = await window.pkProvider.getBalance(wallet.address);
             return ethers.utils.formatEther(bal);
         }
 
-        // =========================
-        // TOKEN
-        // =========================
         const abi = [
             "function balanceOf(address) view returns (uint256)",
             "function decimals() view returns (uint8)"
         ];
-
-        const contract = new ethers.Contract(
-            tokenAddress,
-            abi,
-            window.pkProvider
-        );
+        const contract = new ethers.Contract(tokenAddress, abi, window.pkProvider);
 
         const [bal, dec] = await Promise.all([
             contract.balanceOf(wallet.address),
@@ -154,132 +150,102 @@ async function getPKBalance(tokenAddress = null) {
         return ethers.utils.formatUnits(bal, dec);
 
     } catch (err) {
-        console.warn("Balance error", err);
+        console.warn("getPKBalance error:", err);
         return null;
     }
 }
 
+
+// =====================================
+// SAVE PK KE STORAGE LAMA (legacy)
+// =====================================
 function savePKWallet(pk, address) {
-    localStorage.setItem(PK_STORAGE_KEY, JSON.stringify({
-        pk: pk,
-        address: address
-    }));
+    localStorage.setItem(window.PK_STORAGE_KEY, JSON.stringify({ pk, address }));
 }
 
+
+// =====================================
+// LOAD PK DARI STORAGE LAMA (legacy)
+// Dipakai sebelum wallet-core ada.
+// Kalau wallet-core.js sudah aktif,
+// restorePK() di sana yang jalan.
+// =====================================
 function loadPKWallet() {
+
     try {
         window.__PK_RESTORING = true;
 
-        const data = JSON.parse(localStorage.getItem(PK_STORAGE_KEY));
-        if (!data || !data.pk) return;
+        const data = JSON.parse(localStorage.getItem(window.PK_STORAGE_KEY));
+        if (!data?.pk) return;
 
         const wallet = new ethers.Wallet(data.pk, window.pkProvider);
-        window.pkWallet = wallet;
+        window.WALLET_SESSION.pkWallet = wallet;
 
-        console.log("✔ PK AUTO RESTORE:", wallet.address);
+        const select  = document.getElementById("walletSelect");
+        const wallets = getWallets?.() || [];
+        const index   = wallets.findIndex(
+            w => w.address?.toLowerCase() === wallet.address.toLowerCase()
+        );
 
-        const select = document.getElementById("walletSelect");
-
-        if (select) {
-            const wallets = getWallets?.() || [];
-            const index = wallets.findIndex(
-                w => w.address?.toLowerCase() === wallet.address.toLowerCase()
-            );
-
-            if (index !== -1) {
-                select.value = String(index);
-            }
-        }
+        if (select && index !== -1) select.value = String(index);
 
         updateActiveWalletName?.();
         loadBalance?.();
 
-    } catch (e) {
-        console.warn("PK load failed", e);
+    } catch (err) {
+        console.warn("PK load failed:", err);
     } finally {
         window.__PK_RESTORING = false;
     }
 }
 
 
+// =====================================
+// SYNC PK KE WALLET LIST
+// =====================================
 function syncPKToWalletList(pk, address) {
 
     if (window.__PK_RESTORING) return;
 
-    let wallets = getWallets() || [];
+    let wallets = getWallets?.() || [];
+    const addr  = address.toLowerCase();
 
-    const exist = wallets.find(
-        w => w.address.toLowerCase() === address.toLowerCase()
-    );
+    const exist = wallets.find(w => w.address.toLowerCase() === addr);
 
     if (!exist) {
-
-        // ==========================
-        // CREATE NEW PK WALLET
-        // ==========================
         wallets.push({
-            address: address,
-            name: "Main Wallet (PK)",
-            type: "pk",
+            address,
+            name:       "Main Wallet (PK)",
+            type:       "pk",
             privateKey: pk
         });
-
-        console.log("✔ PK wallet added");
-
-    } else {
-
-        // ==========================
-        // UPGRADE WATCH → PK
-        // ==========================
-        if (exist.type !== "pk") {
-            exist.type = "pk";
-            exist.privateKey = pk;
-
-            console.log("✔ Wallet upgraded to PK");
-        } else {
-            console.log("✔ PK already exists");
-        }
+    } else if (exist.type !== "pk") {
+        exist.type       = "pk";
+        exist.privateKey = pk;
     }
 
-    // ==========================
-    // SAVE
-    // ==========================
     setWallets(wallets);
 
-    // ==========================
-    // SET ACTIVE WALLET
-    // ==========================
-    const index = wallets.findIndex(
-        w => w.address.toLowerCase() === address.toLowerCase()
-    );
-
+    const index  = wallets.findIndex(w => w.address.toLowerCase() === addr);
     const select = document.getElementById("walletSelect");
+    if (select && index !== -1) select.value = String(index);
 
-    if (select && index !== -1) {
-        select.value = String(index);
-    }
-
-    // ==========================
-    // UI REFRESH
-    // ==========================
     renderWallets?.();
     renderSavedAddresses?.();
     updateActiveWalletName?.();
     loadBalance?.();
+    setActiveWalletByPK(address);
 }
-// ===============================
+
+
+// =====================================
 // AUTO INIT
-// ===============================
+// =====================================
 document.addEventListener("DOMContentLoaded", () => {
-
     initPrivateKeyWallet();
-
-    // 🔥 restore PK wallet kalau ada
     loadPKWallet();
 
     setTimeout(() => {
-        if (typeof validateInput === "function") {
-            validateInput();
-        }
+        if (typeof validateInput === "function") validateInput();
     }, 100);
 });
