@@ -1,31 +1,32 @@
+// =====================================
+// WALLET.JS â€” UI, save, select, modal
+// =====================================
+
 // ==========================
 // ELEMENT SAFE INIT
 // ==========================
-const balanceEl = document.getElementById("balance");
+const balanceEl   = document.getElementById("balance");
 const addressInput = document.getElementById("address");
-const saveBtn = document.querySelector("button[onclick='saveWallet()']");
-let blinkState = false;
+const saveBtn     = document.querySelector("button[onclick='saveWallet()']");
 
+// init validation state
+if (saveBtn)      saveBtn.disabled = true;
+if (addressInput) addressInput.addEventListener("input", validateInput);
 
 
 // ==========================
-// SAVE WALLET (FINAL FIX - PK UPGRADE + SAFE UI)
+// SAVE WALLET
 // ==========================
 function saveWallet() {
 
-    const isPKWallet = !!window.pkWallet;
+    const isPKWallet = !!window.WALLET_SESSION?.pkWallet;
 
     let addr = addressInput?.value?.trim().toLowerCase();
     const nameInput = document.getElementById("walletName");
-    const name = nameInput?.value?.trim();
+    const name      = nameInput?.value?.trim();
 
-    // ==========================
-    // VALIDATION
-    // ==========================
     if (!addr) {
-        return showToast(
-            LANG?.[CURRENT_LANG]?.enter_address || "Enter address"
-        );
+        return showToast(LANG?.[CURRENT_LANG]?.enter_address || "Enter address");
     }
 
     if (!addr.startsWith("0x") || addr.length < 42) {
@@ -36,17 +37,11 @@ function saveWallet() {
     }
 
     const wallets = getWallets();
+    const exist   = wallets.find(w => w.address.toLowerCase() === addr);
 
-    const exist = wallets.find(
-        w => w.address.toLowerCase() === addr
-    );
-
-    // ==========================
-    // 🔥 RULE HANDLING (FIX UTAMA)
-    // ==========================
     if (exist) {
 
-        // ❌ PK sudah ada → block
+        // PK sudah ada â€” block
         if (exist.type === "pk" && isPKWallet) {
             return showToast(
                 LANG?.[CURRENT_LANG]?.wallet_exists || "Wallet PK sudah ada",
@@ -54,45 +49,32 @@ function saveWallet() {
             );
         }
 
-        // 🔥 UPGRADE WATCH → PK
+        // Upgrade watch -> PK
         if (exist.type === "watch" && isPKWallet) {
-
-            exist.type = "pk";
-            exist.privateKey = window.pkWallet.privateKey;
-
-            if (name) {
-                exist.name = name;
-            }
+            exist.type       = "pk";
+            exist.privateKey = window.WALLET_SESSION.pkWallet.privateKey;
+            if (name) exist.name = name;
 
             setWallets(wallets);
-
             renderWallets();
 
-            const index = wallets.findIndex(
-                w => w.address.toLowerCase() === addr
-            );
-
-            if (selectEl && index !== -1) {
-                selectEl.value = String(index);
-            }
+            const index = wallets.findIndex(w => w.address.toLowerCase() === addr);
+            _selectWallet(index);
 
             updateActiveWalletName();
             updateAddressUI?.();
             renderAssets();
             loadBalance();
 
-            // reset input (tidak ganggu tombol logic)
             if (addressInput) addressInput.value = "";
-            if (nameInput) nameInput.value = "";
-
+            if (nameInput)    nameInput.value    = "";
             validateInput();
 
             showToast("Wallet di-upgrade ke PK", "success");
-
             return;
         }
 
-        // ❌ watch + watch → block
+        // watch + watch â€” block
         if (!isPKWallet) {
             return showToast(
                 LANG?.[CURRENT_LANG]?.wallet_exists || "Wallet sudah tersimpan",
@@ -101,107 +83,115 @@ function saveWallet() {
         }
     }
 
-    // ==========================
-    // ✅ CREATE NEW WALLET
-    // ==========================
+    // Buat wallet baru
     const newWallet = {
         address: addr,
-        name: name || "Wallet",
-        type: isPKWallet ? "pk" : "watch",
-        ...(isPKWallet && { privateKey: window.pkWallet.privateKey })
+        name:    name || "Wallet",
+        type:    isPKWallet ? "pk" : "watch",
+        ...(isPKWallet && { privateKey: window.WALLET_SESSION.pkWallet.privateKey })
     };
 
     wallets.push(newWallet);
     setWallets(wallets);
-
-    // ==========================
-    // RENDER + SELECT
-    // ==========================
     renderWallets();
 
-    const newIndex = String(wallets.length - 1);
-    if (selectEl) {
-        selectEl.value = newIndex;
-    }
+    const newIndex = wallets.length - 1;
+    _selectWallet(newIndex);
 
-    // ==========================
-    // SYNC UI
-    // ==========================
     updateActiveWalletName();
     updateAddressUI?.();
     renderAssets();
     loadBalance();
 
-    // ==========================
-    // RESET INPUT (TIDAK MERUSAK VALIDATION)
-    // ==========================
     if (addressInput) addressInput.value = "";
-    if (nameInput) nameInput.value = "";
-
+    if (nameInput)    nameInput.value    = "";
     validateInput();
 
-    showToast(
-        LANG?.[CURRENT_LANG]?.wallet_saved || "Wallet berhasil disimpan",
-        "success"
-    );
+    showToast(LANG?.[CURRENT_LANG]?.wallet_saved || "Wallet berhasil disimpan", "success");
 
-    setTimeout(() => {
-        autoRefreshIfNeeded();
-    }, 150);
+    setTimeout(() => autoRefreshIfNeeded?.(), 150);
 
-    // stop blink
     addressInput?.classList.remove("blink");
     saveBtn?.classList.remove("blink");
 }
 
 
 // ==========================
-// GET SELECTED WALLET (SAFE)
+// PILIH WALLET + SIMPAN KE STORAGE
+// (helper internal)
 // ==========================
-function getSelectedWallet(){
-
+function _selectWallet(index) {
     const wallets = getWallets();
-    if(!wallets?.length) return null;
+    if (!wallets[index]) return;
 
-    let index = null;
+    localStorage.setItem("selectedWalletIndex", String(index));
 
-    // Priority 1: dropdown
-    if(typeof selectEl !== "undefined" && selectEl){
-        index = parseInt(selectEl.value);
+    const select = document.getElementById("walletSelect");
+    if (select) {
+        select.value = String(index);
+        select.dispatchEvent(new Event("change"));
     }
-
-    // Priority 2: localStorage fallback
-    if(
-        index === null ||
-        isNaN(index) ||
-        !wallets[index]
-    ){
-        index = parseInt(
-            localStorage.getItem("selectedWalletIndex")
-        );
-    }
-
-    if(
-        isNaN(index) ||
-        !wallets[index]
-    ){
-        index = 0;
-    }
-
-    return wallets[index];
 }
 
+
 // ==========================
-// RENAME WALLET (LANG SUPPORT + TOAST)
+// GET SELECTED WALLET (SAFE)
+// Prioritas: dropdown -> localStorage -> 0
+// ==========================
+function getSelectedWallet() {
+
+    const wallets = getWallets();
+    if (!wallets?.length) return null;
+
+    // Priority 1: dropdown
+    let index = parseInt(
+        typeof selectEl !== "undefined" && selectEl ? selectEl.value : NaN
+    );
+
+    // Priority 2: localStorage (wallet terakhir dipilih)
+    if (isNaN(index) || !wallets[index]) {
+        index = parseInt(localStorage.getItem("selectedWalletIndex") || "0");
+    }
+
+    // Fallback ke index 0
+    if (isNaN(index) || !wallets[index]) index = 0;
+
+    return wallets[index] || null;
+}
+
+
+// ==========================
+// RESTORE WALLET TERAKHIR SAAT BUKA APP
+// Dipanggil dari DOMContentLoaded
+// ==========================
+function restoreLastSelectedWallet() {
+
+    const wallets = getWallets();
+    if (!wallets?.length) return;
+
+    const saved = parseInt(localStorage.getItem("selectedWalletIndex") || "0");
+    const index = isNaN(saved) || !wallets[saved] ? 0 : saved;
+
+    const select = document.getElementById("walletSelect");
+    if (select) {
+        select.value = String(index);
+        // trigger change supaya semua modul (balance, assets, dll) ikut update
+        select.dispatchEvent(new Event("change"));
+    }
+
+    updateActiveWalletName();
+    loadBalance?.();
+}
+
+
+// ==========================
+// RENAME WALLET
 // ==========================
 function renameWallet() {
 
     const wallets = getWallets();
-    const index = selectEl?.value;
+    const index   = selectEl?.value;
 
-    // ==========================
-    // NO WALLET SELECTED
-    // ==========================
     if (!wallets[index]) {
         return showToast(
             LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
@@ -209,218 +199,19 @@ function renameWallet() {
         );
     }
 
-    // ==========================
-    // INPUT NEW NAME (still prompt browser)
-    // ==========================
     showPrompt(
-    LANG?.[CURRENT_LANG]?.enter_new_name || "Nama baru:",
-    wallets[index].name,
-    function (newName) {
+        LANG?.[CURRENT_LANG]?.enter_new_name || "Nama baru:",
+        wallets[index].name,
+        function (newName) {
+            if (!newName?.trim()) return;
 
-        if (!newName || !newName.trim()) return;
-
-        wallets[index].name = newName.trim();
-
-        setWallets(wallets);
-        renderWallets();
-
-        updateActiveWalletName?.();
-
-        showToast(
-            LANG?.[CURRENT_LANG]?.wallet_renamed || "Nama wallet diubah",
-            "success"
-        );
-    }
-);
-
-    if (!newName || !newName.trim()) return;
-
-    wallets[index].name = newName.trim();
-
-    setWallets(wallets);
-    renderWallets();
-
-    updateActiveWalletName?.();
-
-    showToast(
-        LANG?.[CURRENT_LANG]?.wallet_renamed || "Nama wallet diubah",
-        "success"
-    );
-}
-
-
-// ==========================
-// SAVE NAME EDIT (LANG + TOAST)
-// ==========================
-function saveWalletName() {
-
-    const wallets = getWallets();
-    const index = selectEl?.value;
-
-    const newName = document
-        .getElementById("editWalletName")
-        ?.value?.trim();
-
-    // ==========================
-    // NO WALLET SELECTED
-    // ==========================
-    if (!wallets[index]) {
-        return showToast(
-            LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
-            "error"
-        );
-    }
-
-    // ==========================
-    // EMPTY NAME
-    // ==========================
-    if (!newName) {
-        return showToast(
-            LANG?.[CURRENT_LANG]?.wallet_name_empty || "Nama tidak boleh kosong",
-            "error"
-        );
-    }
-
-    // ==========================
-    // SAVE
-    // ==========================
-    wallets[index].name = newName;
-
-    setWallets(wallets);
-    renderWallets();
-
-    updateActiveWalletName?.();
-    closeWalletSetting?.();
-
-    showToast(
-        LANG?.[CURRENT_LANG]?.wallet_saved_name || "Nama disimpan",
-        "success"
-    );
-}
-
-// ==========================
-// DELETE WALLET (FULL FIXED)
-// ==========================
-function deleteWallet() {
-
-    const wallets = getWallets();
-    const index = parseInt(selectEl?.value);
-
-    // ==========================
-    // NO WALLET SELECTED
-    // ==========================
-    if (!wallets[index]) {
-        showToast(
-            LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
-            "error"
-        );
-        return;
-    }
-
-    // ==========================
-    // CUSTOM CONFIRM MODAL
-    // ==========================
-    showConfirm(
-        LANG?.[CURRENT_LANG]?.delete_wallet_confirm || "Hapus wallet ini?",
-        function () {
-
-            const deletedWallet = wallets[index];
-
-            // ==========================
-            // CLEAR PK STATE IF PK WALLET
-            // ==========================
-            if (deletedWallet?.type === "pk") {
-
-    window.pkWallet = null;
-
-    localStorage.removeItem(PK_STORAGE_KEY);
-
-    const pkInput = document.getElementById("walletPK");
-    if (pkInput) {
-        pkInput.value = "";
-    }
-
-    console.log("✔ PK runtime/storage/input cleared");
-}
-
-            // ==========================
-            // REMOVE WALLET FROM LIST
-            // ==========================
-            wallets.splice(index, 1);
-
+            wallets[index].name = newName.trim();
             setWallets(wallets);
-
             renderWallets();
+            updateActiveWalletName?.();
 
-            // ==========================
-            // CLOSE RELATED MODALS
-            // ==========================
-            closeWalletSetting?.();
-            closeQRModal?.();
-            closeReceiveModal?.();
-
-            // ==========================
-            // STILL HAS WALLET
-            // ==========================
-            if (wallets.length > 0) {
-
-                const newIndex = Math.max(0, index - 1);
-
-                localStorage.setItem(
-                    "selectedWalletIndex",
-                    String(newIndex)
-                );
-
-                if (selectEl) {
-                    selectEl.value = String(newIndex);
-                }
-
-                updateActiveWalletName?.();
-                updateAddressUI?.();
-                renderAssets?.();
-                loadBalance?.();
-
-                setTimeout(() => {
-                    autoRefreshIfNeeded?.();
-                }, 150);
-
-            } else {
-
-                // ==========================
-                // NO WALLET LEFT
-                // ==========================
-                localStorage.removeItem("selectedWalletIndex");
-
-                if (balanceEl) {
-                    balanceEl.textContent = "0.00 SDA";
-                }
-
-                const tabAssets =
-                    document.getElementById("tab-assets");
-
-                if (tabAssets) {
-                    tabAssets.innerHTML =
-                        "<div style='text-align:center;color:#888;'>No wallet</div>";
-                }
-
-                const activeName =
-                    document.getElementById("activeWalletName");
-
-                if (activeName) {
-                    activeName.textContent =
-                        LANG?.[CURRENT_LANG]?.no_wallet ||
-                        "No Wallet Selected";
-                }
-
-                startGuide?.();
-            }
-
-            // ==========================
-            // SUCCESS
-            // ==========================
             showToast(
-                LANG?.[CURRENT_LANG]?.wallet_deleted ||
-                "Wallet dihapus",
+                LANG?.[CURRENT_LANG]?.wallet_renamed || "Nama wallet diubah",
                 "success"
             );
         }
@@ -429,25 +220,140 @@ function deleteWallet() {
 
 
 // ==========================
-// ACTIVE NAME UI
+// SAVE NAME (dari modal edit)
 // ==========================
-function updateActiveWalletName(){
+function saveWalletName() {
 
-    const el = document.getElementById("activeWalletName");
-    const wallet = getSelectedWallet();
+    const wallets = getWallets();
+    const index   = selectEl?.value;
+    const newName = document.getElementById("editWalletName")?.value?.trim();
 
-    if(!el) return;
-
-    if(wallet){
-        el.textContent = wallet.name;
-    }else{
-        el.textContent =
-            LANG?.[CURRENT_LANG]?.no_wallet || "No Wallet Selected";
+    if (!wallets[index]) {
+        return showToast(
+            LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
+            "error"
+        );
     }
+
+    if (!newName) {
+        return showToast(
+            LANG?.[CURRENT_LANG]?.wallet_name_empty || "Nama tidak boleh kosong",
+            "error"
+        );
+    }
+
+    wallets[index].name = newName;
+    setWallets(wallets);
+    renderWallets();
+    updateActiveWalletName?.();
+    closeWalletSetting?.();
+
+    showToast(LANG?.[CURRENT_LANG]?.wallet_saved_name || "Nama disimpan", "success");
 }
 
+
 // ==========================
-// WALLET MODAL
+// DELETE WALLET
+// ==========================
+function deleteWallet() {
+
+    const wallets = getWallets();
+    const index   = parseInt(selectEl?.value);
+
+    if (!wallets[index]) {
+        return showToast(
+            LANG?.[CURRENT_LANG]?.select_wallet_error || "Pilih wallet dulu",
+            "error"
+        );
+    }
+
+    showConfirm(
+        LANG?.[CURRENT_LANG]?.delete_wallet_confirm || "Hapus wallet ini?",
+        function () {
+
+            const deleted = wallets[index];
+
+            // Kalau wallet PK, bersihkan state PK
+            if (deleted?.type === "pk") {
+                if (window.WALLET_SESSION) {
+                    window.WALLET_SESSION.pkWallet = null;
+                    window.WALLET_SESSION.mode     = "watch";
+                }
+                localStorage.removeItem(window.PK_STORAGE_KEY);
+
+                const pkInput = document.getElementById("globalPKInput")
+                    || document.getElementById("walletPK");
+                if (pkInput) pkInput.value = "";
+
+                updatePKUI?.();
+            }
+
+            wallets.splice(index, 1);
+            setWallets(wallets);
+            renderWallets();
+
+            closeWalletSetting?.();
+            closeQRModal?.();
+            closeReceiveModal?.();
+
+            if (wallets.length > 0) {
+                const newIndex = Math.max(0, index - 1);
+                _selectWallet(newIndex);
+
+                updateActiveWalletName?.();
+                updateAddressUI?.();
+                renderAssets?.();
+                loadBalance?.();
+
+                setTimeout(() => autoRefreshIfNeeded?.(), 150);
+
+            } else {
+                localStorage.removeItem("selectedWalletIndex");
+
+                if (balanceEl) balanceEl.textContent = "0.00 SDA";
+
+                const tabAssets = document.getElementById("tab-assets");
+                if (tabAssets) {
+                    tabAssets.innerHTML =
+                        "<div style='text-align:center;color:#888;'>No wallet</div>";
+                }
+
+                const activeName = document.getElementById("activeWalletName");
+                if (activeName) {
+                    activeName.textContent =
+                        LANG?.[CURRENT_LANG]?.no_wallet || "No Wallet Selected";
+                }
+
+                startGuide?.();
+            }
+
+            showToast(
+                LANG?.[CURRENT_LANG]?.wallet_deleted || "Wallet dihapus",
+                "success"
+            );
+        }
+    );
+}
+
+
+// ==========================
+// ACTIVE WALLET NAME UI
+// ==========================
+function updateActiveWalletName() {
+
+    const el     = document.getElementById("activeWalletName");
+    const wallet = getSelectedWallet();
+
+    if (!el) return;
+
+    el.textContent = wallet
+        ? wallet.name
+        : (LANG?.[CURRENT_LANG]?.no_wallet || "No Wallet Selected");
+}
+
+
+// ==========================
+// WALLET SETTING MODAL
 // ==========================
 function openWalletSetting() {
 
@@ -464,7 +370,7 @@ function closeWalletSetting() {
 
 
 // ==========================
-// SHORT ADDRESS
+// SHORT ADDRESS HELPER
 // ==========================
 function shortAddress(addr) {
     return addr ? addr.slice(0, 6) + "..." + addr.slice(-4) : "-";
@@ -480,23 +386,17 @@ function openQRModal() {
     if (!wallet) return showToast("Pilih wallet dulu");
 
     const modal = document.getElementById("qrModal");
-
-    // pakai class system (WAJIB)
     modal.classList.add("show");
 
     document.getElementById("qrModalImg").src =
         "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
         encodeURIComponent(wallet.address);
 
-    document.getElementById("qrModalAddress").textContent =
-        wallet.address;
+    document.getElementById("qrModalAddress").textContent = wallet.address;
 }
 
 function closeQRModal() {
-    const modal = document.getElementById("qrModal");
-    if (!modal) return;
-
-    modal.classList.remove("show");
+    document.getElementById("qrModal")?.classList.remove("show");
 }
 
 
@@ -509,71 +409,52 @@ function copyAddress() {
     if (!wallet) return showToast("Pilih wallet dulu");
 
     navigator.clipboard.writeText(wallet.address)
-        .then(() => showToast("Copied"))
-        .catch(() => showToast("Gagal copy"));
+        .then(()  => showToast("Copied"))
+        .catch(() => showToast("Gagal copy", "error"));
 }
 
 
 // ==========================
-// RECEIVE
+// RECEIVE MODAL
 // ==========================
 function showReceive() {
 
     const wallet = getSelectedWallet();
     if (!wallet) return showToast("Pilih wallet dulu");
 
-    const modal = document.getElementById("receiveModal");
+    const modal       = document.getElementById("receiveModal");
+    const amountInput = document.getElementById("receiveAmountQR");
+    const qr          = document.getElementById("receiveQR");
+    const linkEl      = document.getElementById("receiveLink");
+
     modal.style.display = "flex";
 
     document.getElementById("receiveAddress").textContent = wallet.address;
 
-    const amountInput = document.getElementById("receiveAmountQR");
-    const qr = document.getElementById("receiveQR");
-    const linkEl = document.getElementById("receiveLink");
-
     // reset
     amountInput.value = "";
-    linkEl.value = "";
+    linkEl.value      = "";
     document.getElementById("receiveResult").style.display = "none";
 
-    // default QR (tanpa amount)
-    const baseData = wallet.address;
+    qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" +
+        encodeURIComponent(wallet.address);
 
-    qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + baseData;
-
-    // ==========================
-    // AUTO UPDATE AMOUNT
-    // ==========================
     amountInput.oninput = function () {
 
-    const amount = amountInput.value.trim();
+        const amount   = amountInput.value.trim();
+        const baseUrl  = "https://www.sidrachain.com/wallets/send";
+        const params   = new URLSearchParams({ to: wallet.address, currency: "SDA" });
 
-    const baseUrl = "https://www.sidrachain.com/wallets/send";
+        if (amount && Number(amount) > 0) params.append("amount", amount);
 
-    // default currency (bisa kamu ubah dinamis kalau ada selector)
-    const currency = "SDA";
+        const link = baseUrl + "?" + params.toString();
+        linkEl.value = link;
 
-    // build query
-    const params = new URLSearchParams({
-        to: wallet.address,
-        currency: currency
-    });
+        document.getElementById("receiveResult").style.display = "block";
 
-    if (amount && Number(amount) > 0) {
-        params.append("amount", amount);
-    }
-
-    const link = `${baseUrl}?${params.toString()}`;
-
-    linkEl.value = link;
-
-    document.getElementById("receiveResult").style.display = "block";
-
-    // QR ikut update ke link resmi
-    qr.src =
-        "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" +
-        encodeURIComponent(link);
-};
+        qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" +
+            encodeURIComponent(link);
+    };
 }
 
 function closeReceiveModal() {
@@ -582,94 +463,31 @@ function closeReceiveModal() {
 
 
 // ==========================
-// VALIDATION
+// SET SELECTED WALLET (external helper)
 // ==========================
-function isValidAddress(addr) {
-    return addr?.startsWith("0x") && addr.length >= 42;
-}
-
-function validateInput() {
-
-    const addr = addressInput?.value?.trim();
-
-    const valid = isValidAddress(addr);
-
-    if (saveBtn) {
-        saveBtn.disabled = !valid;
-
-        // ==========================
-        // BLINK CONTROL
-        // ==========================
-        if (valid) {
-
-            // STOP BLINK INPUT
-            addressInput?.classList.remove("blink");
-
-            // START BLINK BUTTON
-            saveBtn.classList.add("blink");
-
-        } else {
-
-            // RESET STATE
-            saveBtn.classList.remove("blink");
-
-            if (addressInput) {
-                addressInput.classList.add("blink");
-            }
-        }
-    }
-}
-
-
-// init validation
-if (saveBtn) saveBtn.disabled = true;
-if (addressInput) {
-    addressInput.addEventListener("input", validateInput);
-}
-
-
-// ==========================
-// GUIDE BLINK
-// ==========================
-function startGuide() {
-
-    if (addressInput) {
-        addressInput.classList.add("blink");
-    }
-
-    if (saveBtn) {
-        saveBtn.classList.remove("blink");
-    }
-}
-
-
-function setSelectedWallet(address){
+function setSelectedWallet(address) {
 
     const wallets = getWallets?.() || [];
-
-    const index = wallets.findIndex(
+    const index   = wallets.findIndex(
         w => w.address.toLowerCase() === address.toLowerCase()
     );
 
-    if(index !== -1){
-        localStorage.setItem("selectedWalletIndex", index);
-
-        const select = document.getElementById("walletSelect");
-        if(select){
-            select.value = index;
-        }
-    }
+    if (index !== -1) _selectWallet(index);
 }
 
-function renderSavedAddresses(){
 
-    const sel = document.getElementById("savedAddressSelect");
+// ==========================
+// RENDER SAVED ADDRESSES (dropdown send)
+// ==========================
+function renderSavedAddresses() {
+
+    const sel    = document.getElementById("savedAddressSelect");
     if (!sel) return;
 
     const wallets = getWallets?.() || [];
-    const active = getSelectedWallet?.();
+    const active  = getSelectedWallet?.();
 
-    if (wallets.length === 0) {
+    if (!wallets.length) {
         sel.innerHTML = `<option value="">No saved address</option>`;
         return;
     }
@@ -678,49 +496,67 @@ function renderSavedAddresses(){
 
     wallets.forEach((w, i) => {
 
-        const opt = document.createElement("option");
+        const opt      = document.createElement("option");
+        const icon     = w.type === "pk" ? "[PK]" : "[W]";
+        const short    = w.address.slice(0, 6) + "..." + w.address.slice(-4);
+        const isActive = active?.address?.toLowerCase() === w.address.toLowerCase();
 
-        // icon type wallet
-        const icon = w.type === "pk" ? "🔑" : "👁";
-
-        // short address
-        const short = w.address.slice(0,6) + "..." + w.address.slice(-4);
-
-        // active mark
-        const isActive =
-            active?.address?.toLowerCase() === w.address.toLowerCase();
-
-        const activeMark = isActive ? " (Active)" : "";
-
-        opt.value = w.address;
-
-        opt.textContent =
-            `${icon} ${w.name || ("Wallet " + (i + 1))} • ${short}${activeMark}`;
-
+        opt.value       = w.address;
+        opt.textContent = `${icon} ${w.name || "Wallet " + (i + 1)} - ${short}${isActive ? " (Active)" : ""}`;
         if (isActive) opt.selected = true;
 
         sel.appendChild(opt);
     });
 
     sel.onchange = () => {
+        const input = document.getElementById("toSend");
+        if (input && sel.value) input.value = sel.value;
 
-    const input = document.getElementById("toSend");
-
-    if (input && sel.value) {
-        input.value = sel.value;
-    }
-
-    // 🔥 FIX: refresh balance + UI send modal
-    if (typeof loadBalance === "function") {
-        loadBalance();
-    }
-
-    if (typeof updateSendBalance === "function") {
-        updateSendBalance(sel.value);
-    }
-
-    if (typeof renderAssets === "function") {
-        renderAssets();
-    }
-};
+        loadBalance?.();
+        updateSendBalance?.(sel.value);
+        renderAssets?.();
+    };
 }
+
+
+// ==========================
+// VALIDATION ADDRESS INPUT
+// ==========================
+function isValidAddress(addr) {
+    return addr?.startsWith("0x") && addr.length >= 42;
+}
+
+function validateInput() {
+
+    const addr  = addressInput?.value?.trim();
+    const valid = isValidAddress(addr);
+
+    if (!saveBtn) return;
+
+    saveBtn.disabled = !valid;
+
+    if (valid) {
+        addressInput?.classList.remove("blink");
+        saveBtn.classList.add("blink");
+    } else {
+        saveBtn.classList.remove("blink");
+        addressInput?.classList.add("blink");
+    }
+}
+
+
+// ==========================
+// GUIDE BLINK (state kosong)
+// ==========================
+function startGuide() {
+    addressInput?.classList.add("blink");
+    saveBtn?.classList.remove("blink");
+}
+
+
+// ==========================
+// INIT â€” restore wallet terakhir
+// ==========================
+document.addEventListener("DOMContentLoaded", () => {
+    restoreLastSelectedWallet();
+});
