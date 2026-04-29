@@ -56,33 +56,34 @@
     <!-- RIGHT -->
     <div class="header-right">
 
-        <!-- 🔔 NOTIFICATION -->
+        <!-- PK STATUS -->
+       <div class="action-btn pk-btn" onclick="openPKModal()" style="margin-right:10px;">
+    <i class="fa-solid fa-key"></i>
+
+    <!-- indikator kecil di bawah icon -->
+    <div id="pkStatusBar" class="pk-indicator" style="display:none;">
+    <span class="pk-dot"></span>
+    <span class="pk-text"></span>
+</div>
+</div>
+
+        <!-- NOTIF -->
         <div class="bell-wrapper" onclick="openTxHistory()">
             <i class="fa-regular fa-bell"></i>
             <span id="txBadge" class="badge"></span>
         </div>
 
-        <!-- 🌐 LANGUAGE -->
+        <!-- LANGUAGE -->
         <div class="menu-wrapper">
-
             <i class="fa-solid fa-globe" onclick="toggleMenu()"></i>
 
             <div id="menuDropdown" class="menu-dropdown">
-
-                <div class="lang-item" onclick="setLanguage('id')">
-                    🇮🇩 Indonesia
-                </div>
-
-                <div class="lang-item" onclick="setLanguage('en')">
-                    🇺🇲 English
-                </div>
-
+                <div class="lang-item" onclick="setLanguage('id')">🇮🇩 Indonesia</div>
+                <div class="lang-item" onclick="setLanguage('en')">🇺🇲 English</div>
             </div>
-
         </div>
 
     </div>
-
 </div>
 
 <!-- CARD -->
@@ -188,6 +189,8 @@
     <i class="fa-solid fa-floppy-disk"></i>
     <span data-lang="save_wallet">Save Wallet</span>
 </button>
+
+
 
 <!-- ACTION ICONS -->
 <div class="actions">
@@ -494,11 +497,7 @@
                 <div class="input-card">
                     <div class="input-box">
                         <i class="fa-solid fa-key"></i>
-                        <input 
-                            id="walletPK" 
-                            type="password"
-                            placeholder="Private Key"
-                        >
+<!-- PK TIDAK LAGI DI MODAL SEND -->
                     </div>
                 </div>
 
@@ -896,17 +895,216 @@
         </div>
     </div>
 </div>
+
+
+
+<div id="pkGlobalModal" class="modal">
+
+    <div class="modal-content">
+
+        <!-- HEADER -->
+        <div class="modal-header">
+            <span>Wallet Manager</span>
+
+            <span onclick="closePKModal()" style="cursor:pointer;">
+                <i class="fa-solid fa-xmark"></i>
+            </span>
+        </div>
+
+        <!-- ===================== -->
+        <!-- STATUS MINI (FIXED) -->
+        <!-- ===================== -->
+        <div id="pkStatusMini" style="
+            font-size:11px;
+            color:#888;
+            margin-bottom:10px;
+        ">
+            Not connected
+        </div>
+
+        <!-- ===================== -->
+        <!-- MODE SWITCH (FIX STATE) -->
+        <!-- ===================== -->
+        <div style="
+            display:flex;
+            gap:8px;
+            margin-bottom:12px;
+        ">
+
+            <button onclick="setPKMode('pk')" id="btnModePK" style="
+                flex:1;
+                padding:8px;
+                border:none;
+                border-radius:8px;
+                background:#1a1a1a;
+                color:#fff;
+                cursor:pointer;
+            ">
+                Private Key
+            </button>
+
+            <button onclick="setPKMode('phrase')" id="btnModePhrase" style="
+                flex:1;
+                padding:8px;
+                border:none;
+                border-radius:8px;
+                background:#1a1a1a;
+                color:#fff;
+                cursor:pointer;
+            ">
+                Passphrase
+            </button>
+
+        </div>
+
+        <!-- ===================== -->
+        <!-- PRIVATE KEY INPUT -->
+        <!-- ===================== -->
+        <div id="pkModePK">
+
+            <input id="globalPKInput"
+                   type="password"
+                   placeholder="Enter Private Key"
+                   style="width:100%; margin-bottom:10px;">
+        </div>
+
+<button onclick="unlockPK()" style="
+    width:100%;
+    padding:10px;
+    margin-top:8px;
+    border:none;
+    border-radius:10px;
+    background:#444;
+    color:#fff;
+">
+    Import Private Key
+</button>
+        <!-- ===================== -->
+<!-- PASSPHRASE / PIN SYSTEM -->
+<!-- ===================== -->
+<div id="pkModePhrase" style="display:none;">
+
+    <!-- ===================== -->
+    <!-- SET PIN MODE -->
+    <!-- ===================== -->
+    <div id="pinSetBox">
+
+        <input id="pkPinSetInput"
+               type="password"
+               placeholder="Set PIN (min 4 digit)"
+               style="width:100%; margin-bottom:6px;">
+
+        <button onclick="setPKPin()" style="
+            width:100%;
+            padding:8px;
+            border:none;
+            border-radius:8px;
+            background:#222;
+            color:#fff;
+            margin-bottom:10px;
+        ">
+            Save PIN
+        </button>
+
+    </div>
+
+    <!-- ===================== -->
+    <!-- UNLOCK PIN MODE -->
+    <!-- ===================== -->
+    <div id="pinUnlockBox">
+
+        <input id="pkPinUnlockInput"
+               type="password"
+               placeholder="Enter PIN to unlock"
+               style="width:100%; margin-bottom:6px;">
+
+        <button onclick="unlockWithPIN()" style="
+            width:100%;
+            padding:10px;
+            border:none;
+            border-radius:10px;
+            background:#00c853;
+            color:#fff;
+            font-weight:600;
+            margin-bottom:10px;
+        ">
+            Unlock Wallet
+        </button>
+
+    </div>
+
+    <!-- INFO -->
+    <div style="
+        font-size:10px;
+        color:#777;
+    ">
+        PIN digunakan untuk mengamankan wallet saat terkunci
+    </div>
+
+</div>
+
+        <!-- ===================== -->
+        <!-- SECURITY ACTIONS -->
+        <!-- ===================== -->
+        <div style="
+            display:flex;
+            flex-direction:column;
+            gap:6px;
+        ">
+
+            <button onclick="lockPK()" style="
+                background:#333;
+                border:none;
+                padding:8px;
+                border-radius:8px;
+                color:#fff;
+                font-size:12px;
+                cursor:pointer;
+            ">
+                Lock Wallet
+            </button>
+
+            <button onclick="deletePKWallet()" style="
+                background:#ff3b3b;
+                border:none;
+                padding:8px;
+                border-radius:8px;
+                color:#fff;
+                font-size:12px;
+                cursor:pointer;
+            ">
+                Delete Wallet
+            </button>
+
+        </div>
+
+        <!-- ===================== -->
+        <!-- FOOTER -->
+        <!-- ===================== -->
+        <div style="
+            margin-top:12px;
+            display:flex;
+            justify-content:space-between;
+            font-size:11px;
+            color:#777;
+        ">
+            <span>Secure Wallet Manager</span>
+            <span id="pkModeLabel">MODE: PRIVATE KEY</span>
+        </div>
+
+    </div>
+
+</div>
 <!--- ETHERS --->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
 <script src="js/config.js"></script>
 <script src="js/storage.js"></script>
 
-
+<script src="js/wallet-core.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/unwrap-engine.js"></script>
 <script src="js/tokens.js"></script>
-<script src="js/tokenManager.js"></script>
 <script src="js/lp.js"></script>
 <script src="js/balance.js"></script>
 
