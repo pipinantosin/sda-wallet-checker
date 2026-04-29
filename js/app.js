@@ -1,4 +1,10 @@
-window.provider = window.provider || new ethers.providers.JsonRpcProvider("https://node.sidrachain.com");
+// =====================================
+// APP.JS â€” Init & Global Orchestrator
+// =====================================
+
+window.provider = window.provider ||
+    new ethers.providers.JsonRpcProvider("https://node.sidrachain.com");
+
 window.wallet = null;
 
 // ==========================
@@ -9,82 +15,70 @@ const tokenSelectEl  = document.getElementById("tokenSelect");
 
 
 // ==========================
-// WALLET SELECT EVENT (SATU SAJA - FIX DUPLIKAT)
+// WALLET SELECT EVENT
 // ==========================
 if (walletSelectEl) {
     walletSelectEl.addEventListener("change", () => {
 
-    updateActiveWalletName?.();
-    updateAddressUI?.();
-    renderAssets?.();
-    loadBalance?.();
-    updateSendBalance?.();
+        // simpan index yang dipilih
+        const idx = walletSelectEl.value;
+        if (idx !== "" && idx !== undefined) {
+            localStorage.setItem("selectedWalletIndex", String(idx));
+        }
 
-    setTimeout(() => {
-        autoRefreshIfNeeded?.();
-    }, 100);
-});
+        updateActiveWalletName?.();
+        updateAddressUI?.();
+        renderAssets?.();
+        loadBalance?.();
+        updateSendBalance?.();
+
+        setTimeout(() => autoRefreshIfNeeded?.(), 100);
+    });
 }
 
 
 // ==========================
-// INIT APP (URUTAN PENTING)
+// INIT APP
 // ==========================
 window.onload = () => {
 
-    // ======================
-    // LOAD LANGUAGE DULU (PENTING)
-    // ======================
-    const savedLang = localStorage.getItem("lang") || "id";
+    // LANGUAGE
+    const savedLang    = localStorage.getItem("lang") || "id";
     window.CURRENT_LANG = savedLang;
+    if (typeof applyLang === "function") applyLang();
 
-    if (typeof applyLang === "function") {
-        applyLang();
-    }
-
-    // ======================
-    // LOAD WALLET
-    // ======================
-    const wallets = getWallets?.() || [];
-
-    // render dropdown dulu
+    // RENDER WALLET DROPDOWN DULU
     safeCall("renderWallets");
 
-    // set selected index
-    if (walletSelectEl && wallets.length > 0) {
-        walletSelectEl.value = 0;
+    // ============================================
+    // FIX UTAMA â€” restore wallet terakhir dipilih
+    // JANGAN set value = 0 di sini
+    // restoreLastSelectedWallet() di wallet.js
+    // sudah handle ini via DOMContentLoaded,
+    // tapi kita panggil lagi untuk jaga-jaga
+    // kalau onload jalan setelah dropdown terisi
+    // ============================================
+    if (typeof restoreLastSelectedWallet === "function") {
+        restoreLastSelectedWallet();
     }
 
-    // ======================
-    // UPDATE UI WALLET (SETELAH SELECT ADA)
-    // ======================
+    // UI WALLET
     safeCall("updateActiveWalletName");
+    safeCall("updateAddressUI");
 
-    // ======================
-    // UI LAIN
-    // ======================
+    // RENDER UI
     safeCall("renderAssets");
-safeCall("renderTokenSelect");
-safeCall("renderTokenTab");
+    safeCall("renderTokenSelect");
+    safeCall("renderTokenTab");
 
-    // ======================
     // ICON DEFAULT
-    // ======================
-    setImg("tokenLogoBalance", "img/sda.png");
+    setImg("tokenLogoBalance",  "img/sda.png");
     setImg("tokenLogoDropdown", "img/sda.png");
 
-    // ======================
-    // TOKEN SELECT EVENT
-    // ======================
-    if (tokenSelectEl && typeof loadBalance === "function") {
-        
-    }
+    // LOAD DATA
+    const wallets = getWallets?.() || [];
 
-    // ======================
-    // INIT DATA
-    // ======================
     if (wallets.length > 0) {
-
         safeCall("loadBalance");
         safeCall("refreshAll");
 
@@ -92,38 +86,24 @@ safeCall("renderTokenTab");
             safeCall("loadBalance");
             safeCall("renderAssets");
         }, 300);
-
     } else {
         safeCall("startGuide");
     }
 
-    // ======================
-    // SET ACTIVE LANG MENU
-    // ======================
+    // ACTIVE LANG MENU
     document.querySelectorAll(".lang-item").forEach(el => {
         el.classList.remove("active");
     });
+    document.querySelector(`[data-lang-select="${savedLang}"]`)
+        ?.classList.add("active");
 
-    const activeItem = document.querySelector(`[data-lang-select="${savedLang}"]`);
-    if (activeItem) {
-        activeItem.classList.add("active");
-    }
-
-    // ======================
     // SPLASH SCREEN
-    // ======================
     setTimeout(() => {
-
         const splash = document.getElementById("splash");
         if (!splash) return;
-
-        splash.style.opacity = "0";
+        splash.style.opacity    = "0";
         splash.style.transition = "0.5s";
-
-        setTimeout(() => {
-            splash.style.display = "none";
-        }, 500);
-
+        setTimeout(() => { splash.style.display = "none"; }, 500);
     }, 1500);
 };
 
@@ -133,9 +113,7 @@ safeCall("renderTokenTab");
 // ==========================
 window.onclick = function (e) {
     document.querySelectorAll(".modal").forEach(modal => {
-        if (e.target === modal) {
-            modal.style.display = "none";
-        }
+        if (e.target === modal) modal.style.display = "none";
     });
 };
 
@@ -144,9 +122,7 @@ window.onclick = function (e) {
 // SAFE HELPERS
 // ==========================
 function safeCall(fnName) {
-    if (typeof window[fnName] === "function") {
-        window[fnName]();
-    }
+    if (typeof window[fnName] === "function") window[fnName]();
 }
 
 function setImg(id, src) {
@@ -156,124 +132,17 @@ function setImg(id, src) {
 
 
 // ==========================
-// TOKEN SYNC
-// ==========================
-function syncCustomTokens() {
-    try {
-        window.customTokens =
-            JSON.parse(localStorage.getItem("customTokens")) || [];
-    } catch {
-        window.customTokens = [];
-    }
-}
-
-function syncTokenState() {
-    window.customTokens =
-        JSON.parse(localStorage.getItem("customTokens") || "[]");
-}
-
-
-// ==========================
-// REMOVE TOKEN (FINAL FIX - LANG + MODAL + TOAST)
-// ==========================
-window.removeToken = function (address) {
-
-    if (!address) return;
-
-    const runRemove = () => {
-
-        let customTokens = getCustomTokens?.() || [];
-
-        // ==========================
-        // FILTER TOKEN
-        // ==========================
-        customTokens = customTokens.filter(
-            t => t.address.toLowerCase() !== address.toLowerCase()
-        );
-
-        // ==========================
-        // SAVE BACK
-        // ==========================
-        localStorage.setItem(
-            "customTokens",
-            JSON.stringify(customTokens)
-        );
-
-        // ==========================
-        // SYNC GLOBAL TOKENS
-        // ==========================
-        if (typeof DEFAULT_TOKENS !== "undefined") {
-            window.TOKENS = [
-                ...DEFAULT_TOKENS,
-                ...customTokens
-            ];
-        } else {
-            window.TOKENS = customTokens;
-        }
-
-        // ==========================
-        // CLEAN CACHE BALANCE
-        // ==========================
-        const wallet = getSelectedWallet?.();
-        if (wallet) {
-            localStorage.removeItem(
-                wallet.address + "_" + address
-            );
-        }
-
-        // ==========================
-        // REFRESH UI SAFELY
-        // ==========================
-        renderAssets?.();
-        renderTokenTab?.();
-        renderTokenSelect?.();
-
-        if (typeof refreshAll === "function") {
-            refreshAll();
-        }
-
-        // ==========================
-        // TOAST SUCCESS
-        // ==========================
-        showToast?.(
-            LANG?.[CURRENT_LANG]?.token_removed || "Token dihapus",
-            "success"
-        );
-    };
-
-    // ==========================
-    // CONFIRM MODAL (LANG SUPPORT)
-    // ==========================
-    const message =
-        LANG?.[CURRENT_LANG]?.remove_token_confirm ||
-        "Hapus token ini?";
-
-    if (typeof showConfirm === "function") {
-        showConfirm(message, runRemove);
-    } else {
-        // fallback kalau modal belum ready
-        runRemove();
-    }
-};
-
-// ==========================
 // MENU LANGUAGE
 // ==========================
 function toggleMenu() {
     const el = document.getElementById("menuDropdown");
     if (!el) return;
-
-    el.style.display =
-        (el.style.display === "block") ? "none" : "block";
+    el.style.display = (el.style.display === "block") ? "none" : "block";
 }
 
-// klik luar tutup menu
 window.addEventListener("click", function (e) {
-    const menu = document.getElementById("menuDropdown");
-
     if (!e.target.closest(".menu-wrapper")) {
+        const menu = document.getElementById("menuDropdown");
         if (menu) menu.style.display = "none";
     }
 });
-
-
