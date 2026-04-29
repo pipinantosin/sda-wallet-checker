@@ -73,7 +73,6 @@ const ERC20_ABI = [
     "function decimals() view returns (uint8)"
 ];
 
-// 🔥 Optional tapi rapi (kalau mau dipakai langsung)
 const WSDA_ABI = [
     "function deposit() payable",
     "function withdraw(uint256)"
@@ -205,7 +204,6 @@ function showSwapConfirmModal(inToken, outToken, amountIn, amountOut){
         document.body.appendChild(modal);
     }
 
-    // Re-render content setiap buka
     modal.innerHTML = `
         <div class="swap-confirm-bg"></div>
         <div class="swap-confirm-box">
@@ -228,7 +226,6 @@ function showSwapConfirmModal(inToken, outToken, amountIn, amountOut){
 
     modal.style.display = "flex";
 
-    // Query dari modal scope (AMAN)
     const cancelBtn  = modal.querySelector("#cancelSwapBtn");
     const confirmBtn = modal.querySelector("#confirmSwapBtn");
 
@@ -304,7 +301,7 @@ function getSlippage(){
 }
 
 // ==========================
-// BUILD PARAMS (ACCURATE + ANTI FAIL)
+// BUILD PARAMS
 // ==========================
 async function buildParams(wallet, tokenIn, tokenOut, amountUI){
 
@@ -316,9 +313,6 @@ async function buildParams(wallet, tokenIn, tokenOut, amountUI){
 
     const amountIn = await parseAmount(tokenIn, amountNum);
 
-    // ==========================
-    // ESTIMATE (PRICE ENGINE)
-    // ==========================
     const estimated = await PRICE_ENGINE.getAmountOut(
         tokenIn,
         tokenOut,
@@ -329,13 +323,10 @@ async function buildParams(wallet, tokenIn, tokenOut, amountUI){
         throw new Error("No liquidity pool");
     }
 
-    // ==========================
-    // 🔥 PRICE IMPACT SIMULATION
-    // ==========================
     let impactFactor;
 
     if(amountNum < 0.00001){
-        impactFactor = 0.98;   // hampir tanpa impact
+        impactFactor = 0.98;
     }else if(amountNum < 0.001){
         impactFactor = 0.95;
     }else if(amountNum < 0.01){
@@ -343,53 +334,66 @@ async function buildParams(wallet, tokenIn, tokenOut, amountUI){
     }else if(amountNum < 0.1){
         impactFactor = 0.85;
     }else{
-        impactFactor = 0.8;    // besar → lebih konservatif
+        impactFactor = 0.8;
     }
 
-    // ==========================
-    // 🔥 SLIPPAGE USER
-    // ==========================
     const slippage = getSlippage() / 100;
 
-    // ==========================
-    // 🔥 FINAL MIN OUT (ANTI FAIL)
-    // ==========================
     let minOut = estimated * impactFactor * (1 - slippage);
 
     if(!isFinite(minOut) || minOut <= 0){
         throw new Error("Invalid output calculation");
     }
 
-    // 🔥 safety floor (hindari 0 karena rounding)
     if(minOut < 0.0000000001){
         minOut = estimated * 0.5;
     }
 
     const amountOutMinimum = await parseAmount(
         tokenOut,
-        minOut.toFixed(8) // 🔥 lebih presisi dari sebelumnya
+        minOut.toFixed(8)
     );
 
     return {
-    tokenIn: toWSDA(tokenIn),
-    tokenOut: isNative(tokenOut) ? WSDA_ADDR : tokenOut,
-
-    fee: window.CONFIG?.FEE || 3000,
-
-    recipient: isNative(tokenOut)
-        ? ROUTER_ADDR
-        : wallet.address,
-
-    deadline: Math.floor(Date.now()/1000) + 300,
-
-    amountIn,
-    amountOutMinimum,
-    sqrtPriceLimitX96: 0
-};
+        tokenIn: toWSDA(tokenIn),
+        tokenOut: isNative(tokenOut) ? WSDA_ADDR : tokenOut,
+        fee: window.CONFIG?.FEE || 3000,
+        recipient: isNative(tokenOut) ? ROUTER_ADDR : wallet.address,
+        deadline: Math.floor(Date.now()/1000) + 300,
+        amountIn,
+        amountOutMinimum,
+        sqrtPriceLimitX96: 0
+    };
 }
 
 // ==========================
-// MAIN SWAP (FINAL FIXED MULTICALL + UNWRAP)
+// LOGO PATH HELPER
+// Normalise semua sumber logo jadi path
+// yang valid: "img/xxx.png"
+// ==========================
+function resolveLogoPath(tokenData, isNativeToken) {
+
+    if (isNativeToken) return "img/sda.png";
+
+    if (!tokenData) return "img/default.png";
+
+    // Cek field logo / icon satu per satu
+    const raw = tokenData.logo || tokenData.icon || "";
+
+    if (!raw) return "img/default.png";
+
+    // Sudah ada prefix "img/" â€” pakai langsung
+    if (raw.startsWith("img/"))  return raw;
+
+    // Hanya nama file (misal "ifc.png") â€” tambah prefix
+    if (!raw.includes("/"))      return "img/" + raw;
+
+    // URL absolut atau path lain â€” pakai apa adanya
+    return raw;
+}
+
+// ==========================
+// MAIN SWAP
 // ==========================
 async function swapExactInput(){
 
@@ -397,9 +401,6 @@ async function swapExactInput(){
 
     try{
 
-        // ==========================
-        // REQUIRE CONFIRM FIRST
-        // ==========================
         if(!window.swapConfirmState){
             throw new Error("Please confirm swap first");
         }
@@ -416,10 +417,6 @@ async function swapExactInput(){
             throw new Error("Invalid amount");
         }
 
-        // ==========================
-        // EXTRA SAFETY VALIDATION
-        // Prevent changed input after confirm
-        // ==========================
         if(
             window.swapConfirmState.amountUI !== amountUI ||
             window.swapConfirmState.tokenIn !== tokenIn ||
@@ -448,132 +445,89 @@ async function swapExactInput(){
             amountUI
         );
 
-        // ==========================
-// ROUTE SIMULATION TOGGLE
-// ==========================
-const ENABLE_ROUTE_SIM = false;
+        const ENABLE_ROUTE_SIM = false;
 
-// ==========================
-// OPTIONAL BEST ROUTE CHECK
-// ==========================
-if (ENABLE_ROUTE_SIM) {
-    const bestRoute = await simulateRoute(
-        tokenIn,
-        tokenOut,
-        Number(amountUI)
-    );
-
-    console.log("BEST ROUTE:", bestRoute);
-
-    // Optional: simpan untuk debug / analytics
-    window.lastBestRoute = bestRoute;
-}
+        if (ENABLE_ROUTE_SIM) {
+            const bestRoute = await simulateRoute(tokenIn, tokenOut, Number(amountUI));
+            console.log("BEST ROUTE:", bestRoute);
+            window.lastBestRoute = bestRoute;
+        }
 
         log("Executing swap...");
 
-const calls = [];
+        const calls = [];
 
-// ==========================
-// 1. SWAP ALWAYS
-// ==========================
-if (!isNativeIn) {
-    await approveIfNeeded(params.tokenIn, params.amountIn, wallet);
-}
+        if (!isNativeIn) {
+            await approveIfNeeded(params.tokenIn, params.amountIn, wallet);
+        }
 
-calls.push(
-    encodeSwap(router, params)
-);
+        calls.push(encodeSwap(router, params));
 
-// ==========================
-// 2. UNWRAP IF OUTPUT IS NATIVE
-// ==========================
-if (isNativeOut) {
-    calls.push(
-        encodeUnwrap(router, wallet.address)
-    );
-}
+        if (isNativeOut) {
+            calls.push(encodeUnwrap(router, wallet.address));
+        }
 
-// ==========================
-// EXECUTE MULTICALL (1 TX FLOW)
-// ==========================
-showSwapLoading("Broadcasting Transaction...", 60);
+        showSwapLoading("Broadcasting Transaction...", 60);
 
-const tx = await router.multicall(calls, {
-    value: isNative(tokenIn) ? params.amountIn : 0,
-    gasLimit: 1200000
-});
+        const tx = await router.multicall(calls, {
+            value: isNative(tokenIn) ? params.amountIn : 0,
+            gasLimit: 1200000
+        });
 
-log("TX: " + tx.hash);
-showSwapLoading("Waiting Confirmation...", 80);
+        log("TX: " + tx.hash);
+        showSwapLoading("Waiting Confirmation...", 80);
 
-const receipt = await tx.wait();
+        const receipt = await tx.wait();
 
-if (receipt.status !== 1) {
-    throw new Error("Swap failed");
-}
+        if (receipt.status !== 1) {
+            throw new Error("Swap failed");
+        }
 
         // ==========================
         // SAVE HISTORY
+        // FIX: resolveLogoPath() untuk semua logo
         // ==========================
         try {
-
             const history = JSON.parse(localStorage.getItem("txHistory") || "[]");
 
-            let amountIn = Number(amountUI) || 0;
-
-            let amountOut = 0;
+            const amountIn  = Number(amountUI) || 0;
             const receiveEl = document.getElementById("receiveAmount");
+            const amountOut = Number(receiveEl?.value || 0) || amountIn;
 
-            amountOut = Number(receiveEl?.value || 0);
+            const inSymbol  = isNativeIn
+                ? "SDA"
+                : (getTokenData(tokenIn)?.symbol  || "TOKEN");
 
-            if (!amountOut || amountOut <= 0) {
-                amountOut = amountIn;
-            }
+            const inData  = isNativeIn  ? null : getTokenData(tokenIn);
+            const outData = isNativeOut ? null : getTokenData(tokenOut);
 
-            const inSymbol =
-                isNative(tokenIn)
-                    ? "SDA"
-                    : (getTokenData(tokenIn)?.symbol || "TOKEN");
+            const outSymbol = isNativeOut
+                ? "SDA"
+                : (outData?.symbol || "UNKNOWN");
 
-const meta = getTokenData(tokenOut) || {};
-
-            const outSymbol =
-                meta?.symbol || getTokenData(tokenOut)?.symbol || "UNKNOWN";
-
-            const inToken = isNative(tokenIn)
-    ? { icon: "sda.png" }
-    : getTokenData(tokenIn);
-
-const outToken = isNative(tokenOut)
-    ? { icon: "sda.png" }
-    : getTokenData(tokenOut);
+            // FIX UTAMA: pakai resolveLogoPath â€” tidak ada lagi double "img/"
+            const inLogo  = resolveLogoPath(inData,  isNativeIn);
+            const outLogo = resolveLogoPath(outData, isNativeOut);
 
             history.unshift({
-    hash: tx.hash,
-    from: wallet.address,
-    to: wallet.address,
-
-    value: amountOut,
-
-    symbol: outSymbol,
-    logo: meta?.logo || "",
-    tokenAddress: tokenOut,
-
-    type: "SWAP",
-
-    amountIn,
-    amountOut,
-
-    inSymbol,
-    outSymbol,
-
-    inLogo: inToken?.icon ? `img/${inToken.icon}` : "img/default.png",
-    outLogo: outToken?.icon ? `img/${outToken.icon}` : "img/default.png",
-
-    timestamp: Date.now(),
-    status: "success",
-    read: false
-});
+                hash:         tx.hash,
+                from:         wallet.address,
+                to:           wallet.address,
+                value:        amountOut,
+                symbol:       outSymbol,
+                logo:         outLogo,
+                tokenAddress: tokenOut,
+                type:         "SWAP",
+                amountIn,
+                amountOut,
+                inSymbol,
+                outSymbol,
+                inLogo,
+                outLogo,
+                timestamp:    Date.now(),
+                status:       "success",
+                read:         false
+            });
 
             if (history.length > 50) history.pop();
 
@@ -583,9 +537,6 @@ const outToken = isNative(tokenOut)
             console.warn("history save error", e);
         }
 
-        // ==========================
-        // UI UPDATE
-        // ==========================
         renderTxHistory?.();
         updateBellBadge?.();
 
@@ -597,28 +548,25 @@ const outToken = isNative(tokenOut)
         return receipt;
 
     } catch(e){
-
         console.error(e);
         log("Swap failed");
         showToast?.(e.message || "Swap failed", "error");
 
     } finally {
-    setTimeout(() => {
-        hideSwapLoading();
-    }, 500);
+        setTimeout(() => hideSwapLoading(), 500);
+        isLoading = false;
+        setLoading(false);
+    }
+}
 
-    isLoading = false;
-    setLoading(false);
-}
-}
 // ==========================
 // INIT
 // ==========================
 function init(){
     document.getElementById("btnReviewSwap")
-    ?.addEventListener("click", () => {
-        SWAP_ENGINE.openSwapConfirm();
-    });
+        ?.addEventListener("click", () => {
+            SWAP_ENGINE.openSwapConfirm();
+        });
 }
 
 document.addEventListener("DOMContentLoaded", init);
@@ -628,4 +576,4 @@ return {
     openSwapConfirm
 };
 
-})(); // ✅ PENUTUP IIFE
+})();
