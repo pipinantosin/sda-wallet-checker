@@ -1,39 +1,52 @@
 // =====================================
-// SDA WALLET CORE â€” PK GLOBAL SYSTEM
-// Version: clean-fix-v3 + FA icons
+// WALLET CORE â€” PK Global System
+// State machine:
+// EMPTY â†’ ACTIVE_NO_PIN â†’ ACTIVE_PINSET â†’ LOCKED
 // =====================================
 
 window.WALLET_SESSION = window.WALLET_SESSION || {
-    pkWallet:      null,
-    mode:          "watch",
+    pkWallet:    null,
+    mode:        "watch",
     activeAddress: null,
-    pkLocked:      false,
-    pinHash:       null,
-    pinCreated:    false
+    pkLocked:    false,
+    pinHash:     null,
+    pinCreated:  false
 };
 
-window.PK_STORAGE_KEY = window.PK_STORAGE_KEY || "sda_pk_wallet";
-window.__PK_RESTORING = window.__PK_RESTORING || false;
+window.PK_STORAGE_KEY  = window.PK_STORAGE_KEY  || "sda_pk_wallet";
+window.__PK_RESTORING  = window.__PK_RESTORING  || false;
 
 window.pkProvider = window.pkProvider || new ethers.providers.JsonRpcProvider(
     "https://node.sidrachain.com"
 );
+
+
+// =====================================
+// STATE HELPER
+// =====================================
+function getPKState() {
+    const s = window.WALLET_SESSION;
+    if (!s.pkWallet)  return "EMPTY";
+    if (s.pkLocked)   return "LOCKED";
+    if (s.pinCreated) return "ACTIVE_PINSET";
+    return "ACTIVE_NO_PIN";
+}
+
 
 // =====================================
 // INIT
 // =====================================
 document.addEventListener("DOMContentLoaded", () => {
     restorePK();
-    setTimeout(updatePINUI, 50);
-    updatePKUI();
+    setTimeout(renderPKModal, 80);
+    updatePKStatusBar();
 });
 
 
 // =====================================
-// UNLOCK â€” import private key dari input
+// UNLOCK â€” import PK dari input
 // =====================================
 function unlockPK() {
-
     const pk = document.getElementById("globalPKInput")?.value?.trim();
     if (!pk) return showToast?.("Private key kosong", "error");
 
@@ -51,158 +64,152 @@ function unlockPK() {
         }
 
         savePKSession();
-        updatePKUI();
-        showToast?.("PK Imported", "success");
+        renderPKModal();
+        updatePKStatusBar();
+        showToast?.("Wallet imported", "success");
 
-    } catch (err) {
-        showToast?.("Private Key invalid", "error");
+    } catch {
+        showToast?.("Private Key tidak valid", "error");
     }
 }
 
 
 // =====================================
-// PIN â€” set (async karena SHA-256)
+// LOCK â€” set pin dulu kalau belum ada
 // =====================================
-async function setPKPin() {
+function lockPK() {
+    const s = window.WALLET_SESSION;
+    if (!s.pkWallet) return;
 
-    const pin = document.getElementById("pkPinSetInput")?.value?.trim();
-    if (!pin || pin.length < 4) return showToast("PIN minimal 4 digit", "error");
+    if (!s.pinCreated) {
+        // PIN belum set â€” tampilkan form set PIN dulu
+        renderPKModal("SET_PIN_BEFORE_LOCK");
+        return;
+    }
 
-    window.WALLET_SESSION.pinHash    = await hashPIN(pin);
-    window.WALLET_SESSION.pinCreated = true;
-
+    // PIN sudah ada â€” langsung lock
+    s.pkLocked = true;
     savePKSession();
-    updatePINUI();
-    showToast("PIN saved", "success");
+    renderPKModal();
+    updatePKStatusBar();
+    showToast?.("Wallet locked", "success");
 }
 
 
 // =====================================
-// PIN â€” unlock (async karena SHA-256)
+// UNLOCK WITH PIN
 // =====================================
 async function unlockWithPIN() {
-
-    const pin = document.getElementById("pkPinUnlockInput")?.value?.trim();
-    if (!pin) return showToast("Masukkan PIN", "error");
+    const pin = document.getElementById("pinUnlockInput")?.value?.trim();
+    if (!pin) return showToast?.("Masukkan PIN", "error");
 
     const hash = await hashPIN(pin);
-    if (hash !== window.WALLET_SESSION.pinHash) return showToast("PIN salah", "error");
+    if (hash !== window.WALLET_SESSION.pinHash) {
+        return showToast?.("PIN salah", "error");
+    }
 
     window.WALLET_SESSION.pkLocked = false;
     savePKSession();
-    updatePKUI();
-    showToast("Wallet unlocked", "success");
+    renderPKModal();
+    updatePKStatusBar();
+    showToast?.("Wallet unlocked", "success");
 }
 
 
 // =====================================
-// PIN â€” SHA-256 hash helper
+// SET PIN (pertama kali / sebelum lock)
 // =====================================
-async function hashPIN(pin) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
-    return Array.from(new Uint8Array(buf))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
-}
+async function confirmSetPIN() {
+    const pin1 = document.getElementById("pinNewInput")?.value?.trim();
+    const pin2 = document.getElementById("pinConfirmInput")?.value?.trim();
 
+    if (!pin1 || pin1.length < 4) return showToast?.("PIN minimal 4 karakter", "error");
+    if (pin1 !== pin2)            return showToast?.("PIN tidak cocok", "error");
 
-// =====================================
-// PIN UI sync
-// =====================================
-function updatePINUI() {
-    const setBox    = document.getElementById("pinSetBox");
-    const unlockBox = document.getElementById("pinUnlockBox");
-    if (!setBox || !unlockBox) return;
+    window.WALLET_SESSION.pinHash    = await hashPIN(pin1);
+    window.WALLET_SESSION.pinCreated = true;
 
-    const created = window.WALLET_SESSION.pinCreated;
-    setBox.style.display    = created ? "none"  : "block";
-    unlockBox.style.display = created ? "block" : "none";
-}
-
-
-// =====================================
-// SESSION â€” save / load
-// =====================================
-function savePKSession() {
-    localStorage.setItem("PK_SESSION", JSON.stringify({
-        pk:         window.WALLET_SESSION.pkWallet?.privateKey || null,
-        address:    window.WALLET_SESSION.activeAddress,
-        locked:     window.WALLET_SESSION.pkLocked,
-        pinHash:    window.WALLET_SESSION.pinHash,
-        pinCreated: window.WALLET_SESSION.pinCreated
-    }));
-}
-
-function loadPKSession() {
-    try   { return JSON.parse(localStorage.getItem("PK_SESSION")); }
-    catch { return null; }
-}
-
-
-// =====================================
-// RESTORE â€” otomatis saat load
-// =====================================
-function restorePK() {
-
-    if (localStorage.getItem("PK_DELETED") === "1") return;
-
-    const data = loadPKSession();
-    if (!data?.pk) return;
-
-    try {
-        const wallet = new ethers.Wallet(data.pk, window.pkProvider);
-
-        window.WALLET_SESSION.pkWallet      = wallet;
-        window.WALLET_SESSION.activeAddress = wallet.address;
-        window.WALLET_SESSION.pkLocked      = data.locked     === true;
-        window.WALLET_SESSION.pinCreated    = data.pinCreated || false;
-        window.WALLET_SESSION.pinHash       = data.pinHash    || null;
-
-        window.__PK_RESTORING = true;
-        syncPKToWalletSystem(data.pk, wallet.address);
-        window.__PK_RESTORING = false;
-
-        updatePKUI();
-
-    } catch {
-        console.warn("PK restore failed");
-    }
-}
-
-
-// =====================================
-// LOCK
-// =====================================
-function lockPK() {
-    if (!window.WALLET_SESSION.pkWallet) return;
-
+    // langsung lock setelah set PIN
     window.WALLET_SESSION.pkLocked = true;
+
     savePKSession();
-    updatePKUI();
-    showToast("Wallet locked", "success");
+    renderPKModal();
+    updatePKStatusBar();
+    showToast?.("PIN disimpan, wallet terkunci", "success");
 }
 
 
 // =====================================
-// DELETE
+// CHANGE PIN (mode passphrase)
+// =====================================
+async function changePIN() {
+    const oldPin  = document.getElementById("pinOldInput")?.value?.trim();
+    const newPin1 = document.getElementById("pinNewInput")?.value?.trim();
+    const newPin2 = document.getElementById("pinConfirmInput")?.value?.trim();
+
+    if (!oldPin) return showToast?.("Masukkan PIN lama", "error");
+
+    const oldHash = await hashPIN(oldPin);
+    if (oldHash !== window.WALLET_SESSION.pinHash) {
+        return showToast?.("PIN lama salah", "error");
+    }
+
+    if (!newPin1 || newPin1.length < 4) return showToast?.("PIN baru minimal 4 karakter", "error");
+    if (newPin1 !== newPin2)            return showToast?.("PIN baru tidak cocok", "error");
+
+    window.WALLET_SESSION.pinHash = await hashPIN(newPin1);
+
+    savePKSession();
+    renderPKModal();
+    showToast?.("PIN berhasil diubah", "success");
+}
+
+
+// =====================================
+// RESET â€” hapus semua PK
+// =====================================
+function resetPKWallet() {
+    showConfirm?.(
+        "PERINGATAN: Semua wallet PK akan dihapus permanen. Pastikan kamu sudah backup private key. Lanjutkan?",
+        () => {
+            resetPKState();
+            localStorage.setItem("PK_DELETED", "1");
+
+            renderWallets?.();
+            renderSavedAddresses?.();
+            updateActiveWalletName?.();
+            loadBalance?.();
+
+            renderPKModal();
+            updatePKStatusBar();
+            showToast?.("Wallet PK dihapus", "success");
+        }
+    );
+}
+
+
+// =====================================
+// DELETE PK WALLET
 // =====================================
 function deletePKWallet() {
+    showConfirm?.("Hapus wallet PK ini?", () => {
+        resetPKState();
+        localStorage.setItem("PK_DELETED", "1");
 
-    if (!confirm("Hapus wallet PK ini?")) return;
+        renderWallets?.();
+        renderSavedAddresses?.();
+        updateActiveWalletName?.();
+        loadBalance?.();
 
-    resetPKState();
-    localStorage.setItem("PK_DELETED", "1");
-
-    renderWallets?.();
-    renderSavedAddresses?.();
-    updateActiveWalletName?.();
-    loadBalance?.();
-    showToast("PK wallet deleted", "success");
+        renderPKModal();
+        updatePKStatusBar();
+        showToast?.("PK wallet dihapus", "success");
+    });
 }
 
 
 // =====================================
-// RESET STATE + STORAGE
+// RESET STATE
 // =====================================
 function resetPKState() {
     window.WALLET_SESSION.pkWallet      = null;
@@ -215,31 +222,287 @@ function resetPKState() {
     localStorage.removeItem("PK_SESSION");
     localStorage.removeItem(window.PK_STORAGE_KEY);
 
-    updatePKUI?.();
+    updatePKStatusBar();
 }
 
 
 // =====================================
-// SET PK STATE (helper terpusat)
+// RENDER MODAL â€” sesuai state
 // =====================================
-function setPKState(wallet, pk) {
-    window.WALLET_SESSION.pkWallet      = wallet;
-    window.WALLET_SESSION.mode          = "pk";
-    window.WALLET_SESSION.activeAddress = wallet.address;
-    localStorage.setItem(window.PK_STORAGE_KEY, pk);
+function renderPKModal(forceView) {
+    const body = document.getElementById("pkModalBody");
+    if (!body) return;
+
+    const state = forceView || getPKState();
+    const s     = window.WALLET_SESSION;
+
+    const shortAddr = s.activeAddress
+        ? s.activeAddress.slice(0, 8) + "..." + s.activeAddress.slice(-6)
+        : "";
+
+    // mode tab aktif
+    const modeEl = document.getElementById("pkModeLabel");
+    const currentMode = modeEl?.dataset.mode || "pk";
+
+    body.innerHTML = _buildModalHTML(state, currentMode, shortAddr);
+
+    // update tab highlight
+    _updateModeTab(currentMode);
 }
 
 
 // =====================================
-// GET ACTIVE WALLET
+// BUILD MODAL HTML PER STATE
 // =====================================
-function getActiveWallet() {
-    return window.WALLET_SESSION.pkWallet;
+function _buildModalHTML(state, mode, shortAddr) {
+
+    // ==========================
+    // EMPTY â€” belum ada PK
+    // ==========================
+    if (state === "EMPTY") {
+        return `
+            <div class="pk-section">
+                <div class="pk-hint">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Belum ada wallet aktif. Import private key untuk mulai bertransaksi.
+                </div>
+                <div class="pk-input-wrap">
+                    <i class="fa-solid fa-key"></i>
+                    <input id="globalPKInput" type="password" placeholder="Paste Private Key...">
+                </div>
+                <button class="pk-btn-primary" onclick="unlockPK()">
+                    <i class="fa-solid fa-file-import"></i> Import Private Key
+                </button>
+            </div>
+        `;
+    }
+
+    // ==========================
+    // LOCKED â€” tampil unlock form
+    // ==========================
+    if (state === "LOCKED") {
+        return `
+            <div class="pk-section">
+                <div class="pk-status-badge locked">
+                    <i class="fa-solid fa-lock"></i>
+                    Wallet Terkunci
+                    <span class="pk-addr">${shortAddr}</span>
+                </div>
+                <div class="pk-input-wrap">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <input id="pinUnlockInput" type="password" placeholder="Masukkan PIN...">
+                </div>
+                <button class="pk-btn-primary" onclick="unlockWithPIN()">
+                    <i class="fa-solid fa-lock-open"></i> Unlock Wallet
+                </button>
+                <button class="pk-btn-danger mt8" onclick="resetPKWallet()">
+                    <i class="fa-solid fa-rotate-left"></i> Lupa PIN? Reset Wallet
+                </button>
+            </div>
+        `;
+    }
+
+    // ==========================
+    // SET PIN SEBELUM LOCK
+    // (dipanggil saat klik lock, PIN belum ada)
+    // ==========================
+    if (state === "SET_PIN_BEFORE_LOCK") {
+        return `
+            <div class="pk-section">
+                <div class="pk-hint">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Buat PIN untuk mengunci wallet. PIN dibutuhkan setiap kali unlock.
+                </div>
+                <div class="pk-input-wrap">
+                    <i class="fa-solid fa-lock"></i>
+                    <input id="pinNewInput" type="password" placeholder="PIN baru (min 4 karakter)">
+                </div>
+                <div class="pk-input-wrap">
+                    <i class="fa-solid fa-lock"></i>
+                    <input id="pinConfirmInput" type="password" placeholder="Konfirmasi PIN">
+                </div>
+                <button class="pk-btn-primary" onclick="confirmSetPIN()">
+                    <i class="fa-solid fa-lock"></i> Simpan PIN & Kunci Wallet
+                </button>
+                <button class="pk-btn-ghost mt8" onclick="renderPKModal()">
+                    Batal
+                </button>
+            </div>
+        `;
+    }
+
+    // ==========================
+    // ACTIVE â€” render sesuai tab (PK / Passphrase)
+    // ==========================
+    if (mode === "phrase") {
+        return _buildPhraseView(state, shortAddr);
+    }
+    return _buildPKView(state, shortAddr);
+}
+
+
+// ==========================
+// TAB: PRIVATE KEY (ACTIVE)
+// ==========================
+function _buildPKView(state, shortAddr) {
+    const hasPIN = window.WALLET_SESSION.pinCreated;
+
+    return `
+        <div class="pk-section">
+            <div class="pk-status-badge active">
+                <i class="fa-solid fa-lock-open"></i>
+                Wallet Aktif
+                <span class="pk-addr">${shortAddr}</span>
+            </div>
+
+            <button class="pk-btn-lock" onclick="lockPK()">
+                <i class="fa-solid fa-lock"></i>
+                ${hasPIN ? "Kunci Wallet" : "Kunci Wallet (buat PIN dulu)"}
+            </button>
+
+            <button class="pk-btn-danger mt8" onclick="deletePKWallet()">
+                <i class="fa-solid fa-trash"></i> Hapus Wallet PK
+            </button>
+        </div>
+    `;
+}
+
+
+// ==========================
+// TAB: PASSPHRASE (PIN MANAGER)
+// ==========================
+function _buildPhraseView(state, shortAddr) {
+    const hasPIN = window.WALLET_SESSION.pinCreated;
+
+    // PIN belum dibuat
+    if (!hasPIN) {
+        return `
+            <div class="pk-section">
+                <div class="pk-hint">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Buat PIN untuk keamanan wallet saat dikunci.
+                </div>
+                <div class="pk-input-wrap">
+                    <i class="fa-solid fa-lock"></i>
+                    <input id="pinNewInput" type="password" placeholder="PIN baru (min 4 karakter)">
+                </div>
+                <div class="pk-input-wrap">
+                    <i class="fa-solid fa-lock"></i>
+                    <input id="pinConfirmInput" type="password" placeholder="Konfirmasi PIN">
+                </div>
+                <button class="pk-btn-primary" onclick="confirmSetPIN()">
+                    <i class="fa-solid fa-shield-halved"></i> Simpan PIN
+                </button>
+            </div>
+        `;
+    }
+
+    // PIN sudah ada â€” tampil form ganti PIN
+    return `
+        <div class="pk-section">
+            <div class="pk-hint success">
+                <i class="fa-solid fa-shield-halved"></i>
+                PIN aktif. Gunakan menu ini untuk mengubah PIN.
+            </div>
+            <div class="pk-input-wrap">
+                <i class="fa-solid fa-key"></i>
+                <input id="pinOldInput" type="password" placeholder="PIN lama">
+            </div>
+            <div class="pk-input-wrap">
+                <i class="fa-solid fa-lock"></i>
+                <input id="pinNewInput" type="password" placeholder="PIN baru (min 4 karakter)">
+            </div>
+            <div class="pk-input-wrap">
+                <i class="fa-solid fa-lock"></i>
+                <input id="pinConfirmInput" type="password" placeholder="Konfirmasi PIN baru">
+            </div>
+            <button class="pk-btn-primary" onclick="changePIN()">
+                <i class="fa-solid fa-rotate"></i> Ubah PIN
+            </button>
+            <button class="pk-btn-danger mt8" onclick="resetPKWallet()">
+                <i class="fa-solid fa-rotate-left"></i> Lupa PIN? Reset Wallet
+            </button>
+        </div>
+    `;
 }
 
 
 // =====================================
-// REQUIRE PK â€” guard sebelum transaksi
+// MODE TAB SWITCH
+// =====================================
+function setPKMode(mode) {
+    const label = document.getElementById("pkModeLabel");
+    if (label) label.dataset.mode = mode;
+
+    document.querySelectorAll(".pk-tab").forEach(t => t.classList.remove("active"));
+    document.querySelector(`.pk-tab[data-mode="${mode}"]`)?.classList.add("active");
+
+    renderPKModal();
+}
+
+function _updateModeTab(mode) {
+    document.querySelectorAll(".pk-tab").forEach(t => t.classList.remove("active"));
+    document.querySelector(`.pk-tab[data-mode="${mode}"]`)?.classList.add("active");
+}
+
+
+// =====================================
+// STATUS BAR (header icon)
+// =====================================
+function updatePKStatusBar() {
+    const bar  = document.getElementById("pkStatusBar");
+    if (!bar) return;
+
+    const s    = window.WALLET_SESSION;
+    const text = bar.querySelector(".pk-text");
+    const dot  = bar.querySelector(".pk-dot");
+
+    if (!s.pkWallet) {
+        bar.style.display = "none";
+        return;
+    }
+
+    bar.style.display = "flex";
+
+    if (s.pkLocked) {
+        if (text) text.innerHTML =
+            '<i class="fa-solid fa-lock" style="margin-right:5px;"></i>Locked - Tap to Unlock';
+        if (dot)  dot.style.background = "#ff3b3b";
+        bar.style.background           = "#3a1a1a";
+        bar.onclick = openPKModal;
+        return;
+    }
+
+    if (text) text.innerHTML =
+        '<i class="fa-solid fa-lock-open" style="margin-right:5px;"></i>Active - Tap to Lock';
+    if (dot)  dot.style.background = "#00ff88";
+    bar.style.background           = "#1a1a1a";
+    bar.onclick = lockPK;
+}
+
+// alias lama
+function updatePKUI() { updatePKStatusBar(); }
+
+
+// =====================================
+// MODAL OPEN / CLOSE
+// =====================================
+function openPKModal() {
+    const modal = document.getElementById("pkGlobalModal");
+    if (!modal) return;
+    modal.style.display = "flex";
+    renderPKModal();
+}
+
+function closePKModal() {
+    const modal = document.getElementById("pkGlobalModal");
+    if (modal) modal.style.display = "none";
+}
+
+
+// =====================================
+// REQUIRE PK â€” guard eksekusi transaksi
+// Tidak block buka modal, hanya block eksekusi
 // =====================================
 function requirePK() {
     const s = window.WALLET_SESSION;
@@ -260,7 +523,6 @@ function requirePK() {
 // SEND TX
 // =====================================
 async function sendWithPK(to, amount, tokenAddress = null) {
-
     const wallet = requirePK();
 
     try {
@@ -269,32 +531,28 @@ async function sendWithPK(to, amount, tokenAddress = null) {
                 to,
                 value: ethers.utils.parseEther(amount)
             });
-            showToast("TX sent: " + tx.hash, "success");
+            showToast?.("TX sent: " + tx.hash, "success");
             return tx;
         }
 
         const abi      = ["function transfer(address to, uint256 amount) returns (bool)"];
         const contract = new ethers.Contract(tokenAddress, abi, wallet);
+        const tx       = await contract.transfer(to, ethers.utils.parseUnits(amount, 18));
 
-        const tx = await contract.transfer(
-            to,
-            ethers.utils.parseUnits(amount, 18)
-        );
-        showToast("TX sent: " + tx.hash, "success");
+        showToast?.("TX sent: " + tx.hash, "success");
         return tx;
 
     } catch (err) {
         console.error(err);
-        showToast("Transaction failed", "error");
+        showToast?.("Transaction failed", "error");
     }
 }
 
 
 // =====================================
-// GET BALANCE â€” FIX: ABI wajib ada sebagai arg ke-2
+// GET BALANCE
 // =====================================
 async function getPKBalance(tokenAddress = null) {
-
     const wallet = getActiveWallet();
     if (!wallet) return null;
 
@@ -304,19 +562,17 @@ async function getPKBalance(tokenAddress = null) {
             return ethers.utils.formatEther(bal);
         }
 
-        const abi = [
+        const abi      = [
             "function balanceOf(address) view returns (uint256)",
             "function decimals() view returns (uint8)"
         ];
         const contract = new ethers.Contract(tokenAddress, abi, window.pkProvider);
-
         const [bal, dec] = await Promise.all([
             contract.balanceOf(wallet.address),
             contract.decimals().catch(() => 18)
         ]);
 
         return ethers.utils.formatUnits(bal, dec);
-
     } catch (err) {
         console.warn("getPKBalance error:", err);
         return null;
@@ -325,10 +581,73 @@ async function getPKBalance(tokenAddress = null) {
 
 
 // =====================================
-// SYNC PK â†’ WALLET SYSTEM
+// GET / SET ACTIVE WALLET
+// =====================================
+function getActiveWallet() {
+    return window.WALLET_SESSION.pkWallet;
+}
+
+function setPKState(wallet, pk) {
+    window.WALLET_SESSION.pkWallet      = wallet;
+    window.WALLET_SESSION.mode          = "pk";
+    window.WALLET_SESSION.activeAddress = wallet.address;
+    localStorage.setItem(window.PK_STORAGE_KEY, pk);
+}
+
+
+// =====================================
+// SESSION SAVE / LOAD
+// =====================================
+function savePKSession() {
+    localStorage.setItem("PK_SESSION", JSON.stringify({
+        pk:         window.WALLET_SESSION.pkWallet?.privateKey || null,
+        address:    window.WALLET_SESSION.activeAddress,
+        locked:     window.WALLET_SESSION.pkLocked,
+        pinHash:    window.WALLET_SESSION.pinHash,
+        pinCreated: window.WALLET_SESSION.pinCreated
+    }));
+}
+
+function loadPKSession() {
+    try   { return JSON.parse(localStorage.getItem("PK_SESSION")); }
+    catch { return null; }
+}
+
+
+// =====================================
+// RESTORE
+// =====================================
+function restorePK() {
+    if (localStorage.getItem("PK_DELETED") === "1") return;
+
+    const data = loadPKSession();
+    if (!data?.pk) return;
+
+    try {
+        const wallet = new ethers.Wallet(data.pk, window.pkProvider);
+
+        window.WALLET_SESSION.pkWallet      = wallet;
+        window.WALLET_SESSION.activeAddress = wallet.address;
+        window.WALLET_SESSION.pkLocked      = data.locked     === true;
+        window.WALLET_SESSION.pinCreated    = data.pinCreated || false;
+        window.WALLET_SESSION.pinHash       = data.pinHash    || null;
+
+        window.__PK_RESTORING = true;
+        syncPKToWalletSystem(data.pk, wallet.address);
+        window.__PK_RESTORING = false;
+
+        updatePKStatusBar();
+
+    } catch {
+        console.warn("PK restore failed");
+    }
+}
+
+
+// =====================================
+// SYNC PK KE WALLET LIST + SET ACTIVE
 // =====================================
 function syncPKToWalletSystem(pk, address) {
-
     let wallets = getWallets?.() || [];
     const addr  = address.toLowerCase();
     const idx   = wallets.findIndex(w => w.address?.toLowerCase() === addr);
@@ -339,15 +658,16 @@ function syncPKToWalletSystem(pk, address) {
         wallets[idx] = { ...wallets[idx], type: "pk", privateKey: pk };
     }
 
-    setWallets(wallets);
-
+    setWallets?.(wallets);
     window.WALLET_SESSION.activeAddress = address;
 
+    // otomatis pindah dropdown ke PK wallet
     const newIndex = wallets.findIndex(w => w.address.toLowerCase() === addr);
     const select   = document.getElementById("walletSelect");
 
     if (select && newIndex !== -1) {
         select.value = String(newIndex);
+        localStorage.setItem("selectedWalletIndex", String(newIndex));
         select.dispatchEvent(new Event("change"));
     }
 
@@ -359,88 +679,11 @@ function syncPKToWalletSystem(pk, address) {
 
 
 // =====================================
-// MODE SWITCH (PK / Passphrase)
+// PIN HASH (SHA-256)
 // =====================================
-function setPKMode(mode) {
-    const pkBox     = document.getElementById("pkModePK");
-    const phraseBox = document.getElementById("pkModePhrase");
-    const label     = document.getElementById("pkModeLabel");
-    const isPK      = mode === "pk";
-
-    if (pkBox)     pkBox.style.display     = isPK ? "block" : "none";
-    if (phraseBox) phraseBox.style.display = isPK ? "none"  : "block";
-    if (label)     label.innerHTML         = isPK
-        ? '<i class="fa-solid fa-key" style="margin-right:5px;"></i>MODE: PRIVATE KEY'
-        : '<i class="fa-solid fa-shield-halved" style="margin-right:5px;"></i>MODE: PASSPHRASE';
-}
-
-
-// =====================================
-// UI STATE UPDATE â€” status bar ikon FA
-// =====================================
-function updatePKUI() {
-
-    const bar = document.getElementById("pkStatusBar");
-    if (!bar) return;
-
-    const s    = window.WALLET_SESSION;
-    const text = bar.querySelector(".pk-text");
-    const dot  = bar.querySelector(".pk-dot");
-
-    if (!s.pkWallet) {
-        bar.style.display = "none";
-        return;
-    }
-
-    bar.style.display = "flex";
-
-    if (s.pkLocked) {
-        // fa-lock = gembok tertutup (terkunci)
-        if (text) text.innerHTML =
-            '<i class="fa-solid fa-lock" style="margin-right:5px;"></i>Locked - Tap to Unlock';
-        if (dot)  dot.style.background = "#ff3b3b";
-        bar.style.background           = "#3a1a1a";
-        bar.onclick = openPKUnlockModal;
-        return;
-    }
-
-    // fa-lock-open = gembok terbuka (aktif)
-    if (text) text.innerHTML =
-        '<i class="fa-solid fa-lock-open" style="margin-right:5px;"></i>Active - Tap to Lock';
-    if (dot)  dot.style.background = "#00ff88";
-    bar.style.background           = "#1a1a1a";
-    bar.onclick = lockPK;
-}
-
-
-// =====================================
-// MODAL CONTROL
-// =====================================
-function openPKModal() {
-    const modal = document.getElementById("pkGlobalModal");
-    if (modal) modal.style.display = "flex";
-}
-
-function closePKModal() {
-    const modal = document.getElementById("pkGlobalModal");
-    if (modal) modal.style.display = "none";
-}
-
-function openPKUnlockModal() {
-    const modal = document.getElementById("pkGlobalModal");
-    if (!modal) return;
-
-    modal.style.display = "flex";
-    setPKMode("phrase");
-
-    // fa-lock merah di status mini
-    const status = document.getElementById("pkStatusMini");
-    if (status) status.innerHTML =
-        '<i class="fa-solid fa-lock" style="margin-right:5px;color:#ff3b3b;"></i>' +
-        'Wallet locked - masukkan PIN untuk unlock';
-
-    const setBox    = document.getElementById("pinSetBox");
-    const unlockBox = document.getElementById("pinUnlockBox");
-    if (setBox)    setBox.style.display    = "none";
-    if (unlockBox) unlockBox.style.display = "block";
+async function hashPIN(pin) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
+    return Array.from(new Uint8Array(buf))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
 }
