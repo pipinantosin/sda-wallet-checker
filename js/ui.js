@@ -1,12 +1,13 @@
+// =====================================
+// UI.JS
+// =====================================
+
 // ==========================
 // HELPER LANG
 // ==========================
-function t(key){
-    try{
-        return LANG?.[CURRENT_LANG]?.[key] || key;
-    }catch{
-        return key;
-    }
+function t(key) {
+    try   { return LANG?.[CURRENT_LANG]?.[key] || key; }
+    catch { return key; }
 }
 
 
@@ -15,6 +16,7 @@ function t(key){
 // ==========================
 function renderAssets() {
 
+    // rebuild dulu biar window.TOKENS selalu fresh
     syncCustomTokens?.();
 
     const container = document.getElementById("tab-assets");
@@ -33,105 +35,86 @@ function renderAssets() {
     // ==========================
     // SDA (NATIVE)
     // ==========================
-    const sdaCache =
-        localStorage.getItem(wallet.address + "_native") ||
-        "0.00 SDA";
+    const sdaCache = localStorage.getItem(wallet.address + "_native") || "0.00 SDA";
 
     html += `
         <div class="asset-item">
-
             <div style="display:flex;align-items:center;gap:10px;">
                 <img src="img/sda.png"
-                     style="width:32px;height:32px;border-radius:50%;">
-
+                     style="width:32px;height:32px;border-radius:50%;"
+                     onerror="this.src='img/default.png'">
                 <div>
                     <b>Sidra Digital Asset</b><br>
                     <small style="color:#888;">Native Token</small>
                 </div>
             </div>
-
             <div>
                 ${sdaCache.replace(" SDA", "")}
                 <span style="color:#888;">SDA</span>
             </div>
-
         </div>
     `;
 
     // ==========================
     // ERC20 TOKENS
+    // Hanya render customTokens (yang user tambahkan)
+    // bukan semua DEFAULT_TOKENS
+    // max 10 token untuk hindari limit RPC
     // ==========================
-    const tokens = Array.isArray(window.customTokens)
-        ? window.customTokens
-        : [];
+    const tokens = getCustomTokens().slice(0, 10).map(normalizeToken);
 
     tokens.forEach(token => {
 
-    const cacheKey = wallet.address + "_" + token.address;
+        const cacheKey = wallet.address + "_" + token.address;
+        const cached   = localStorage.getItem(cacheKey) || ("0.00 " + token.symbol);
+        const isWSDA   = token.symbol === "WSDA";
+        const logo     = token.logo || token.icon || "img/default.png";
 
-    const cached =
-        localStorage.getItem(cacheKey) ||
-        ("0.00 " + token.symbol);
-
-    const isWSDA = token.symbol === "WSDA";
-
-    html += `
-        <div class="asset-item">
-
-            <div style="display:flex;align-items:center;gap:10px;">
-                <img src="${token.icon || token.logo || 'img/default.png'}"
-                     style="width:32px;height:32px;border-radius:50%;">
-
-                <div>
-                    <b>${token.name || token.symbol}</b><br>
-                    <small style="color:#888;">ERC-20 Token</small>
-                </div>
-            </div>
-
-            <div style="display:flex;align-items:center;gap:6px;">
-
-                <div>
-                    ${cached.replace(" " + token.symbol, "")}
-                    <span style="color:#888;">${token.symbol}</span>
+        html += `
+            <div class="asset-item">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <img src="${logo}"
+                         onerror="this.src='img/default.png'"
+                         style="width:32px;height:32px;border-radius:50%;object-fit:contain;">
+                    <div>
+                        <b>${token.name || token.symbol}</b><br>
+                        <small style="color:#888;">ERC-20 Token</small>
+                    </div>
                 </div>
 
-                <!-- ==========================
-                     UNWRAP BUTTON (ONLY WSDA)
-                ========================== -->
-                ${isWSDA ? `
-                    <button onclick="UNWRAP_ENGINE.unwrapAll()"
-                        style="
-                            margin-left:8px;
-                            padding:4px 8px;
-                            font-size:12px;
-                            background:#ffb020;
-                            border:none;
-                            border-radius:6px;
-                        ">
-                        Unwrap
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div>
+                        ${cached.replace(" " + token.symbol, "")}
+                        <span style="color:#888;">${token.symbol}</span>
+                    </div>
+
+                    ${isWSDA ? `
+                        <button onclick="UNWRAP_ENGINE.unwrapAll()"
+                            style="margin-left:8px;padding:4px 8px;font-size:12px;
+                                   background:#ffb020;border:none;border-radius:6px;">
+                            Unwrap
+                        </button>
+                    ` : ""}
+
+                    <button onclick="removeToken('${token.address}')"
+                            class="remove-token-btn">
+                        <i class="fa-solid fa-minus"></i>
                     </button>
-                ` : ``}
-
-                <button onclick="removeToken('${token.address}')"
-                        class="remove-token-btn">
-                    -
-                </button>
-
+                </div>
             </div>
-
-        </div>
-    `;
-});
+        `;
+    });
 
     container.innerHTML = html;
 }
+
 
 // ==========================
 // TOKEN TAB
 // ==========================
 function renderTokenTab() {
 
-    syncTokenState();
+    syncTokenState?.();
 
     const container = document.getElementById("tab-tokens");
     if (!container) return;
@@ -142,70 +125,60 @@ function renderTokenTab() {
                style="margin-bottom:10px;">
     `;
 
+    const addedAddresses = new Set(
+        getCustomTokens().map(t => t.address.toLowerCase())
+    );
+
     DEFAULT_TOKENS.forEach(token => {
 
-        // ❌ ONLY SKIP SDA
         if (token.symbol === "SDA") return;
 
-        const customTokens =
-            JSON.parse(localStorage.getItem("customTokens") || "[]");
-
-        const isAdded = customTokens
-            .some(tk => tk.address === token.address);
-
-        const tokenData =
-            encodeURIComponent(JSON.stringify(token));
+        const isAdded   = addedAddresses.has(token.address.toLowerCase());
+        const tokenData = encodeURIComponent(JSON.stringify(token));
+        const logo      = token.logo || token.icon || "img/default.png";
 
         html += `
             <div class="asset-item token-row"
                  data-symbol="${token.symbol.toLowerCase()}">
 
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <img src="${token.icon || token.logo || 'img/default.png'}"
-                         style="width:28px;height:28px;border-radius:50%;">
-
+                    <img src="${logo}"
+                         onerror="this.src='img/default.png'"
+                         style="width:28px;height:28px;border-radius:50%;object-fit:contain;">
                     <div>
                         <b>${token.name || token.symbol}</b><br>
                         <small style="color:#888;">${token.symbol}</small>
                     </div>
                 </div>
 
-                ${
-                    isAdded
-                    ? `<span style="color:#888;">${t("added") || 'Added'}</span>`
+                ${isAdded
+                    ? `<span style="color:#888;">${t("added") || "Added"}</span>`
                     : `<button class="add-token-btn"
                                onclick='addTokenFromList(JSON.parse(decodeURIComponent("${tokenData}")))'>
-                               +
+                           <i class="fa-solid fa-plus"></i>
                        </button>`
                 }
-
             </div>
         `;
     });
 
     container.innerHTML = html;
-
     initTokenSearch();
 }
+
 
 // ==========================
 // SEARCH TOKEN
 // ==========================
 function initTokenSearch() {
-
     const input = document.getElementById("searchToken");
     if (!input) return;
 
     input.addEventListener("input", () => {
-
         const keyword = input.value.toLowerCase();
-
         document.querySelectorAll(".token-row").forEach(row => {
-
-            const symbol = row.dataset.symbol;
-
             row.style.display =
-                symbol.includes(keyword) ? "flex" : "none";
+                row.dataset.symbol.includes(keyword) ? "flex" : "none";
         });
     });
 }
@@ -218,22 +191,17 @@ function switchTab(tab) {
 
     document.querySelectorAll(".tab")
         .forEach(el => el.classList.remove("active"));
-
     document.querySelectorAll(".tab-content")
         .forEach(el => el.classList.remove("active"));
 
-    const tabBtn = document.querySelector(
-        `.tab[onclick="switchTab('${tab}')"]`
-    );
+    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`)
+        ?.classList.add("active");
 
-    tabBtn?.classList.add("active");
-
-    const tabContent = document.getElementById("tab-" + tab);
-    tabContent?.classList.add("active");
+    document.getElementById("tab-" + tab)?.classList.add("active");
 
     if (tab === "assets") renderAssets();
     if (tab === "tokens") renderTokenTab();
-    if (tab === "lp") renderLP?.();
+    if (tab === "lp")     renderLP?.();
 }
 
 
@@ -243,38 +211,33 @@ function switchTab(tab) {
 function renderLPList() {
 
     const container = document.getElementById("lpList");
-    const list = getLPs?.();
+    const list      = getLPs?.();
 
     if (!list || list.length === 0) {
-        container.innerHTML =
+        if (container) container.innerHTML =
             `<div style='text-align:center;color:#888;'>${t("no_lp") || "No LP added"}</div>`;
         return;
     }
 
-    let html = "";
-
-    list.forEach(id => {
-
-        html += `
-            <div class="asset-item">
-                <div>
-                    <b>LP Position</b><br>
-                    <small style="color:#888;">NFT ID: #${id}</small>
-                </div>
-
-                <div>
-                    <button onclick="removeLP('${id}')"
-                            style="width:auto;">
-                        ${t("remove") || "Remove"}
-                    </button>
-                </div>
+    container.innerHTML = list.map(id => `
+        <div class="asset-item">
+            <div>
+                <b>LP Position</b><br>
+                <small style="color:#888;">NFT ID: #${id}</small>
             </div>
-        `;
-    });
-
-    container.innerHTML = html;
+            <div>
+                <button onclick="removeLP('${id}')" style="width:auto;">
+                    ${t("remove") || "Remove"}
+                </button>
+            </div>
+        </div>
+    `).join("");
 }
 
-function toggleAddress(el){
+
+// ==========================
+// TOGGLE ADDRESS
+// ==========================
+function toggleAddress(el) {
     el.classList.toggle("address-full");
 }
