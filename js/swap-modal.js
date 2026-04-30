@@ -265,17 +265,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // =====================================
-    // OPEN MODAL — cek PK dulu
+    // OPEN MODAL â€” buka bebas, guard di eksekusi
     // =====================================
     openBtn?.addEventListener("click", async () => {
-
-        // GUARD — buka modal PK kalau belum import / locked
-        try {
-            requirePK();
-        } catch {
-            // requirePK sudah buka modal PK otomatis
-            return;
-        }
 
         modal?.classList.add("show");
 
