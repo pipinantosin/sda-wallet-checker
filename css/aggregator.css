@@ -1,0 +1,152 @@
+/* =====================================
+   AGGREGATOR PANEL
+===================================== */
+
+/* TOGGLE ROW */
+.agg-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 0;
+}
+
+.agg-toggle-btn {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    background: #111;
+    color: #ccc;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.15s;
+}
+
+.agg-toggle-btn:hover {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #ff7a00;
+}
+
+.agg-badge {
+    background: #ff7a00;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.agg-rescan-btn {
+    padding: 9px 12px;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    background: #111;
+    color: #666;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.agg-rescan-btn:hover {
+    color: #ff7a00;
+    border-color: #ff7a00;
+}
+
+/* PANEL */
+.agg-panel {
+    background: #0d0d0d;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    margin-top: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+/* ROW */
+.agg-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid #161616;
+    cursor: pointer;
+    transition: background 0.12s;
+    gap: 10px;
+}
+
+.agg-row:last-child {
+    border-bottom: none;
+}
+
+.agg-row:hover {
+    background: #141414;
+}
+
+.agg-row.agg-best {
+    background: #0d1a0d;
+    border-left: 3px solid #00d084;
+}
+
+.agg-row.agg-best:hover {
+    background: #111f11;
+}
+
+/* LEFT */
+.agg-row-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.agg-path {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ddd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.agg-meta {
+    font-size: 11px;
+    color: #555;
+    margin-top: 2px;
+}
+
+/* RIGHT */
+.agg-row-right {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.agg-out {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.agg-improve {
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.agg-best-tag {
+    display: inline-block;
+    background: #00d084;
+    color: #000;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+}
