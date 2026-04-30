@@ -125,7 +125,8 @@ async function loadNFTs() {
         const abi = [
             "function balanceOf(address owner) view returns (uint256)",
             "function tokenOfOwnerByIndex(address owner,uint256 index) view returns (uint256)",
-            "function positions(uint256 tokenId) view returns (uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128)"
+            "function positions(uint256 tokenId) view returns (uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128)",
+            "function tokenURI(uint256 tokenId) view returns (string)"
         ];
 
         const POOL_ABI = [
@@ -177,6 +178,25 @@ async function loadNFTs() {
                 const fees0 = parseFloat(ethers.utils.formatUnits(previewFees.amount0, t0?.decimals || 18));
                 const fees1 = parseFloat(ethers.utils.formatUnits(previewFees.amount1, t1?.decimals || 18));
 
+                // ===========================
+                // FETCH NFT IMAGE (tokenURI)
+                // ===========================
+                let nftImage = null;
+                try {
+                    const uri = await contract.tokenURI(tokenId);
+
+                    // uri = "data:application/json;base64,..."
+                    if (uri.startsWith("data:application/json;base64,")) {
+                        const json = JSON.parse(atob(uri.split(",")[1]));
+                        // image field bisa berupa "data:image/svg+xml;base64,..." atau svg langsung
+                        nftImage = json.image || null;
+                    } else if (uri.startsWith("data:image")) {
+                        nftImage = uri;
+                    }
+                } catch {
+                    nftImage = null;
+                }
+
                 return {
                     id:           tokenId.toString(),
                     owner:        wallet.address,
@@ -201,7 +221,8 @@ async function loadNFTs() {
                     tickUpper:    pos[6],
                     priceLower,
                     priceUpper,
-                    currentPrice
+                    currentPrice,
+                    nftImage      // SVG/image dari tokenURI
                 };
             } catch (e) {
                 console.warn("NFT position load error:", e.message);
@@ -432,6 +453,13 @@ function openLPDetail(id) {
                 <i class="fa-solid fa-arrow-left"></i> Back
             </button>
 
+            ${lp.nftImage ? `
+            <div class="lp-nft-image">
+                <img src="${lp.nftImage}"
+                     alt="LP NFT #${lp.id}"
+                     onerror="this.parentElement.style.display='none'">
+            </div>` : ""}
+
             <div class="lp-detail-header">
                 <div class="lp-pair-icons">
                     <img src="${lp.logo0}" onerror="this.src='img/default.png'" class="lp-icon">
@@ -539,49 +567,82 @@ function renderLPCards(list) {
     }
 
     const html = list.map(lp => {
-        const active   = lp.status === "Active";
-        const progress = Math.max(0, Math.min(100,
+        const active    = lp.status === "Active";
+        const isFullRange = lp.priceLower < 0.000001 && lp.priceUpper > 1e9;
+
+        // progress dot hanya relevan kalau bukan full range
+        const progress = isFullRange ? 50 : Math.max(2, Math.min(98,
             ((lp.currentPrice - lp.priceLower) / (lp.priceUpper - lp.priceLower)) * 100
         ));
 
+        const minLabel = isFullRange ? "0"      : formatPrice(lp.priceLower);
+        const maxLabel = isFullRange ? "&#8734;" : formatPrice(lp.priceUpper); // âˆž
+
+        // fees bar â€” tampil hanya kalau ada fees
+        const feesHTML = lp.hasFees
+            ? `<div class="lp-fees-bar">
+                <img src="${lp.logo0}" onerror="this.src='img/default.png'" style="width:14px;height:14px;border-radius:50%;">
+                <span style="color:#ffb020;font-weight:600;">${lp.fees0} ${lp.symbol0}</span>
+                <span style="color:#888;">+</span>
+                <img src="${lp.logo1}" onerror="this.src='img/default.png'" style="width:14px;height:14px;border-radius:50%;">
+                <span style="color:#ffb020;font-weight:600;">${lp.fees1} ${lp.symbol1}</span>
+               </div>`
+            : `<div class="lp-fees-empty">No uncollected fees</div>`;
+
         return `
             <div class="lp-card" onclick="openLPDetail('${lp.id}')">
+
+                <!-- HEADER -->
                 <div class="lp-header">
                     <div class="lp-pair">
-                        <img src="${lp.logo0}" onerror="this.src='img/default.png'" class="lp-icon">
-                        <img src="${lp.logo1}" onerror="this.src='img/default.png'" class="lp-icon overlap">
+                        <div class="lp-pair-logos">
+                            <img src="${lp.logo0}" onerror="this.src='img/default.png'" class="lp-icon">
+                            <img src="${lp.logo1}" onerror="this.src='img/default.png'" class="lp-icon overlap">
+                        </div>
                         <div>
                             <div class="lp-title">${lp.symbol0}/${lp.symbol1}</div>
                             <div class="lp-sub">${lp.fee} &bull; #${lp.id}</div>
                         </div>
                     </div>
-                    <div class="lp-status ${active ? 'active' : 'inactive'}">
+                    <div class="lp-status-badge ${active ? 'active' : 'inactive'}">
+                        <span class="lp-status-dot"></span>
                         ${active ? 'Active' : 'Inactive'}
                     </div>
                 </div>
 
-                <div class="lp-price">
-                    1 ${lp.symbol0} = ${lp.currentPrice.toFixed(6)} ${lp.symbol1}
+                <!-- CURRENT PRICE -->
+                <div class="lp-current-price">
+                    Current: 1 ${lp.symbol0} = ${lp.currentPrice.toFixed(6)} ${lp.symbol1}
                 </div>
 
-                <div class="lp-range-bar">
-                    <div class="lp-range-dot" style="left:${progress}%"></div>
+                <!-- RANGE BAR -->
+                <div class="lp-range-track">
+                    <div class="lp-range-fill ${active ? 'active' : ''}"
+                         style="width:${progress}%"></div>
+                    <div class="lp-range-dot-new ${active ? 'active' : ''}"
+                         style="left:${progress}%"></div>
                 </div>
                 <div class="lp-range-labels">
-                    <span>${formatPrice(lp.priceLower)}</span>
-                    <span>${formatPrice(lp.priceUpper)}</span>
+                    <span>${minLabel}</span>
+                    <span>${maxLabel}</span>
                 </div>
 
-                <div class="lp-balances">
-                    <span>${lp.amount0} ${lp.symbol0}</span>
-                    <span>${lp.amount1} ${lp.symbol1}</span>
+                <!-- AMOUNTS WITH LOGOS -->
+                <div class="lp-amounts">
+                    <div class="lp-amount-item">
+                        <img src="${lp.logo0}" onerror="this.src='img/default.png'" style="width:18px;height:18px;border-radius:50%;">
+                        <span><b>${lp.amount0}</b> ${lp.symbol0}</span>
+                    </div>
+                    <div class="lp-amount-sep">|</div>
+                    <div class="lp-amount-item">
+                        <img src="${lp.logo1}" onerror="this.src='img/default.png'" style="width:18px;height:18px;border-radius:50%;">
+                        <span><b>${lp.amount1}</b> ${lp.symbol1}</span>
+                    </div>
                 </div>
 
-                ${lp.hasFees ? `
-                <div class="lp-fees">
-                    <i class="fa-solid fa-coins" style="color:#ffb020;font-size:11px;"></i>
-                    ${lp.fees0} ${lp.symbol0} + ${lp.fees1} ${lp.symbol1}
-                </div>` : ""}
+                <!-- FEES -->
+                ${feesHTML}
+
             </div>
         `;
     }).join("");
@@ -694,7 +755,7 @@ function removeLP(id) {
 // =====================================
 function formatPrice(p) {
     if (!p || p < 0.000001) return "0";
-    if (p > 1e9)            return "inf";
+    if (p > 1e9)            return "\u221E"; // âˆž
     return p.toFixed(5);
 }
 
