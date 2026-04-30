@@ -19,6 +19,8 @@
 <link rel="stylesheet" href="css/tabs.css">
 <link rel="stylesheet" href="css/modal.css">
 <link rel="stylesheet" href="css/lp-modal.css">
+<link rel="stylesheet" href="css/lp-card.css">
+<link rel="stylesheet" href="css/aggregator.css">
 <link rel="stylesheet" href="css/swap-modal.css">
 <link rel="stylesheet" href="css/animation.css">
 <link rel="stylesheet" href="css/components.css">
@@ -660,6 +662,12 @@
                     </div>
                 </div>
 
+    <!-- BEST ROUTE INFO -->
+    <div id="bestRoute" style="font-size:12px;color:#aaa;"></div>
+
+
+</div>
+
                 <!-- RATE -->
                 <div class="info" id="swapRate">
                     Loading rate...
@@ -913,7 +921,7 @@
             </span>
         </div>
 
-        <!-- MODE TABS  hanya tampil saat wallet aktif (dihandle JS) -->
+        <!-- MODE TABS � hanya tampil saat wallet aktif (dihandle JS) -->
         <div id="pkModeTabs" class="pk-tabs">
             <button class="pk-tab active" data-mode="pk" onclick="setPKMode('pk')">
                 <i class="fa-solid fa-key"></i> Private Key
@@ -926,12 +934,14 @@
         <!-- track mode aktif -->
         <span id="pkModeLabel" data-mode="pk" style="display:none;"></span>
 
-        <!-- BODY  diisi renderPKModal() -->
+        <!-- BODY � diisi renderPKModal() -->
         <div id="pkModalBody"></div>
 
     </div>
 
 </div>
+
+
 
 <!--- ETHERS --->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
@@ -962,6 +972,7 @@
 <script src="js/factory-engine.js"></script>
 <script src="js/swap-engine.js"></script>
 <script src="js/swap-modal.js"></script>
+<script src="js/aggregator-engine.js"></script>
 
 <script src="sw.js"></script>
 
