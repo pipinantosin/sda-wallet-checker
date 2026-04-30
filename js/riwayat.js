@@ -120,16 +120,16 @@ function renderTxHistory(){
 
         if(!tx) return;
 
-        const isSwap = tx.type === "SWAP";
+        const isSwap  = tx.type === "SWAP";
+        const isAddLP = tx.type === "ADD_LP";
 
         const inSym  = tx.inSymbol  || "SDA";
         const outSym = tx.outSymbol || "TOKEN";
 
-        const symbolDisplay = isSwap
-            ? `${inSym} -> ${outSym}`
+        const symbolDisplay = (isSwap || isAddLP)
+            ? `${inSym} + ${outSym}`
             : (tx.symbol || "SDA");
 
-        // FIX: normalise logo â€” hindari path rusak / double img/
         const logo = normalizeLogo(tx.logo, "img/sda.png");
 
         const from = tx.from?.toLowerCase();
@@ -139,7 +139,11 @@ function renderTxHistory(){
         let color = "#ff4d4f";
         let icon  = "up";
 
-        if (isSwap) {
+        if (isAddLP) {
+            type  = "ADD LP";
+            color = "#f59e0b";
+            icon  = "lp";
+        } else if (isSwap) {
             type  = "SWAP";
             color = "#3b82f6";
             icon  = "swap";
@@ -149,13 +153,26 @@ function renderTxHistory(){
             icon  = "down";
         }
 
-        let value = isSwap
-            ? Number(tx.amountOut || 0)
-            : Number(tx.value     || 0);
+        // value display
+        let value;
+        if (isAddLP) {
+            // tampilkan amount0 + amount1
+            value = 0; // tidak pakai number tunggal
+        } else if (isSwap) {
+            value = Number(tx.amountOut || 0);
+        } else {
+            value = Number(tx.value || 0);
+        }
 
         let valueFormatted;
-
-        if (value === 0) {
+        if (isAddLP) {
+            const v0 = Number(tx.amount0 || 0);
+            const v1 = Number(tx.amount1 || 0);
+            const fmt = (n) => n < 0.000001 && n > 0
+                ? n.toExponential(2)
+                : n.toFixed(6).replace(/\.?0+$/, "");
+            valueFormatted = `${fmt(v0)} + ${fmt(v1)}`;
+        } else if (value === 0) {
             valueFormatted = "0";
         } else if (value < 0.000001) {
             valueFormatted = value.toExponential(2);
@@ -164,9 +181,11 @@ function renderTxHistory(){
         }
 
         const targetAddr = type === "SEND" ? tx.to : tx.from;
-        const shortAddr  = targetAddr
-            ? targetAddr.slice(0,6) + "..." + targetAddr.slice(-4)
-            : "-";
+        const shortAddr  = (isAddLP || isSwap)
+            ? "Liquidity Pool"
+            : targetAddr
+                ? targetAddr.slice(0,6) + "..." + targetAddr.slice(-4)
+                : "-";
 
         // =============================
         // ICON TEXT (FA tidak bisa di innerHTML aman)
@@ -174,7 +193,8 @@ function renderTxHistory(){
         const iconHTML = {
             up:   '<i class="fa-solid fa-arrow-up"></i>',
             down: '<i class="fa-solid fa-arrow-down"></i>',
-            swap: '<i class="fa-solid fa-right-left"></i>'
+            swap: '<i class="fa-solid fa-right-left"></i>',
+            lp:   '<i class="fa-solid fa-droplet"></i>'
         }[icon];
 
         // =============================
@@ -183,7 +203,7 @@ function renderTxHistory(){
         const inLogo  = normalizeLogo(tx.inLogo,  "img/sda.png");
         const outLogo = normalizeLogo(tx.outLogo, "img/default.png");
 
-        const logoHTML = isSwap
+        const logoHTML = (isSwap || isAddLP)
             ? `<div style="position:relative;width:46px;height:34px;flex-shrink:0;">
                 <img src="${inLogo}"
                      onerror="this.src='img/default.png'"
