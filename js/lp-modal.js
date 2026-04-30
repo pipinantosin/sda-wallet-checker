@@ -17,15 +17,23 @@ window.lpState = {
 
 
 // =====================================
+// LOGO PATH HELPER (sama dengan riwayat.js)
+// =====================================
+function normalizeLogo(raw, fallback) {
+    if (!raw || typeof raw !== "string" || raw.trim() === "") return fallback || "img/sda.png";
+    if (raw.startsWith("img/"))  return raw;
+    if (raw.startsWith("http"))  return raw;
+    if (!raw.includes("/"))      return "img/" + raw;
+    return raw;
+}
+
+
+// =====================================
 // OPEN / CLOSE
 // =====================================
 function openLPModal() {
     const modal = document.getElementById("lpModal");
     if (!modal) return;
-
-    // guard PK
-    try { requirePK(); } catch { return; }
-
     modal.classList.add("show");
     initLP();
 }
@@ -462,22 +470,35 @@ async function saveLPToHistory(tx, data) {
     try {
         const history = getTxHistory?.() || [];
 
+        const t0 = getLPToken(data.token0);
+        const t1 = getLPToken(data.token1);
+
         history.unshift({
             hash:      tx.hash,
             type:      "ADD_LP",
-            token0:    data.token0,
-            token1:    data.token1,
-            inSymbol:  getLPToken(data.token0).symbol,
-            outSymbol: getLPToken(data.token1).symbol,
-            inLogo:    getLPToken(data.token0).logo,
-            outLogo:   getLPToken(data.token1).logo,
+
+            // fields untuk render riwayat
+            from:      tx.receipt?.from || "",
+            to:        PM_ADDRESS,
+
+            inSymbol:  t0.symbol,
+            outSymbol: t1.symbol,
+            inLogo:    normalizeLogo(t0.logo,  "img/sda.png"),
+            outLogo:   normalizeLogo(t1.logo,  "img/default.png"),
+
             amount0:   parseFloat(data.amount0),
             amount1:   parseFloat(data.amount1),
+
+            // tokenId kalau berhasil di-parse
+            tokenId:   tx.tokenId || null,
+
             timestamp: Math.floor(Date.now() / 1000),
             read:      false
         });
 
         saveTxHistory?.(history);
+        console.log("LP history saved:", tx.hash);
+
     } catch (e) {
         console.warn("LP history save failed:", e);
     }
