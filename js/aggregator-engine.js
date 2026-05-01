@@ -1,376 +1,249 @@
 // =====================================
-// AGGREGATOR ENGINE v2
-// Multi-hop route finder + executor
+// AGGREGATOR ENGINE v3
 // =====================================
 
 window.AGGREGATOR = (() => {
 
-    // =====================================
-    // CONFIG
-    // =====================================
-    const WSDA          = () => window.CONFIG?.WSDA;
-    const ROUTE_HUBS    = () => [
-        window.CONFIG?.WSDA,
-        "0xb8d7fb85c4BF32f418715Dcb9eBF88107eE73CB7", // IFC
-        "0xEEd87C64D1650A824F8589adcB76a13A692E2EA8"  // SGHC
-    ].filter(Boolean);
+    const WSDA         = () => window.CONFIG?.WSDA;
+    const FEE_PER_HOP  = 0.003;
+    const SLIPPAGE     = 0.005;
+    const SCAN_TIMEOUT = 15000;
+    const BATCH_SIZE   = 2;
+    const BATCH_DELAY  = 500;
+    const MAX_RESULTS  = 15;
 
-    const FEE_PER_HOP   = 0.003;   // 0.3% per pool
-    const SLIPPAGE      = 0.005;   // 0.5%
-    const SCAN_TIMEOUT  = 8000;    // ms per token scan
-    const MAX_RESULTS   = 20;
+    let _scanning    = false;
+    let _lastScanKey = "";
+    let _lastResults = [];
+    let _panelOpen   = false;
 
-    let   _scanning     = false;
-    let   _lastScanKey  = "";
-    let   _lastResults  = [];
-    let   _panelOpen    = false;
-
-
-    // =====================================
-    // HELPERS
-    // =====================================
-    function isNative(addr) {
-        return !addr || addr === "native";
-    }
-
-    function toWrap(addr) {
-        return isNative(addr) ? WSDA() : addr;
-    }
-
-    function same(a, b) {
-        return String(a).toLowerCase() === String(b).toLowerCase();
-    }
+    function _isNat(addr) { return !addr || addr === "native"; }
+    function _same(a, b)  { return String(a).toLowerCase() === String(b).toLowerCase(); }
 
     function symbolOf(addr) {
-        if (isNative(addr)) return "SDA";
-        return (window.TOKENS || []).find(t => same(t.address, addr))?.symbol || addr.slice(0, 6) + "...";
+        if (_isNat(addr)) return "SDA";
+        return (window.TOKENS || []).find(t => _same(t.address, addr))?.symbol || addr.slice(0,6)+"...";
     }
 
     function logoOf(addr) {
-        if (isNative(addr)) return "img/sda.png";
-        const t = (window.TOKENS || []).find(x => same(x.address, addr));
-        return t?.logo || "img/default.png";
+        if (_isNat(addr)) return "img/sda.png";
+        return (window.TOKENS || []).find(t => _same(t.address, addr))?.logo || "img/default.png";
     }
 
-    function feeForHops(n) {
-        // compound fee deduction: (1 - fee)^n
-        return 1 - Math.pow(1 - FEE_PER_HOP, n);
+    function withTimeout(p, ms) {
+        return Promise.race([p, new Promise((_,r) => setTimeout(() => r(new Error("timeout")), ms))]);
     }
 
-    function withTimeout(promise, ms) {
-        return Promise.race([
-            promise,
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("timeout")), ms)
-            )
-        ]);
-    }
-
-
     // =====================================
-    // ROUTE SIMULATION
-    // Coba semua kemungkinan path:
-    // direct, via setiap hub, via 2 hub
+    // CORE SCAN
     // =====================================
-    async function simulateBestRoute(tokenIn, tokenOut, amountIn) {
+    async function scanCheapestPayer(receiveToken, amountOut) {
+        if (!receiveToken) return [];
 
-        const tIn  = toWrap(tokenIn);
-        const tOut = toWrap(tokenOut);
-
-        if (same(tIn, tOut)) return null;
-
-        const hubs    = ROUTE_HUBS().filter(h => !same(h, tIn) && !same(h, tOut));
-        const routes  = [
-            [tIn, tOut],                           // direct
-            ...hubs.map(h => [tIn, h, tOut]),      // 1 hop via hub
-            ...hubs.flatMap((h1, i) =>             // 2 hop via 2 hubs
-                hubs.slice(i + 1).map(h2 => [tIn, h1, h2, tOut])
-            )
-        ];
-
-        let bestOut   = 0;
-        let bestRoute = null;
-        let bestNet   = 0;
-
-        const tasks = routes.map(async (route) => {
-            try {
-                let out = amountIn;
-
-                for (let i = 0; i < route.length - 1; i++) {
-                    out = await withTimeout(
-                        PRICE_ENGINE.getAmountOut(route[i], route[i + 1], out),
-                        SCAN_TIMEOUT
-                    );
-                    if (!out || out <= 0) return;
-                }
-
-                const hops    = route.length - 1;
-                const netFee  = feeForHops(hops);
-                const netOut  = out * (1 - netFee) * (1 - SLIPPAGE);
-
-                if (netOut > bestNet) {
-                    bestOut   = out;
-                    bestNet   = netOut;
-                    bestRoute = route;
-                }
-            } catch { /* skip failed route */ }
-        });
-
-        await Promise.all(tasks);
-
-        if (!bestRoute) return null;
-
-        return {
-            route:    bestRoute,
-            rawOut:   bestOut,
-            netOut:   bestNet,
-            hops:     bestRoute.length - 1,
-            path:     bestRoute.map(symbolOf).join(" â†’ ")
-        };
-    }
-
-
-    // =====================================
-    // SCAN ALL TOKENS
-    // Untuk setiap token T di tokens.json:
-    // hitung rute: payToken â†’ T â†’ receiveToken
-    // vs direct: payToken â†’ receiveToken
-    // =====================================
-    async function scanAllRoutes(payToken, receiveToken, amountIn) {
-
-        const allTokens = (window.DEFAULT_TOKENS || window.TOKENS || [])
-            .filter(t =>
-                t.address &&
-                !same(t.address, payToken) &&
-                !same(t.address, receiveToken) &&
-                !same(t.address, WSDA()) &&
-                t.symbol !== "WSDA"
-            );
-
-        // tambah SDA native kalau bukan sudah pay/receive
+        const customList = JSON.parse(localStorage.getItem("customTokens") || "[]");
         const candidates = [
-            ...(isNative(payToken) || isNative(receiveToken)
-                ? [] : [{ address: "native", symbol: "SDA" }]),
-            ...allTokens
+            { address: "native", symbol: "SDA", logo: "img/sda.png" },
+            ...customList.filter(t =>
+                t.address &&
+                !_same(t.address, receiveToken) &&
+                !_same(t.address, WSDA()) &&
+                t.symbol !== "WSDA"
+            )
         ];
 
-        // baseline: direct route
-        const baseline = await simulateBestRoute(payToken, receiveToken, amountIn);
+        const targetAmt = amountOut > 0 ? amountOut : 1;
+        const panelEl   = document.getElementById("aggPanel");
+
+        // debug helper â€” tampil langsung di panel
+        const dbg = (msg) => {
+            if (panelEl) panelEl.innerHTML +=
+                `<div style="font-size:10px;color:#555;padding:1px 12px;">${msg}</div>`;
+        };
+
+        if (panelEl) panelEl.innerHTML =
+            `<div style="padding:10px 12px;font-size:11px;color:#888;">
+                Scan ${candidates.length} kandidat untuk ${symbolOf(receiveToken)}...
+             </div>`;
+
+        // baseline: berapa SDA untuk dapat 1 receiveToken
+        let baselineSDACost = null;
+        try {
+            const sdaOut = await withTimeout(PRICE_ENGINE.getAmountOut("native", receiveToken, 1), SCAN_TIMEOUT);
+            dbg(`SDA -> ${symbolOf(receiveToken)}: rate=${sdaOut}`);
+            if (sdaOut > 0) baselineSDACost = targetAmt / sdaOut;
+        } catch(e) {
+            dbg(`baseline err: ${e.message}`);
+        }
 
         const results = [];
 
-        // scan parallel tapi batasi 5 sekaligus
-        const BATCH = 5;
-        for (let i = 0; i < candidates.length; i += BATCH) {
-            const batch = candidates.slice(i, i + BATCH);
+        for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+            const batch = candidates.slice(i, i + BATCH_SIZE);
 
-            const batchResults = await Promise.all(batch.map(async (mid) => {
+            const batchRes = await Promise.all(batch.map(async (token) => {
                 try {
-                    // route: pay â†’ mid â†’ receive
-                    const midOut = await withTimeout(
-                        PRICE_ENGINE.getAmountOut(payToken, mid.address, amountIn),
+                    // rate: 1 token -> berapa receiveToken
+                    const rateOut = await withTimeout(
+                        PRICE_ENGINE.getAmountOut(token.address, receiveToken, 1),
                         SCAN_TIMEOUT
                     );
-                    if (!midOut || midOut <= 0) return null;
+                    dbg(`${token.symbol} -> ${symbolOf(receiveToken)}: ${rateOut}`);
+                    if (!rateOut || rateOut <= 0) return null;
 
-                    const finalOut = await withTimeout(
-                        PRICE_ENGINE.getAmountOut(mid.address, receiveToken, midOut),
-                        SCAN_TIMEOUT
-                    );
-                    if (!finalOut || finalOut <= 0) return null;
+                    const unitsNeeded = targetAmt / rateOut;
 
-                    const hops   = 2;
-                    const netFee = feeForHops(hops);
-                    const netOut = finalOut * (1 - netFee) * (1 - SLIPPAGE);
+                    // harga token dalam SDA
+                    let sdaPerToken = _isNat(token.address) ? 1 : null;
+                    if (!sdaPerToken) {
+                        const out2 = await withTimeout(
+                            PRICE_ENGINE.getAmountOut("native", token.address, 1),
+                            SCAN_TIMEOUT
+                        );
+                        dbg(`  SDA -> ${token.symbol}: ${out2}`);
+                        sdaPerToken = out2 > 0 ? (1 / out2) : null;
+                    }
+                    if (!sdaPerToken || sdaPerToken <= 0) return null;
 
-                    const baselineNet = baseline?.netOut || 0;
-                    const improvement = baselineNet > 0
-                        ? ((netOut - baselineNet) / baselineNet) * 100
-                        : 0;
+                    const totalSDAEq = unitsNeeded * sdaPerToken;
+                    const hops       = _isNat(token.address) ? 1 : 2;
+                    const feeAdj     = Math.pow(1 - FEE_PER_HOP, hops) * (1 - SLIPPAGE);
+                    const netSDAEq   = totalSDAEq / feeAdj;
+
+                    let savingsPct = null;
+                    if (baselineSDACost && baselineSDACost > 0) {
+                        savingsPct = ((baselineSDACost - netSDAEq) / baselineSDACost) * 100;
+                    }
 
                     return {
-                        via:         mid.address,
-                        viaSymbol:   mid.symbol || symbolOf(mid.address),
-                        viaLogo:     logoOf(mid.address),
-                        rawOut:      finalOut,
-                        netOut,
-                        hops,
-                        improvement,
-                        path:        `${symbolOf(payToken)} â†’ ${mid.symbol || symbolOf(mid.address)} â†’ ${symbolOf(receiveToken)}`
+                        payToken:  token.address,
+                        paySymbol: token.symbol || symbolOf(token.address),
+                        payLogo:   token.logo   || logoOf(token.address),
+                        unitsNeeded, sdaEquiv: netSDAEq,
+                        savings: baselineSDACost ? baselineSDACost - netSDAEq : null,
+                        savingsPct, hops,
+                        isSDA: _isNat(token.address)
                     };
-                } catch { return null; }
+                } catch(e) {
+                    dbg(`${token.symbol} err: ${e.message}`);
+                    return null;
+                }
             }));
 
-            results.push(...batchResults.filter(Boolean));
+            results.push(...batchRes.filter(Boolean));
+            if (results.length && _panelOpen) _renderIncremental(results, receiveToken, targetAmt);
+            if (i + BATCH_SIZE < candidates.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
         }
 
-        // tambahkan baseline sebagai opsi
-        if (baseline) {
-            results.unshift({
-                via:         null,
-                viaSymbol:   "Direct",
-                viaLogo:     null,
-                rawOut:      baseline.rawOut,
-                netOut:      baseline.netOut,
-                hops:        baseline.hops,
-                improvement: 0,
-                path:        baseline.path,
-                isDirect:    true
-            });
-        }
-
-        // sort: netOut tertinggi di atas
-        results.sort((a, b) => b.netOut - a.netOut);
-
+        results.sort((a, b) => a.sdaEquiv - b.sdaEquiv);
         return results.slice(0, MAX_RESULTS);
     }
 
-
     // =====================================
-    // RENDER PANEL
+    // RENDER
     // =====================================
-    function renderPanel(results, payToken, receiveToken, amountIn) {
+    function renderPanel(results, receiveToken, targetAmt) {
         const el = document.getElementById("aggPanel");
         if (!el) return;
 
         if (!results?.length) {
-            el.innerHTML = `
-                <div style="padding:16px;text-align:center;color:#888;font-size:13px;">
-                    No routes found
-                </div>`;
+            el.innerHTML = `<div style="padding:16px;text-align:center;color:#888;font-size:12px;">
+                Tidak ada data â€” coba token lain</div>`;
             return;
         }
 
-        const best = results[0];
+        const recvSym = symbolOf(receiveToken);
+        const best    = results[0];
 
         el.innerHTML = `
-            <div style="padding:12px 0 6px;font-size:11px;color:#666;text-align:center;">
-                ${results.length} routes found &bull; Best: ${best.path}
+            <div class="agg-header-info">
+                Untuk dapat <b>${targetAmt} ${recvSym}</b> &bull;
+                paling murah: <b style="color:#00d084">${best.paySymbol}</b>
             </div>
-            ${results.map((r, idx) => _renderRow(r, idx, payToken, receiveToken, amountIn)).join("")}
+            ${results.map((r, idx) => _buildRow(r, idx, receiveToken, targetAmt)).join("")}
         `;
     }
 
-    function _renderRow(r, idx, payToken, receiveToken, amountIn) {
-        const isBest = idx === 0;
-        const isPos  = r.improvement > 0;
-        const color  = r.isDirect
-            ? "#58a6ff"
-            : isPos ? "#00d084" : "#888";
+    function _renderIncremental(results, receiveToken, targetAmt) {
+        renderPanel([...results].sort((a,b) => a.sdaEquiv - b.sdaEquiv), receiveToken, targetAmt);
+    }
 
-        const improvText = r.isDirect
-            ? "baseline"
-            : (r.improvement > 0
-                ? `+${r.improvement.toFixed(2)}%`
-                : `${r.improvement.toFixed(2)}%`);
+    function _buildRow(r, idx, receiveToken, targetAmt) {
+        const isBest  = idx === 0;
+        const cheaper = r.savingsPct !== null && r.savingsPct > 0.5;
+        const pricier = r.savingsPct !== null && r.savingsPct < -0.5;
 
-        const netDisplay = r.netOut > 0
-            ? r.netOut.toFixed(6)
-            : "â€“";
-
-        const viaIcon = r.viaLogo
-            ? `<img src="${r.viaLogo}" onerror="this.src='img/default.png'"
-                    style="width:16px;height:16px;border-radius:50%;margin-right:4px;vertical-align:middle;">`
+        const badge = r.isSDA
+            ? `<span class="agg-tag blue">BASELINE</span>`
+            : cheaper ? `<span class="agg-tag green">SAVE ${r.savingsPct.toFixed(1)}%</span>`
+            : pricier ? `<span class="agg-tag red">${r.savingsPct.toFixed(1)}%</span>`
             : "";
+
+        const unitsDisplay = r.unitsNeeded < 0.000001
+            ? r.unitsNeeded.toExponential(3)
+            : r.unitsNeeded.toFixed(6).replace(/\.?0+$/, "");
 
         return `
             <div class="agg-row ${isBest ? 'agg-best' : ''}"
-                 onclick="AGGREGATOR.useRoute('${r.via || ''}', '${payToken}', '${receiveToken}', ${amountIn})">
-
+                 onclick="AGGREGATOR.usePayToken('${r.payToken}','${receiveToken}',${targetAmt})">
                 <div class="agg-row-left">
-                    ${viaIcon}
+                    <img src="${r.payLogo}" onerror="this.src='img/default.png'"
+                         style="width:28px;height:28px;border-radius:50%;flex-shrink:0;object-fit:contain;">
                     <div>
-                        <div class="agg-path">${r.path}</div>
-                        <div class="agg-meta">${r.hops} hop${r.hops > 1 ? 's' : ''} &bull; after fees</div>
+                        <div class="agg-path">Bayar dengan <b>${r.paySymbol}</b></div>
+                        <div class="agg-meta">${unitsDisplay} ${r.paySymbol} &equiv; ${r.sdaEquiv.toFixed(4)} SDA</div>
                     </div>
                 </div>
-
                 <div class="agg-row-right">
-                    <div class="agg-out">${netDisplay} ${symbolOf(receiveToken)}</div>
-                    <div class="agg-improve" style="color:${color}">${improvText}</div>
-                    ${isBest ? '<div class="agg-best-tag">BEST</div>' : ''}
+                    ${badge}
+                    ${isBest && !r.isSDA ? '<div class="agg-best-tag">BEST</div>' : ""}
                 </div>
-
-            </div>
-        `;
+            </div>`;
     }
 
-
     // =====================================
-    // USE ROUTE â€” set swap state ke route terbaik
+    // USE PAY TOKEN
     // =====================================
-    function useRoute(viaAddr, payToken, receiveToken, amountIn) {
-        if (viaAddr && viaAddr !== "null") {
-            // set intermediate via swapState hint
-            window.swapState._aggVia = viaAddr;
-            showToast?.(`Route via ${symbolOf(viaAddr)} dipilih`, "success");
-        } else {
-            window.swapState._aggVia = null;
-            showToast?.("Direct route dipilih", "success");
-        }
+    function usePayToken(payToken, receiveToken, targetAmt) {
+        window.swapState.payToken = payToken;
 
-        // update receive estimate di swap modal
-        _updateSwapEstimate(payToken, receiveToken, amountIn, viaAddr || null);
+        const paySymEl  = document.getElementById("payTokenSymbol");
+        const payIconEl = document.getElementById("payTokenIcon");
+        if (paySymEl)  paySymEl.innerText = symbolOf(payToken);
+        if (payIconEl) payIconEl.src      = logoOf(payToken);
 
-        closePanelIfMobile();
-    }
-
-    async function _updateSwapEstimate(payToken, receiveToken, amountIn, via) {
-        const outEl = document.getElementById("receiveAmount");
-        if (!outEl) return;
-
-        try {
-            let out = amountIn;
-
-            if (via) {
-                const mid = await PRICE_ENGINE.getAmountOut(payToken, via, amountIn);
-                out = await PRICE_ENGINE.getAmountOut(via, receiveToken, mid);
-            } else {
-                out = await PRICE_ENGINE.getAmountOut(payToken, receiveToken, amountIn);
-            }
-
-            const hops   = via ? 2 : 1;
-            const net    = out * (1 - feeForHops(hops)) * (1 - SLIPPAGE);
-
-            if (typeof getRealisticOut === "function") {
-                outEl.value = getRealisticOut(amountIn, net).toFixed(6);
-            } else {
-                outEl.value = net.toFixed(6);
-            }
-        } catch { /* ignore */ }
-    }
-
-
-    // =====================================
-    // PANEL TOGGLE
-    // =====================================
-    function togglePanel() {
-        const wrap = document.getElementById("aggPanelWrap");
-        if (!wrap) return;
-
-        _panelOpen = !_panelOpen;
-        wrap.style.display = _panelOpen ? "block" : "none";
-
-        const btn = document.getElementById("aggToggleBtn");
-        if (btn) {
-            btn.innerHTML = _panelOpen
-                ? '<i class="fa-solid fa-chart-line"></i> Routes <i class="fa-solid fa-chevron-up" style="font-size:10px;margin-left:4px;"></i>'
-                : '<i class="fa-solid fa-chart-line"></i> Routes <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>';
-        }
-
-        // trigger scan saat panel dibuka
-        if (_panelOpen) triggerScan();
-    }
-
-    function closePanelIfMobile() {
-        // tutup panel di mobile setelah pilih route
-        if (window.innerWidth < 480) {
-            const wrap = document.getElementById("aggPanelWrap");
-            if (wrap) wrap.style.display = "none";
+        _calcPayAmount(payToken, receiveToken, targetAmt);
+        showToast?.(`Bayar dengan ${symbolOf(payToken)}`, "success");
+        if (window.innerWidth < 520) {
+            const w = document.getElementById("aggPanelWrap");
+            if (w) w.style.display = "none";
             _panelOpen = false;
         }
     }
 
+    async function _calcPayAmount(payToken, receiveToken, targetAmt) {
+        try {
+            const rate = await PRICE_ENGINE.getAmountOut(payToken, receiveToken, 1);
+            if (!rate || rate <= 0) return;
+            const payInput  = document.getElementById("payAmount");
+            const recvInput = document.getElementById("receiveAmount");
+            if (payInput)  payInput.value  = (targetAmt / rate).toFixed(6);
+            if (recvInput) recvInput.value = Number(targetAmt).toFixed(6);
+        } catch {}
+    }
+
+    // =====================================
+    // TOGGLE
+    // =====================================
+    function togglePanel() {
+        const wrap = document.getElementById("aggPanelWrap");
+        if (!wrap) return;
+        _panelOpen = !_panelOpen;
+        wrap.style.display = _panelOpen ? "block" : "none";
+        const btn = document.getElementById("aggToggleBtn");
+        if (btn) btn.innerHTML = `<i class="fa-solid fa-magnifying-glass-dollar"></i> Best Price
+            <i class="fa-solid fa-chevron-${_panelOpen?'up':'down'}" style="font-size:10px;margin-left:4px;"></i>`;
+        if (_panelOpen) triggerScan();
+    }
 
     // =====================================
     // TRIGGER SCAN
@@ -378,146 +251,90 @@ window.AGGREGATOR = (() => {
     async function triggerScan() {
         if (_scanning) return;
 
-        const payToken     = window.swapState?.payToken;
         const receiveToken = window.swapState?.receiveToken;
-        const amountRaw    = document.getElementById("payAmount")?.value;
-        const amountIn     = parseFloat(amountRaw);
+        const amount       = parseFloat(document.getElementById("payAmount")?.value) || 1;
 
-        if (!payToken || !receiveToken) return;
-        if (same(payToken, receiveToken)) return;
+        if (!receiveToken) return;
 
-        const amount = (!amountIn || amountIn <= 0) ? 1 : amountIn;
-        const scanKey = `${payToken}_${receiveToken}_${amount}`;
-
-        // skip kalau sama persis
+        const scanKey = `${receiveToken}_${amount}`;
         if (scanKey === _lastScanKey && _lastResults.length) {
-            renderPanel(_lastResults, payToken, receiveToken, amount);
+            renderPanel(_lastResults, receiveToken, amount);
             return;
         }
 
-        _scanning   = true;
+        _scanning    = true;
         _lastScanKey = scanKey;
-
-        const panelEl = document.getElementById("aggPanel");
-        if (panelEl) panelEl.innerHTML = `
-            <div style="padding:16px;text-align:center;">
-                <i class="fa-solid fa-spinner fa-spin" style="color:#ff7a00;"></i>
-                <span style="color:#888;font-size:12px;margin-left:8px;">Scanning ${(window.DEFAULT_TOKENS || window.TOKENS || []).length} tokens...</span>
-            </div>`;
-
-        // update badge
         _setBadge("...");
 
         try {
-            const results = await scanAllRoutes(payToken, receiveToken, amount);
+            const results = await scanCheapestPayer(receiveToken, amount);
             _lastResults  = results;
-
-            renderPanel(results, payToken, receiveToken, amount);
-
-            // badge: jumlah route profitable
-            const profitable = results.filter(r => r.improvement > 0).length;
-            _setBadge(profitable > 0 ? profitable : results.length);
-
-        } catch (e) {
-            console.warn("Aggregator scan error:", e);
-            if (panelEl) panelEl.innerHTML =
-                `<div style="padding:12px;color:#f66;font-size:12px;">Scan gagal: ${e.message}</div>`;
+            renderPanel(results, receiveToken, amount);
+            const cheaper = results.filter(r => !r.isSDA && r.savingsPct > 0.5).length;
+            _setBadge(cheaper > 0 ? cheaper : results.length);
+        } catch(e) {
+            const p = document.getElementById("aggPanel");
+            if (p) p.innerHTML = `<div style="padding:12px;color:#f66;font-size:12px;">Error: ${e.message}</div>`;
         } finally {
             _scanning = false;
         }
     }
 
     function _setBadge(val) {
-        const badge = document.getElementById("aggBadge");
-        if (!badge) return;
-        badge.textContent = val;
-        badge.style.display = val ? "inline-block" : "none";
+        const b = document.getElementById("aggBadge");
+        if (!b) return;
+        b.textContent  = val;
+        b.style.display = val ? "inline-block" : "none";
     }
 
+    function rescan() { _lastScanKey = ""; triggerScan(); }
 
     // =====================================
-    // INJECT UI KE SWAP MODAL
+    // INJECT UI
     // =====================================
     function injectUI() {
-        // cari anchor di swap modal
         const anchor = document.getElementById("bestRoute");
         if (!anchor) return;
+        document.getElementById("arbResults")?.closest(".market-scan-box")?.remove();
 
         anchor.innerHTML = `
             <div class="agg-toggle-row">
                 <button id="aggToggleBtn" class="agg-toggle-btn" onclick="AGGREGATOR.togglePanel()">
-                    <i class="fa-solid fa-chart-line"></i> Routes
+                    <i class="fa-solid fa-magnifying-glass-dollar"></i> Best Price
                     <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>
                 </button>
-                <span id="aggBadge" class="agg-badge" style="display:none;">0</span>
+                <span id="aggBadge" class="agg-badge" style="display:none;"></span>
                 <button class="agg-rescan-btn" onclick="AGGREGATOR.rescan()" title="Rescan">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
             </div>
-
             <div id="aggPanelWrap" style="display:none;">
                 <div id="aggPanel" class="agg-panel">
-                    <div style="padding:16px;text-align:center;color:#888;font-size:12px;">
-                        Pilih token dan jumlah dulu
+                    <div style="padding:14px;text-align:center;color:#888;font-size:12px;">
+                        Pilih token yang ingin dibeli dulu
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 
-
     // =====================================
-    // RESCAN (manual)
-    // =====================================
-    function rescan() {
-        _lastScanKey = ""; // force rescan
-        triggerScan();
-    }
-
-
-    // =====================================
-    // WATCHER â€” auto trigger saat token / amount berubah
+    // WATCHER
     // =====================================
     function initWatcher() {
         let lastKey = "";
-
         setInterval(() => {
             if (!_panelOpen) return;
-
-            const pt = window.swapState?.payToken;
-            const rt = window.swapState?.receiveToken;
+            const rt  = window.swapState?.receiveToken;
             const amt = document.getElementById("payAmount")?.value || "1";
-            const key = `${pt}_${rt}_${amt}`;
-
-            if (key !== lastKey) {
-                lastKey = key;
-                triggerScan();
-            }
-        }, 1200);
+            const key = `${rt}_${amt}`;
+            if (key !== lastKey) { lastKey = key; triggerScan(); }
+        }, 1500);
     }
 
-
-    // =====================================
-    // INIT
-    // =====================================
     document.addEventListener("DOMContentLoaded", () => {
-        setTimeout(() => {
-            injectUI();
-            initWatcher();
-        }, 500);
+        setTimeout(() => { injectUI(); initWatcher(); }, 600);
     });
 
-
-    // =====================================
-    // PUBLIC API
-    // =====================================
-    return {
-        togglePanel,
-        triggerScan,
-        rescan,
-        useRoute,
-        scanAllRoutes,
-        simulateBestRoute
-    };
+    return { togglePanel, triggerScan, rescan, usePayToken, scanCheapestPayer };
 
 })();
