@@ -247,8 +247,8 @@ async function addTokenFromList(token) {
 
     let custom = getCustomTokens();
 
-    if (custom.length >= 10) {
-        return showToast("Max 10 token", "error");
+    if (custom.length >= 33) {
+        return showToast("Max 33 token", "error");
     }
 
     const exist = custom.find(
