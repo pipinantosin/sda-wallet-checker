@@ -3,9 +3,11 @@
 // Router-like Estimator
 // =====================================
 
-const WSDA     = window.CONFIG?.WSDA;
-const FACTORY  = window.CONFIG?.FACTORY;
-const FEES     = [500, 3000, 10000];
+// FIX: lazy getter â€” baca CONFIG saat dipanggil, bukan saat file load
+const FEES = [500, 3000, 10000];
+
+function _WSDA()    { return window.CONFIG?.WSDA; }
+function _FACTORY() { return window.CONFIG?.FACTORY; }
 
 const FACTORY_ABI = [
     "function getPool(address,address,uint24) view returns (address)"
@@ -27,7 +29,7 @@ function isNative(t) {
 }
 
 function normalize(t) {
-    return isNative(t) ? WSDA : t;
+    return isNative(t) ? _WSDA() : t;
 }
 
 
@@ -56,7 +58,7 @@ function sqrtToPrice(sqrt) {
 // =====================================
 async function getPool(tokenA, tokenB, fee) {
     try {
-        const factory = new ethers.Contract(FACTORY, FACTORY_ABI, provider);
+        const factory = new ethers.Contract(_FACTORY(), FACTORY_ABI, provider);
         const pool    = await factory.getPool(tokenA, tokenB, fee);
 
         if (!pool || pool === ethers.constants.AddressZero) return null;
@@ -132,10 +134,13 @@ async function getPrice(tokenIn, tokenOut) {
     const direct = await getDirectPrice(tokenIn, tokenOut);
     if (direct > 0) return direct;
 
-    // fallback multihop
+    // fallback multihop via WSDA
+    const wsda = _WSDA();
+    if (!wsda) return 0;
+
     const [leg1, leg2] = await Promise.all([
-        getDirectPrice(tokenIn, WSDA),
-        getDirectPrice(WSDA, tokenOut)
+        getDirectPrice(tokenIn, wsda),
+        getDirectPrice(wsda, tokenOut)
     ]);
 
     if (leg1 > 0 && leg2 > 0) return leg1 * leg2;
@@ -157,9 +162,72 @@ async function getAmountOut(tokenIn, tokenOut, amountIn) {
 
 
 // =====================================
+// GET POOL LIQUIDITY (dalam unit token)
+// Return: { liquidity, token0, token1,
+//           reserve0, reserve1, maxSwapIn }
+// maxSwapIn = estimasi max input sebelum
+//             price impact terlalu besar
+// =====================================
+async function getPoolLiquidity(tokenIn, tokenOut) {
+    try {
+        const A    = normalize(tokenIn);
+        const B    = normalize(tokenOut);
+        const best = await getBestPool(A, B);
+
+        if (!best) return null;
+
+        const pool = new ethers.Contract(best.poolAddr, POOL_ABI, provider);
+
+        const [slot0, liquidity] = await Promise.all([
+            pool.slot0(),
+            pool.liquidity()
+        ]);
+
+        const sqrtPrice = Number(slot0.sqrtPriceX96) / (2 ** 96);
+        const L         = Number(liquidity.toString());
+
+        if (!L || !sqrtPrice) return null;
+
+        // Hitung reserve token0 dan token1 dari L dan sqrtPrice
+        // reserve0 = L / sqrtPrice
+        // reserve1 = L * sqrtPrice
+        const reserve0 = L / sqrtPrice;
+        const reserve1 = L * sqrtPrice;
+
+        // Estimasi max swap: gunakan 30% dari reserve
+        // sebagai batas aman (price impact ~= input/reserve)
+        // 10% impact = max input sekitar 10% reserve
+        const MAX_IMPACT = 0.10; // 10%
+
+        const isInputToken0 =
+            A.toLowerCase() === best.token0.toLowerCase();
+
+        const inputReserve = isInputToken0 ? reserve0 : reserve1;
+        const maxSwapIn    = inputReserve * MAX_IMPACT;
+
+        return {
+            poolAddr:    best.poolAddr,
+            liquidity:   L,
+            token0:      best.token0,
+            token1:      best.token1,
+            reserve0,
+            reserve1,
+            inputReserve,
+            maxSwapIn,
+            fee:         best.fee
+        };
+    } catch (e) {
+        console.warn("getPoolLiquidity error:", e);
+        return null;
+    }
+}
+
+
+// =====================================
 // EXPORT
 // =====================================
 window.PRICE_ENGINE = {
     getPrice,
-    getAmountOut
+    getAmountOut,
+    getPoolLiquidity
 };
