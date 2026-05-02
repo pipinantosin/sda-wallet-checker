@@ -34,6 +34,21 @@ window.AGGREGATOR = (() => {
         return Promise.race([p, new Promise((_,r) => setTimeout(() => r(new Error("timeout")), ms))]);
     }
 
+function getTokenDecimals(addr) {
+    if (_isNat(addr)) return 18;
+
+    return (window.TOKENS || [])
+        .find(t => _same(t.address, addr))
+        ?.decimals || 18;
+}
+
+function formatTokenAmount(raw, decimals = 18) {
+    if (!raw && raw !== 0) return null;
+
+    const num = Number(raw) / (10 ** decimals);
+
+    return isFinite(num) ? num : null;
+}
     // =====================================
     // CORE SCAN
     // =====================================
@@ -110,19 +125,74 @@ window.AGGREGATOR = (() => {
                     const netSDAEq   = totalSDAEq / feeAdj;
 
                     let savingsPct = null;
-                    if (baselineSDACost && baselineSDACost > 0) {
-                        savingsPct = ((baselineSDACost - netSDAEq) / baselineSDACost) * 100;
-                    }
 
-                    return {
-                        payToken:  token.address,
-                        paySymbol: token.symbol || symbolOf(token.address),
-                        payLogo:   token.logo   || logoOf(token.address),
-                        unitsNeeded, sdaEquiv: netSDAEq,
-                        savings: baselineSDACost ? baselineSDACost - netSDAEq : null,
-                        savingsPct, hops,
-                        isSDA: _isNat(token.address)
-                    };
+if (baselineSDACost && baselineSDACost > 0) {
+    savingsPct =
+        ((baselineSDACost - netSDAEq) / baselineSDACost) * 100;
+}
+
+
+// ================================
+// LIQUIDITY CHECK PER ROUTE
+// ================================
+let maxSafeReceive = null;
+let liquidityWarn  = false;
+
+try {
+    const liq = await PRICE_ENGINE.getPoolLiquidity(
+        token.address,
+        receiveToken
+    );
+
+    if (liq) {
+
+if (liq.maxSwapOut) {
+    maxSafeReceive = formatTokenAmount(
+        liq.maxSwapOut,
+        getTokenDecimals(receiveToken)
+    );
+}
+
+        else if (liq.maxSwapIn) {
+            maxSafeReceive =
+    formatTokenAmount(liq.maxSwapIn, getTokenDecimals(token.address))
+    * rateOut;
+        }
+
+        if (maxSafeReceive && targetAmt > maxSafeReceive) {
+            liquidityWarn = true;
+        }
+    }
+
+} catch (e) {
+    console.warn(
+        "[AGG] Liquidity check fail:",
+        token.symbol,
+        e?.message || e
+    );
+}
+
+
+return {
+    payToken:  token.address,
+    paySymbol: token.symbol || symbolOf(token.address),
+    payLogo:   token.logo   || logoOf(token.address),
+
+    unitsNeeded,
+    sdaEquiv: netSDAEq,
+
+    savings: baselineSDACost
+        ? baselineSDACost - netSDAEq
+        : null,
+
+    savingsPct,
+    hops,
+
+    isSDA: _isNat(token.address),
+
+    maxSafeReceive,
+    liquidityWarn
+};
                 } catch(e) {
                     dbg(`${token.symbol} err: ${e.message}`);
                     return null;
@@ -134,7 +204,13 @@ window.AGGREGATOR = (() => {
             if (i + BATCH_SIZE < candidates.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
         }
 
-        results.sort((a, b) => a.sdaEquiv - b.sdaEquiv);
+        results.sort((a, b) => {
+
+    const aPenalty = a.liquidityWarn ? 999999 : 0;
+    const bPenalty = b.liquidityWarn ? 999999 : 0;
+
+    return (a.sdaEquiv + aPenalty) - (b.sdaEquiv + bPenalty);
+});
         return results.slice(0, MAX_RESULTS);
     }
 
@@ -168,36 +244,112 @@ window.AGGREGATOR = (() => {
     }
 
     function _buildRow(r, idx, receiveToken, targetAmt) {
-        const isBest  = idx === 0;
-        const cheaper = r.savingsPct !== null && r.savingsPct > 0.5;
-        const pricier = r.savingsPct !== null && r.savingsPct < -0.5;
+    const isBest  = idx === 0;
+    const cheaper = r.savingsPct !== null && r.savingsPct > 0.5;
+    const pricier = r.savingsPct !== null && r.savingsPct < -0.5;
 
-        const badge = r.isSDA
-            ? `<span class="agg-tag blue">BASELINE</span>`
-            : cheaper ? `<span class="agg-tag green">SAVE ${r.savingsPct.toFixed(1)}%</span>`
-            : pricier ? `<span class="agg-tag red">${r.savingsPct.toFixed(1)}%</span>`
-            : "";
+    const badge = r.isSDA
+        ? `<span class="agg-tag blue">BASELINE</span>`
+        : cheaper
+            ? `<span class="agg-tag green">SAVE ${r.savingsPct.toFixed(1)}%</span>`
+            : pricier
+                ? `<span class="agg-tag red">${r.savingsPct.toFixed(1)}%</span>`
+                : "";
 
-        const unitsDisplay = r.unitsNeeded < 0.000001
-            ? r.unitsNeeded.toExponential(3)
-            : r.unitsNeeded.toFixed(6).replace(/\.?0+$/, "");
+    const unitsDisplay = r.unitsNeeded < 0.000001
+        ? r.unitsNeeded.toExponential(3)
+        : r.unitsNeeded.toFixed(6).replace(/\.?0+$/, "");
 
-        return `
-            <div class="agg-row ${isBest ? 'agg-best' : ''}"
-                 onclick="AGGREGATOR.usePayToken('${r.payToken}','${receiveToken}',${targetAmt})">
-                <div class="agg-row-left">
-                    <img src="${r.payLogo}" onerror="this.src='img/default.png'"
-                         style="width:28px;height:28px;border-radius:50%;flex-shrink:0;object-fit:contain;">
-                    <div>
-                        <div class="agg-path">Bayar dengan <b>${r.paySymbol}</b></div>
-                        <div class="agg-meta">${unitsDisplay} ${r.paySymbol} &equiv; ${r.sdaEquiv.toFixed(4)} SDA</div>
-                    </div>
+    const sdaDisplay = Number(r.sdaEquiv || 0).toFixed(4);
+
+        // Liquidity warning
+        // =====================================
+// LIQUIDITY DISPLAY
+// =====================================
+const hasLiqData = r.maxSafeReceive !== null && r.maxSafeReceive !== undefined;
+
+const liqWarnHTML = hasLiqData
+    ? `
+        <div class="agg-liq"
+             style="
+                font-size:11px;
+                margin-top:4px;
+                color:${r.liquidityWarn ? '#ff4d4f' : '#888'};
+             ">
+            <i class="fa-solid ${
+                r.liquidityWarn
+                    ? 'fa-triangle-exclamation'
+                    : 'fa-droplet'
+            }"></i>
+            ${
+                r.liquidityWarn
+                    ? 'Max Aman'
+                    : 'Liq OK'
+            }:
+            ~${Number(r.maxSafeReceive).toLocaleString(undefined,{
+    maximumFractionDigits:2
+})}
+            ${symbolOf(receiveToken)}
+        </div>
+    `
+    : "";
+
+return `
+    <div class="agg-row
+                ${isBest ? 'agg-best' : ''}
+                ${r.liquidityWarn ? 'agg-liq-danger' : ''}"
+         onclick="AGGREGATOR.usePayToken(
+             '${r.payToken}',
+             '${receiveToken}',
+             ${targetAmt}
+         )">
+
+        <div class="agg-row-left">
+
+            <img src="${r.payLogo}"
+                 onerror="this.src='img/default.png'"
+                 style="
+                    width:28px;
+                    height:28px;
+                    border-radius:50%;
+                    flex-shrink:0;
+                    object-fit:contain;
+                 ">
+
+            <div>
+                <div class="agg-path">
+                    Bayar dengan <b>${r.paySymbol}</b>
                 </div>
-                <div class="agg-row-right">
-                    ${badge}
-                    ${isBest && !r.isSDA ? '<div class="agg-best-tag">BEST</div>' : ""}
+
+                <div class="agg-meta">
+                    ${unitsDisplay} ${r.paySymbol}
+                    &equiv; ${sdaDisplay} SDA
                 </div>
-            </div>`;
+
+                ${liqWarnHTML}
+
+            </div>
+        </div>
+
+        <div class="agg-row-right">
+
+            ${badge}
+
+            ${
+                isBest && !r.isSDA && !r.liquidityWarn
+                    ? '<div class="agg-best-tag">BEST</div>'
+                    : ''
+            }
+
+            ${
+                r.liquidityWarn
+                    ? '<div class="agg-best-tag" style="background:#ff4d4f;">TIPIS</div>'
+                    : ''
+            }
+
+        </div>
+    </div>
+`;
     }
 
     // =====================================
@@ -268,10 +420,16 @@ window.AGGREGATOR = (() => {
 
         try {
             const results = await scanCheapestPayer(receiveToken, amount);
-            _lastResults  = results;
-            renderPanel(results, receiveToken, amount);
-            const cheaper = results.filter(r => !r.isSDA && r.savingsPct > 0.5).length;
-            _setBadge(cheaper > 0 ? cheaper : results.length);
+
+            // Enrich dengan data likuiditas
+            const enriched = window.LIQUIDITY_CHECK
+                ? await window.LIQUIDITY_CHECK.enrichWithLiquidity(results, receiveToken)
+                : results;
+
+            _lastResults  = enriched;
+            renderPanel(enriched, receiveToken, amount);
+            const cheaper = enriched.filter(r => !r.isSDA && r.savingsPct > 0.5).length;
+            _setBadge(cheaper > 0 ? cheaper : enriched.length);
         } catch(e) {
             const p = document.getElementById("aggPanel");
             if (p) p.innerHTML = `<div style="padding:12px;color:#f66;font-size:12px;">Error: ${e.message}</div>`;
