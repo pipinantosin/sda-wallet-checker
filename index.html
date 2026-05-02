@@ -946,19 +946,17 @@
 <!--- ETHERS --->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
+
 <script src="js/config.js"></script>
 <script src="js/storage.js"></script>
-
 <script src="js/wallet-core.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/unwrap-engine.js"></script>
 <script src="js/tokens.js"></script>
 <script src="js/lp.js"></script>
 <script src="js/balance.js"></script>
-
 <script src="js/ui-core.js"></script>
 <script src="js/ui.js"></script>
-
 <script src="js/lang.js"></script>
 <script src="js/app.js"></script>
 <script src="js/send-modal.js"></script>
@@ -969,11 +967,11 @@
 <script src="js/lp-engine.js"></script>
 <script src="js/lp-factory.js"></script>
 <script src="js/lp-modal.js"></script>
-<script src="js/factory-engine.js"></script>
-<script src="js/swap-engine.js"></script>
-<script src="js/swap-modal.js"></script>
-<script src="js/aggregator-engine.js"></script>
-
+<script src="js/factory-engine.js"></script>   <!-- PRICE_ENGINE didefinisikan di sini -->
+<script src="js/swap-liquidity-check.js"></script>	
+<script src="js/swap-engine.js"></script>       <!-- pakai PRICE_ENGINE -->
+<script src="js/swap-modal.js"></script>        <!-- pakai PRICE_ENGINE -->
+<script src="js/aggregator-engine.js"></script> <!-- pakai PRICE_ENGINE -->
 <script src="sw.js"></script>
 
 <script>
