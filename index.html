@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SDA Wallet Checker</title>
 
-
-
-
 </style>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/header.css">
@@ -573,9 +570,20 @@
         <div class="modal-header">
             <span>Transaction History</span>
 
-            <button class="modal-close" onclick="closeTxModal()">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <div style="display:flex;gap:8px;align-items:center;">
+
+                <button class="modal-close"
+                        onclick="clearTxHistory()"
+                        title="Clear History">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+
+                <button class="modal-close"
+                        onclick="closeTxModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
         </div>
 
         <div id="txHistoryList"></div>
