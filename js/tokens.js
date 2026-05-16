@@ -42,7 +42,25 @@ function saveCustomTokens(data) {
     localStorage.setItem("customTokens", JSON.stringify(data));
 }
 
+// =====================================
+// AGGREGATOR CANDIDATE STORAGE
+// =====================================
+function getAggregatorCandidates() {
+    try {
+        return JSON.parse(
+            localStorage.getItem("aggregatorCandidates") || "[]"
+        );
+    } catch {
+        return [];
+    }
+}
 
+function saveAggregatorCandidates(data) {
+    localStorage.setItem(
+        "aggregatorCandidates",
+        JSON.stringify(data)
+    );
+}
 // =====================================
 // REBUILD GLOBAL TOKENS
 // =====================================
@@ -360,6 +378,134 @@ function renderTokenList() {
     });
 }
 
+// =====================================
+// AGGREGATOR TOKEN PICKER UI
+// =====================================
+function openAggregatorCandidatePicker() {
+
+    document.getElementById("aggCandidateModal")?.remove();
+
+    const tokens = getAllTokens().filter(
+        t => t.address !== "native"
+    );
+
+    const selected = getAggregatorCandidates();
+
+    const html = tokens.map(t => `
+        <label class="agg-candidate-item"
+               data-symbol="${(t.symbol || '').toLowerCase()}"
+               data-name="${(t.name || '').toLowerCase()}">
+
+            <input type="checkbox"
+                   value="${t.address}"
+                   ${selected.includes(t.address) ? "checked" : ""}>
+
+            <img src="${t.logo || 'img/default.png'}"
+                 onerror="this.src='img/default.png'">
+
+            <span>${t.symbol}</span>
+        </label>
+    `).join("");
+
+    const box = document.createElement("div");
+    box.id = "aggCandidateModal";
+    box.className = "show";
+
+    box.innerHTML = `
+        <div class="agg-candidate-popup">
+
+            <h3>Pilih Kandidat Aggregator</h3>
+
+            <input
+                id="aggCandidateSearch"
+                type="text"
+                placeholder="Search token..."
+                style="
+                    width:100%;
+                    padding:10px;
+                    margin-bottom:10px;
+                    border:none;
+                    border-radius:10px;
+                    background:#111827;
+                    color:#fff;
+                "
+            >
+
+            <div class="agg-candidate-toolbar">
+                <button id="aggSelectAllBtn" type="button">
+                    Select All
+                </button>
+
+                <button id="aggClearAllBtn" type="button">
+                    Clear All
+                </button>
+            </div>
+
+            <div class="agg-candidate-popup-list">
+                ${html}
+            </div>
+
+            <button id="saveAggCandidatesBtn">
+                Save
+            </button>
+
+        </div>
+    `;
+
+    document.body.appendChild(box);
+
+    // SEARCH FILTER
+    box.querySelector("#aggCandidateSearch").oninput = (e) => {
+        const q = e.target.value.toLowerCase();
+
+        box.querySelectorAll(".agg-candidate-item")
+            .forEach(el => {
+                const sym  = el.dataset.symbol || "";
+                const name = el.dataset.name || "";
+
+                el.style.display =
+                    sym.includes(q) || name.includes(q)
+                        ? ""
+                        : "none";
+            });
+    };
+
+    box.querySelector("#aggSelectAllBtn").onclick = () => {
+        box.querySelectorAll(
+            ".agg-candidate-item input[type='checkbox']"
+        ).forEach(cb => cb.checked = true);
+    };
+
+    box.querySelector("#aggClearAllBtn").onclick = () => {
+        box.querySelectorAll(
+            ".agg-candidate-item input[type='checkbox']"
+        ).forEach(cb => cb.checked = false);
+    };
+
+    box.onclick = (e) => {
+        if (e.target === box) box.remove();
+    };
+
+    box.querySelector("#saveAggCandidatesBtn").onclick = () => {
+
+        const checked = [
+            ...box.querySelectorAll("input:checked")
+        ].map(x => x.value);
+
+        saveAggregatorCandidates(checked);
+
+        showToast?.(
+            "Aggregator candidates updated",
+            "success"
+        );
+
+        box.remove();
+
+        AGGREGATOR?.rescan?.();
+    };
+}
+
+
 
 // =====================================
 // INIT
@@ -392,3 +538,6 @@ window.tokenmanager = {
 };
 
 window.SIDRAPULSE = window.tokenmanager;
+
+window.openAggregatorCandidatePicker =
+    openAggregatorCandidatePicker;
