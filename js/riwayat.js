@@ -303,7 +303,16 @@ function openTxHistory(){
     history.pushState({ modal: "txModal" }, "");
 }
 
+function clearTxHistory() {
+    if (!confirm("Hapus semua riwayat transaksi?")) return;
 
+    localStorage.removeItem("txHistory");
+
+    renderTxHistory();
+    updateBellBadge();
+
+    showToast?.("Riwayat dihapus", "success");
+}
 // =============================
 // CLOSE HISTORY MODAL
 // =============================
