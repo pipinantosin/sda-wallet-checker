@@ -434,3 +434,38 @@ async function getTokenBalance(address, tokenAddr) {
         return "0";
     }
 }
+
+
+document.getElementById("swapButton")?.addEventListener("click", () => {
+    SWAP_ENGINE.swapExactInput();
+});
+
+// =========================
+// FIX: SWAP MODAL REFRESH
+// =========================
+window.refreshSwapModal = async function () {
+    try {
+        if (typeof updateUI === "function") {
+            await updateUI();
+        }
+
+        if (typeof refreshWalletBalance === "function") {
+            await refreshWalletBalance();
+        }
+
+        if (typeof updatePayBalance === "function") {
+            await updatePayBalance();
+        }
+
+        if (typeof updateReceiveBalance === "function") {
+            await updateReceiveBalance();
+        }
+
+        if (typeof updateRate === "function") {
+            await updateRate();
+        }
+
+    } catch (e) {
+        console.warn("[SWAP refresh error]", e);
+    }
+};
