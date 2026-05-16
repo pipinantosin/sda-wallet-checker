@@ -1,6 +1,19 @@
+window.dingAudio = new Audio("audio/ding.mp3");
+window.dingAudio.preload = "auto";
+
+document.addEventListener("click", () => {
+    window.dingAudio.play()
+        .then(() => {
+            window.dingAudio.pause();
+            window.dingAudio.currentTime = 0;
+        })
+        .catch(()=>{});
+}, { once:true });
+
 // =====================================
 // AGGREGATOR ENGINE v3
 // =====================================
+
 
 window.AGGREGATOR = (() => {
 
@@ -10,12 +23,16 @@ window.AGGREGATOR = (() => {
     const SCAN_TIMEOUT = 15000;
     const BATCH_SIZE   = 2;
     const BATCH_DELAY  = 500;
-    const MAX_RESULTS  = 15;
+    const MAX_RESULTS        = 15;
+const MIN_AUTO_PROFIT_SDA = 0.1;
+const MIN_SAFE_RECEIVE = 0.001;
 
-    let _scanning    = false;
-    let _lastScanKey = "";
-    let _lastResults = [];
-    let _panelOpen   = false;
+
+    let _scanning      = false;
+let _lastScanKey   = "";
+let _lastResults   = [];
+let _panelOpen     = false;
+let _suspendWatcher = false;
 
     function _isNat(addr) { return !addr || addr === "native"; }
     function _same(a, b)  { return String(a).toLowerCase() === String(b).toLowerCase(); }
@@ -49,25 +66,361 @@ function formatTokenAmount(raw, decimals = 18) {
 
     return isFinite(num) ? num : null;
 }
+
+function isAutoRunning() {
+    return _autoRunning;
+}
+
+function setAutoRunning(v) {
+    _autoRunning = !!v;
+}
+
+async function getWalletTokenBalance(token) {
+    const wallet =
+        getPKWallet?.() ||
+        getSelectedWallet?.() ||
+        window.wallet;
+
+    if (!wallet) return 0;
+
+    if (!token || token === "native") {
+        const raw = await provider.getBalance(wallet.address);
+        return Number(ethers.utils.formatEther(raw));
+    }
+
+    const erc20 = new ethers.Contract(
+        token,
+        [
+            "function balanceOf(address) view returns (uint256)",
+            "function decimals() view returns (uint8)"
+        ],
+        provider
+    );
+
+    const [raw, dec] = await Promise.all([
+        erc20.balanceOf(wallet.address),
+        erc20.decimals()
+    ]);
+
+    return Number(
+        ethers.utils.formatUnits(raw, dec)
+    );
+}
+
+
+let _wakeLock = null;
+
+async function acquireWakeLock() {
+    try {
+        if (!("wakeLock" in navigator)) {
+            console.warn("[AGG] WakeLock unsupported");
+            return false;
+        }
+
+        if (_wakeLock) {
+            return true;
+        }
+
+        _wakeLock = await navigator.wakeLock.request("screen");
+
+        _wakeLock.addEventListener("release", () => {
+            console.log("[AGG] WakeLock released");
+            _wakeLock = null;
+        });
+
+        console.log("[AGG] WakeLock acquired");
+        return true;
+
+    } catch (e) {
+        console.warn("[AGG] WakeLock fail:", e);
+        _wakeLock = null;
+        return false;
+    }
+}
+
+async function releaseWakeLock() {
+    try {
+        if (_wakeLock) {
+            await _wakeLock.release();
+            _wakeLock = null;
+            console.log("[AGG] WakeLock manually released");
+        }
+    } catch (e) {
+        console.warn("[AGG] Release WakeLock fail:", e);
+    }
+}
+
+// Auto reacquire jika tab/app kembali aktif
+document.addEventListener("visibilitychange", async () => {
+    try {
+        if (
+            document.visibilityState === "visible" &&
+            !_wakeLock
+        ) {
+            await acquireWakeLock();
+        }
+    } catch (e) {
+        console.warn("[AGG] Visibility WakeLock fail:", e);
+    }
+});
+
+function toggleAggregatorCandidate(token){
+    let list = getAggregatorCandidates();
+
+    if(list.includes(token)){
+        list = list.filter(x => x !== token);
+        showToast?.("Removed from scan list", "info");
+    }else{
+        list.push(token);
+        showToast?.("Added to scan list", "success");
+    }
+
+    saveAggregatorCandidates(list);
+
+    // rerender panel agar icon bintang update semua
+    if (_lastResults?.length) {
+        const receiveToken = window.swapState?.receiveToken;
+        const targetAmt = parseFloat(
+            document.getElementById("receiveAmount")?.value
+        ) || 1;
+
+        renderPanel(_lastResults, receiveToken, targetAmt);
+    }
+}
+
+function cleanupAggregatorCandidates() {
+
+    const current =
+        getAggregatorCandidates();
+
+    if (!current?.length) return;
+
+    const validScannedSet = new Set(
+        (_lastResults || [])
+            .filter(r =>
+                !r.isSDA &&
+                r.sdaEquiv !== null &&
+                isFinite(r.sdaEquiv)
+            )
+            .map(r =>
+                String(r.payToken).toLowerCase()
+            )
+    );
+
+    const cleaned = current.filter(addr =>
+        validScannedSet.has(
+            String(addr).toLowerCase()
+        )
+    );
+
+    if (cleaned.length !== current.length) {
+        saveAggregatorCandidates(cleaned);
+
+        console.log(
+            "[AGG] Removed invalid/unroutable tokens only"
+        );
+    }
+}
+
+async function scanSpecificCandidate(
+    payToken,
+    receiveToken,
+    targetAmt
+) {
+    try {
+        const rateOut = await PRICE_ENGINE.getAmountOut(
+            payToken,
+            receiveToken,
+            1
+        );
+
+        if (!rateOut || rateOut <= 0) {
+            throw new Error("Invalid route");
+        }
+
+        const unitsNeeded = targetAmt / rateOut;
+
+        let sdaPerToken = 1;
+
+        if (payToken !== "native") {
+            const sdaQuote =
+                await PRICE_ENGINE.getAmountOut(
+                    "native",
+                    payToken,
+                    1
+                );
+
+            sdaPerToken = 1 / sdaQuote;
+        }
+
+        const sdaEquiv = unitsNeeded * sdaPerToken;
+
+        return {
+            payToken,
+            paySymbol: symbolOf(payToken),
+            payLogo: logoOf(payToken),
+            unitsNeeded,
+            sdaEquiv,
+            isSDA: payToken === "native",
+            savingsPct: null,
+            hops: payToken === "native" ? 1 : 2
+        };
+
+    } catch (e) {
+        console.error(e);
+        return null;
+    }
+}
+
+async function refreshSingleRoute(
+    payToken,
+    receiveToken,
+    targetAmt
+) {
+    showToast?.(
+        `Refreshing ${symbolOf(payToken)}...`,
+        "info"
+    );
+
+    const updated = await scanSpecificCandidate(
+        payToken,
+        receiveToken,
+        targetAmt
+    );
+
+    if (!updated) {
+        showToast?.("Refresh gagal", "error");
+        return;
+    }
+
+    const idx = _lastResults.findIndex(
+        x => x.payToken === payToken
+    );
+
+    if (idx >= 0) {
+        // preserve old liquidity/maxsafe/logo/etc
+        _lastResults[idx] = {
+            ..._lastResults[idx],
+            ...updated
+        };
+    }
+
+    const baseline = _lastResults.find(x => x.isSDA);
+
+    if (baseline?.sdaEquiv > 0) {
+        _lastResults = _lastResults.map(r => ({
+            ...r,
+            savings: baseline.sdaEquiv - r.sdaEquiv,
+            savingsPct:
+                ((baseline.sdaEquiv - r.sdaEquiv) / baseline.sdaEquiv) * 100
+        }));
+    }
+
+    // jangan filter minus
+    _lastResults.sort((a, b) => {
+
+    const aPlus = (a.savingsPct ?? -999) > 0;
+    const bPlus = (b.savingsPct ?? -999) > 0;
+
+    if (aPlus && !bPlus) return -1;
+    if (!aPlus && bPlus) return 1;
+
+    if (aPlus && bPlus) {
+        return a.sdaEquiv - b.sdaEquiv;
+    }
+
+    return (a.savingsPct ?? 0) - (b.savingsPct ?? 0);
+});
+
+    renderPanel(
+        _lastResults,
+        receiveToken,
+        targetAmt
+    );
+
+    showToast?.("Route refreshed", "success");
+}
+
+let _autoRunning = false;
+
+function lockAutoButton(btn) {
+    if (!btn) return;
+
+    btn.disabled = true;
+    btn.style.opacity = "0.55";
+    btn.style.pointerEvents = "none";
+}
+
+function unlockAutoButtons() {
+    document.querySelectorAll(".agg-auto-btn").forEach(btn => {
+        btn.disabled = false;
+        btn.style.opacity = "";
+        btn.style.pointerEvents = "";
+    });
+}
     // =====================================
     // CORE SCAN
     // =====================================
     async function scanCheapestPayer(receiveToken, amountOut) {
         if (!receiveToken) return [];
 
-        const customList = JSON.parse(localStorage.getItem("customTokens") || "[]");
-        const candidates = [
-            { address: "native", symbol: "SDA", logo: "img/sda.png" },
-            ...customList.filter(t =>
-                t.address &&
-                !_same(t.address, receiveToken) &&
-                !_same(t.address, WSDA()) &&
-                t.symbol !== "WSDA"
-            )
-        ];
+        const tokenList = typeof getAllTokens === "function"
+    ? getAllTokens()
+    : JSON.parse(localStorage.getItem("customTokens") || "[]");
+
+const selectedCandidates = JSON.parse(
+    localStorage.getItem("aggregatorCandidates") || "[]"
+);
+
+const selectedSet = new Set(
+    selectedCandidates.map(a => String(a).toLowerCase())
+);
+
+let filteredCustom = tokenList.filter(
+    t =>
+        t.address &&
+        selectedSet.has(String(t.address).toLowerCase())
+);
+
+const candidates = [
+    { address: "native", symbol: "SDA", logo: "img/sda.png" },
+
+    ...filteredCustom.filter(t =>
+        t.address &&
+        !_same(t.address, receiveToken) &&
+        !_same(t.address, WSDA()) &&
+        t.symbol !== "WSDA"
+    )
+];
 
         const targetAmt = amountOut > 0 ? amountOut : 1;
-        const panelEl   = document.getElementById("aggPanel");
+const panelEl   = document.getElementById("aggPanel");
+
+if (!filteredCustom.length) {
+
+    if (panelEl) {
+        panelEl.innerHTML = `
+            <div style="padding:12px;color:#888;font-size:12px;">
+                Tidak ada kandidat dipilih.<br>
+                Menggunakan SDA baseline saja.
+            </div>
+        `;
+    }
+
+    return [{
+        payToken: "native",
+        paySymbol: "SDA",
+        payLogo: "img/sda.png",
+        unitsNeeded: targetAmt,
+        sdaEquiv: targetAmt,
+        savings: 0,
+        savingsPct: 0,
+        hops: 1,
+        isSDA: true,
+        maxSafeReceive: null,
+        liquidityWarn: false
+    }];
+}
 
         // debug helper â€” tampil langsung di panel
         const dbg = (msg) => {
@@ -76,9 +429,11 @@ function formatTokenAmount(raw, decimals = 18) {
         };
 
         if (panelEl) panelEl.innerHTML =
-            `<div style="padding:10px 12px;font-size:11px;color:#888;">
-                Scan ${candidates.length} kandidat untuk ${symbolOf(receiveToken)}...
-             </div>`;
+    `<div style="padding:10px 12px;font-size:11px;color:#888;">
+        Scan ${candidates.length} kandidat
+        (${Math.max(candidates.length - 1, 0)} custom + SDA baseline)
+        untuk ${symbolOf(receiveToken)}...
+     </div>`;
 
         // baseline: berapa SDA untuk dapat 1 receiveToken
         let baselineSDACost = null;
@@ -132,6 +487,7 @@ if (baselineSDACost && baselineSDACost > 0) {
 }
 
 
+
 // ================================
 // LIQUIDITY CHECK PER ROUTE
 // ================================
@@ -147,6 +503,16 @@ try {
     if (liq) {
 
 if (liq.maxSwapOut) {
+
+    console.log(
+        "[AGG DEBUG]",
+        symbolOf(receiveToken),
+        "raw maxSwapOut:",
+        liq.maxSwapOut,
+        "decimals:",
+        getTokenDecimals(receiveToken)
+    );
+
     maxSafeReceive = formatTokenAmount(
         liq.maxSwapOut,
         getTokenDecimals(receiveToken)
@@ -173,6 +539,7 @@ if (liq.maxSwapOut) {
 }
 
 
+
 return {
     payToken:  token.address,
     paySymbol: token.symbol || symbolOf(token.address),
@@ -181,11 +548,17 @@ return {
     unitsNeeded,
     sdaEquiv: netSDAEq,
 
-    savings: baselineSDACost
-        ? baselineSDACost - netSDAEq
-        : null,
+    savings: _isNat(token.address)
+    ? 0
+    : (
+        baselineSDACost
+            ? baselineSDACost - netSDAEq
+            : null
+    ),
 
-    savingsPct,
+    savingsPct: _isNat(token.address)
+    ? 0
+    : savingsPct,
     hops,
 
     isSDA: _isNat(token.address),
@@ -206,12 +579,48 @@ return {
 
         results.sort((a, b) => {
 
-    const aPenalty = a.liquidityWarn ? 999999 : 0;
-    const bPenalty = b.liquidityWarn ? 999999 : 0;
+    const aProfit = a.savings ?? -999999;
+    const bProfit = b.savings ?? -999999;
 
-    return (a.sdaEquiv + aPenalty) - (b.sdaEquiv + bPenalty);
+    // PRIORITAS PROFIT SDA TERBESAR
+    if (bProfit !== aProfit) {
+        return bProfit - aProfit;
+    }
+
+    // PRIORITAS LIQUIDITY TERBESAR
+    const aLiq = a.maxSafeReceive ?? 0;
+    const bLiq = b.maxSafeReceive ?? 0;
+
+    if (bLiq !== aLiq) {
+        return bLiq - aLiq;
+    }
+
+    // BARU PERSENTASE
+    return (b.savingsPct ?? -999) - (a.savingsPct ?? -999);
+
 });
-        return results.slice(0, MAX_RESULTS);
+
+const profitable = results.filter(r => {
+
+    const profit = Math.abs(r.savings ?? 0);
+
+    return profit >= MIN_AUTO_PROFIT_SDA;
+});
+
+const reverseCandidates = results.filter(r =>
+    (r.savingsPct ?? 0) <= -10
+);
+
+const neutral = results.filter(r =>
+    (r.savingsPct ?? 0) <= 0 &&
+    (r.savingsPct ?? 0) > -10
+);
+
+return [
+    ...profitable.slice(0, 10),
+    ...reverseCandidates.slice(0, 10),
+    ...neutral.slice(0, 5)
+];
     }
 
     // =====================================
@@ -240,13 +649,49 @@ return {
     }
 
     function _renderIncremental(results, receiveToken, targetAmt) {
-        renderPanel([...results].sort((a,b) => a.sdaEquiv - b.sdaEquiv), receiveToken, targetAmt);
-    }
+
+    const sorted = [...results].sort((a, b) => {
+        const aPlus = (a.savingsPct ?? -999) > 0;
+        const bPlus = (b.savingsPct ?? -999) > 0;
+
+        if (aPlus && !bPlus) return -1;
+        if (!aPlus && bPlus) return 1;
+
+        if (aPlus && bPlus) {
+            return a.sdaEquiv - b.sdaEquiv;
+        }
+
+        return (a.savingsPct ?? 0) - (b.savingsPct ?? 0);
+    });
+
+    const profitable = sorted.filter(r =>
+    (r.savings ?? 0) >= MIN_AUTO_PROFIT_SDA
+);
+
+    const reverseCandidates = sorted.filter(r =>
+        (r.savingsPct ?? 0) <= -10
+    );
+
+    const neutral = sorted.filter(r =>
+        (r.savingsPct ?? 0) <= 0 &&
+        (r.savingsPct ?? 0) > -10
+    );
+
+    renderPanel(
+        [
+            ...profitable.slice(0, 10),
+            ...reverseCandidates.slice(0, 10),
+            ...neutral.slice(0, 5)
+        ],
+        receiveToken,
+        targetAmt
+    );
+}
 
     function _buildRow(r, idx, receiveToken, targetAmt) {
     const isBest  = idx === 0;
     const cheaper = r.savingsPct !== null && r.savingsPct > 0.5;
-    const pricier = r.savingsPct !== null && r.savingsPct < -0.5;
+    const pricier = r.savingsPct !== null && r.savingsPct < 0;
 
     const badge = r.isSDA
         ? `<span class="agg-tag blue">BASELINE</span>`
@@ -261,6 +706,16 @@ return {
         : r.unitsNeeded.toFixed(6).replace(/\.?0+$/, "");
 
     const sdaDisplay = Number(r.sdaEquiv || 0).toFixed(4);
+    
+    const effectiveProfit =
+    (r.savingsPct ?? 0) < 0
+        ? Math.abs(r.savings || 0)
+        : (r.savings || 0);
+
+const profitDisplay =
+    effectiveProfit > 0
+        ? `${effectiveProfit.toFixed(4)} SDA`
+        : "-";
 
         // Liquidity warning
         // =====================================
@@ -286,9 +741,13 @@ const liqWarnHTML = hasLiqData
                     ? 'Max Aman'
                     : 'Liq OK'
             }:
-            ~${Number(r.maxSafeReceive).toLocaleString(undefined,{
-    maximumFractionDigits:2
-})}
+            ~${
+    r.maxSafeReceive < 0.01
+        ? Number(r.maxSafeReceive).toExponential(2)
+        : Number(r.maxSafeReceive).toLocaleString(undefined,{
+            maximumFractionDigits:2
+        })
+}
             ${symbolOf(receiveToken)}
         </div>
     `
@@ -322,33 +781,102 @@ return `
                 </div>
 
                 <div class="agg-meta">
-                    ${unitsDisplay} ${r.paySymbol}
-                    &equiv; ${sdaDisplay} SDA
-                </div>
+    ${unitsDisplay} ${r.paySymbol}
+    &equiv; ${sdaDisplay} SDA
+</div>
+
+<div class="agg-profit"
+     style="
+        font-size:11px;
+        margin-top:2px;
+        color:${effectiveProfit > 0 ? '#00d084' : '#888'};
+     ">
+    Profit Est:
+    ${
+        profitDisplay === "-"
+            ? "-"
+            : `+ ${profitDisplay}`
+    }
+</div>
 
                 ${liqWarnHTML}
 
             </div>
         </div>
 
-        <div class="agg-row-right">
+   <div class="agg-row-right">
 
-            ${badge}
+    <!-- TOP: BADGE (LOCKED AREA) -->
+    <div class="agg-top-badges">
+        ${badge}
 
-            ${
-                isBest && !r.isSDA && !r.liquidityWarn
-                    ? '<div class="agg-best-tag">BEST</div>'
-                    : ''
-            }
-
-            ${
-                r.liquidityWarn
-                    ? '<div class="agg-best-tag" style="background:#ff4d4f;">TIPIS</div>'
-                    : ''
-            }
-
-        </div>
+        ${isBest && !r.isSDA && !r.liquidityWarn && r.savingsPct !== null && r.savingsPct > 0.5
+            ? `<div class="agg-best-tag">BEST</div>`
+            : ""
+        }
     </div>
+
+    <!-- BOTTOM: ACTIONS (ALWAYS STACK SAFE) -->
+    <div class="agg-right-actions">
+
+        <button class="agg-pin-btn"
+            onclick="event.stopPropagation();
+            AGGREGATOR.refreshSingleRoute(
+                '${r.payToken}',
+                '${receiveToken}',
+                ${targetAmt}
+            )">
+            ↻
+        </button>
+
+        ${!r.isSDA ? `
+            <button class="agg-pin-btn"
+                onclick="event.stopPropagation();
+                AGGREGATOR.toggleAggregatorCandidate('${r.payToken}')">
+                ${
+                    getAggregatorCandidates().includes(r.payToken)
+                        ? '★'
+                        : '☆'
+                }
+            </button>
+        ` : ''}
+
+        ${
+    !r.isSDA &&
+    r.savingsPct !== null
+? `
+    <button class="agg-auto-btn"
+    onclick="event.stopPropagation();
+    if(AGGREGATOR.isAutoRunning()) return;
+AGGREGATOR.setAutoRunning(true);
+    AGGREGATOR.lockAutoButton(this);
+        ${
+            r.savingsPct > 0
+            ? `
+            AGGREGATOR.autoRouteBuy(
+                '${r.payToken}',
+                '${receiveToken}',
+                ${(r.maxSafeReceive || 0) * 0.85}
+            )
+            `
+            : `
+            AGGREGATOR.autoRouteReverse(
+                '${r.payToken}',
+                '${receiveToken}',
+                ${(r.maxSafeReceive || 0) * 0.85}
+            )
+            `
+        }">
+        ⚡ Auto
+    </button>
+`
+: ''
+}
+
+    </div>
+
+</div>
+</div>
 `;
     }
 
@@ -404,7 +932,9 @@ return `
         if (_scanning) return;
 
         const receiveToken = window.swapState?.receiveToken;
-        const amount       = parseFloat(document.getElementById("payAmount")?.value) || 1;
+        const amount = parseFloat(
+    document.getElementById("receiveAmount")?.value
+) || 1;
 
         if (!receiveToken) return;
 
@@ -414,7 +944,8 @@ return `
             return;
         }
 
-        _scanning    = true;
+        _scanning = true;
+       await acquireWakeLock();
         _lastScanKey = scanKey;
         _setBadge("...");
 
@@ -427,6 +958,7 @@ return `
                 : results;
 
             _lastResults  = enriched;
+            cleanupAggregatorCandidates();
             renderPanel(enriched, receiveToken, amount);
             const cheaper = enriched.filter(r => !r.isSDA && r.savingsPct > 0.5).length;
             _setBadge(cheaper > 0 ? cheaper : enriched.length);
@@ -434,7 +966,8 @@ return `
             const p = document.getElementById("aggPanel");
             if (p) p.innerHTML = `<div style="padding:12px;color:#f66;font-size:12px;">Error: ${e.message}</div>`;
         } finally {
-            _scanning = false;
+    _scanning = false;
+    await releaseWakeLock();
         }
     }
 
@@ -462,6 +995,11 @@ return `
                     <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:4px;"></i>
                 </button>
                 <span id="aggBadge" class="agg-badge" style="display:none;"></span>
+                <button class="agg-rescan-btn"
+        onclick="openAggregatorCandidatePicker()"
+        title="Aggregator Tokens">
+    <i class="fa-solid fa-sliders"></i>
+</button>
                 <button class="agg-rescan-btn" onclick="AGGREGATOR.rescan()" title="Rescan">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
@@ -482,8 +1020,9 @@ return `
         let lastKey = "";
         setInterval(() => {
             if (!_panelOpen) return;
+if (_suspendWatcher) return;
             const rt  = window.swapState?.receiveToken;
-            const amt = document.getElementById("payAmount")?.value || "1";
+            const amt = document.getElementById("receiveAmount")?.value || "1";
             const key = `${rt}_${amt}`;
             if (key !== lastKey) { lastKey = key; triggerScan(); }
         }, 1500);
@@ -492,7 +1031,628 @@ return `
     document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => { injectUI(); initWatcher(); }, 600);
     });
+    
+async function autoRouteBuy(
+    intermediateToken,
+    finalToken,
+    targetFinalOutInput
+) {
+    let interReceived = 0;
+    let finalReceived = 0;
 
-    return { togglePanel, triggerScan, rescan, usePayToken, scanCheapestPayer };
+    try {
+
+        window._aggStartSda =
+            await getWalletTokenBalance("native");
+
+        _suspendWatcher = true;
+        await acquireWakeLock();
+
+        if (!targetFinalOutInput || targetFinalOutInput <= 0) {
+            showToast?.("Invalid target", "error");
+            return;
+        }
+
+        let targetFinalOut =
+            targetFinalOutInput * 0.95;
+
+        const rateIntermediateToFinal =
+            await PRICE_ENGINE.getAmountOut(
+                intermediateToken,
+                finalToken,
+                1
+            );
+
+        if (!rateIntermediateToFinal || rateIntermediateToFinal <= 0) {
+            throw new Error("Route invalid");
+        }
+
+        let intermediateNeeded =
+            targetFinalOut / rateIntermediateToFinal;
+
+        const rateSdaToIntermediate =
+            await PRICE_ENGINE.getAmountOut(
+                "native",
+                intermediateToken,
+                1
+            );
+
+        if (!rateSdaToIntermediate || rateSdaToIntermediate <= 0) {
+            throw new Error("Cannot price SDA route");
+        }
+
+        let sdaNeeded =
+            intermediateNeeded / rateSdaToIntermediate;
+
+        const MAX_AUTO_SDA_SPEND = 10;
+
+        let adjusted = false;
+
+        if (sdaNeeded > MAX_AUTO_SDA_SPEND) {
+            const scale =
+                MAX_AUTO_SDA_SPEND / sdaNeeded;
+
+            targetFinalOut *= scale;
+            intermediateNeeded *= scale;
+            sdaNeeded = MAX_AUTO_SDA_SPEND;
+
+            adjusted = true;
+        }
+
+        const ok = confirm(
+            `Auto Arbitrage Full\n\n` +
+            `${adjusted ? '⚠ Spend capped\n\n' : ''}` +
+            `Start SDA: ${
+    sdaNeeded < 0.0001
+        ? sdaNeeded.toExponential(4)
+        : sdaNeeded.toFixed(4)
+}\n` +
+            `Route:\n` +
+            `SDA → ${symbolOf(intermediateToken)} → ${symbolOf(finalToken)} → SDA`
+        );
+
+        if (!ok) return;
+
+        // =========================
+        // STEP 1 SDA -> INTERMEDIATE
+        // =========================
+        const balInterBefore =
+            await getWalletTokenBalance(
+                intermediateToken
+            );
+
+        showToast?.(
+            `1/3 Buy ${symbolOf(intermediateToken)}...`,
+            "info"
+        );
+
+        await SWAP_ENGINE.executeSwap(
+            "native",
+            intermediateToken,
+            sdaNeeded
+        );
+
+        await new Promise(r =>
+            setTimeout(r, 2000)
+        );
+
+        const balInterAfter =
+            await getWalletTokenBalance(
+                intermediateToken
+            );
+
+        interReceived =
+            balInterAfter - balInterBefore;
+
+        if (interReceived <= 0) {
+            throw new Error(
+                "Intermediate not received"
+            );
+        }
+
+        const safeInter =
+            Math.floor(interReceived * 10000) / 10000;
+
+        // =========================
+        // STEP 2 INTERMEDIATE -> FINAL
+        // =========================
+        const balFinalBefore =
+            await getWalletTokenBalance(
+                finalToken
+            );
+
+        showToast?.(
+            `2/3 Buy ${symbolOf(finalToken)}...`,
+            "info"
+        );
+
+        try {
+
+            await SWAP_ENGINE.executeSwap(
+                intermediateToken,
+                finalToken,
+                safeInter
+            );
+
+        } catch (step2Err) {
+
+            showToast?.(
+                "Step 2 gagal — recovery sell intermediate...",
+                "warning"
+            );
+
+            try {
+                await SWAP_ENGINE.executeSwap(
+                    intermediateToken,
+                    "native",
+                    safeInter * 0.999
+                );
+            } catch {}
+
+            throw step2Err;
+        }
+
+        await new Promise(r =>
+            setTimeout(r, 2000)
+        );
+
+        const balFinalAfter =
+            await getWalletTokenBalance(
+                finalToken
+            );
+
+        finalReceived =
+            balFinalAfter - balFinalBefore;
+
+        if (finalReceived <= 0) {
+            throw new Error(
+                "Final token not received"
+            );
+        }
+
+        const safeFinal =
+            Math.floor(finalReceived * 10000) / 10000;
+
+        // =========================
+        // STEP 3 FINAL -> SDA
+        // =========================
+        showToast?.(
+            `3/3 Sell to SDA...`,
+            "info"
+        );
+
+        try {
+
+            await SWAP_ENGINE.executeSwap(
+                finalToken,
+                "native",
+                safeFinal
+            );
+
+        } catch (step3Err) {
+
+            showToast?.(
+                "Step 3 gagal — retry emergency sell...",
+                "warning"
+            );
+
+            try {
+                await SWAP_ENGINE.executeSwap(
+                    finalToken,
+                    "native",
+                    safeFinal * 0.995
+                );
+            } catch {}
+
+            throw step3Err;
+        }
+
+        await new Promise(r =>
+            setTimeout(r, 2000)
+        );
+
+        // =========================
+        // RESULT
+        // =========================
+        const finalSdaAfter =
+            await getWalletTokenBalance(
+                "native"
+            );
+
+        if (typeof loadBalance === "function") {
+            await loadBalance();
+        }
+
+        if (typeof updateAddressUI === "function") {
+            updateAddressUI();
+        }
+
+        if (typeof renderAssets === "function") {
+            renderAssets();
+        }
+
+        if (balanceEl) {
+            balanceEl.textContent =
+                `${finalSdaAfter.toFixed(4)} SDA`;
+        }
+
+        const initialSda =
+            window._aggStartSda ||
+            finalSdaAfter;
+
+        const profit =
+            finalSdaAfter - initialSda;
+
+        const profitPct =
+            initialSda > 0
+                ? (profit / initialSda) * 100
+                : 0;
+
+        showToast?.(
+            profit > 0
+                ? `Profit +${profit.toFixed(4)} SDA (+${profitPct.toFixed(2)}%)`
+                : `Rugi ${profit.toFixed(4)} SDA (${profitPct.toFixed(2)}%)`,
+            profit > 0
+                ? "success"
+                : "error"
+        );
+
+        try {
+            const audio =
+                new Audio("audio/ding.mp3");
+
+            audio.volume = 1;
+            audio.preload = "auto";
+
+            await audio.play().catch(()=>{});
+
+        } catch {}
+
+        showToast?.(
+            "Full arbitrage completed",
+            "success"
+        );
+
+    } catch (e) {
+
+        console.error(e);
+
+        showToast?.(
+            e?.message ||
+            "Auto arbitrage gagal",
+            "error"
+        );
+
+    } finally {
+
+    _suspendWatcher = false;
+    await releaseWakeLock();
+
+    setAutoRunning(false);
+    unlockAutoButtons();
+}
+}
+
+
+async function autoRouteReverse(
+    intermediateToken,
+    finalToken,
+    targetOutInput
+) {
+    try {
+
+        window._aggStartSda =
+            await getWalletTokenBalance("native");
+
+        _suspendWatcher = true;
+        await acquireWakeLock();
+
+        let spendSda = 10;
+
+        try {
+            const finalPerSda =
+                await PRICE_ENGINE.getAmountOut(
+                    "native",
+                    finalToken,
+                    1
+                );
+
+            const neededSda =
+                targetOutInput / finalPerSda;
+
+            spendSda = Math.min(
+                neededSda * 0.95,
+                10
+            );
+        } catch {}
+
+        if (spendSda <= 0) {
+            throw new Error("Invalid spend SDA");
+        }
+
+        const ok = confirm(
+            `Auto Reverse Arbitrage\n\n` +
+            `Route:\n` +
+            `SDA → ${symbolOf(finalToken)} → ${symbolOf(intermediateToken)} → SDA\n\n` +
+            `Spend: ${spendSda.toFixed(4)} SDA`
+        );
+
+        if (!ok) return;
+
+        // =========================
+        // STEP 1 SDA -> FINAL
+        // =========================
+        const finalBefore =
+            await getWalletTokenBalance(finalToken);
+
+        await SWAP_ENGINE.executeSwap(
+            "native",
+            finalToken,
+            spendSda
+        );
+
+        await new Promise(r=>setTimeout(r,2000));
+
+        const finalAfter =
+            await getWalletTokenBalance(finalToken);
+
+        const finalReceived =
+            finalAfter - finalBefore;
+
+        if (finalReceived <= 0) {
+            throw new Error("Final token tidak diterima");
+        }
+
+        // =========================
+        // STEP 2 FINAL -> INTERMEDIATE
+        // =========================
+        const step2Liq =
+            await PRICE_ENGINE.getPoolLiquidity(
+                finalToken,
+                intermediateToken
+            );
+
+        let sellFinalAmount =
+            finalReceived * 0.999;
+
+        if (step2Liq?.maxSwapIn) {
+            const maxSafeStep2 =
+                formatTokenAmount(
+                    step2Liq.maxSwapIn,
+                    getTokenDecimals(finalToken)
+                ) * 0.95;
+
+            sellFinalAmount = Math.min(
+                sellFinalAmount,
+                maxSafeStep2
+            );
+        }
+
+        const interBefore =
+            await getWalletTokenBalance(
+                intermediateToken
+            );
+
+        await SWAP_ENGINE.executeSwap(
+            finalToken,
+            intermediateToken,
+            sellFinalAmount
+        );
+
+        await new Promise(r=>setTimeout(r,2000));
+
+        const interAfter =
+            await getWalletTokenBalance(
+                intermediateToken
+            );
+
+        const interReceived =
+            interAfter - interBefore;
+
+        if (interReceived <= 0) {
+            throw new Error(
+                "Intermediate token tidak diterima"
+            );
+        }
+
+        // =========================
+        // STEP 3 INTERMEDIATE -> SDA
+        // =========================
+        const step3Liq =
+            await PRICE_ENGINE.getPoolLiquidity(
+                intermediateToken,
+                "native"
+            );
+
+        let sellInterAmount =
+            interReceived * 0.999;
+
+        if (step3Liq?.maxSwapIn) {
+            const maxSafeStep3 =
+                formatTokenAmount(
+                    step3Liq.maxSwapIn,
+                    getTokenDecimals(intermediateToken)
+                ) * 0.95;
+
+            sellInterAmount = Math.min(
+                sellInterAmount,
+                maxSafeStep3
+            );
+        }
+
+        await SWAP_ENGINE.executeSwap(
+            intermediateToken,
+            "native",
+            sellInterAmount
+        );
+
+        await new Promise(r=>setTimeout(r,2000));
+
+        const endSda =
+            await getWalletTokenBalance("native");
+
+        const profit =
+            endSda - window._aggStartSda;
+
+        showToast?.(
+            profit >= 0
+                ? `Profit +${profit.toFixed(4)} SDA`
+                : `Loss ${profit.toFixed(4)} SDA`,
+            profit >= 0 ? "success" : "error"
+        );
+
+    } catch (e) {
+
+        console.error(e);
+
+        showToast?.(
+            e?.message || "Auto reverse gagal",
+            "error"
+        );
+
+    } finally {
+
+    _suspendWatcher = false;
+    await releaseWakeLock();
+
+    setAutoRunning(false);
+    unlockAutoButtons();
+}
+}
+
+
+async function buyMaxSafe(payToken, receiveToken) {
+    try {
+
+        const bestRoute = _lastResults.find(
+            r => r.payToken === payToken
+        );
+
+        if (!bestRoute || !bestRoute.maxSafeReceive) {
+            showToast?.(
+                "Data liquidity belum tersedia",
+                "error"
+            );
+            return;
+        }
+
+        // =====================================
+        // SAFE BUFFER 95%
+        // =====================================
+        const safeReceive =
+            bestRoute.maxSafeReceive * 0.95;
+
+        // =====================================
+        // ESTIMATE PAY NEEDED
+        // =====================================
+        const rate = await PRICE_ENGINE.getAmountOut(
+            payToken,
+            receiveToken,
+            1
+        );
+
+        if (!rate || rate <= 0) {
+            showToast?.(
+                "Gagal hitung route",
+                "error"
+            );
+            return;
+        }
+
+        let payNeeded = safeReceive / rate;
+
+        // =====================================
+        // REFINE USING REAL QUOTE
+        // =====================================
+        try {
+            const realOut =
+                await PRICE_ENGINE.getAmountOut(
+                    payToken,
+                    receiveToken,
+                    payNeeded
+                );
+
+            if (realOut > 0) {
+                payNeeded =
+                    payNeeded *
+                    (safeReceive / realOut);
+            }
+
+        } catch (e) {
+            console.warn(
+                "Refine quote failed:",
+                e
+            );
+        }
+
+        // =====================================
+        // UPDATE SWAP STATE
+        // =====================================
+        window.swapState.payToken = payToken;
+
+        document.getElementById(
+            "payTokenSymbol"
+        ).innerText = symbolOf(payToken);
+
+        document.getElementById(
+            "payTokenIcon"
+        ).src = logoOf(payToken);
+
+        // =====================================
+        // FILL INPUTS
+        // =====================================
+        const payInput =
+            document.getElementById("payAmount");
+
+        const recvInput =
+            document.getElementById("receiveAmount");
+
+        if (payInput) {
+            payInput.value =
+                payNeeded.toFixed(6);
+        }
+
+        if (recvInput) {
+            recvInput.value =
+                safeReceive.toFixed(6);
+        }
+
+        showToast?.(
+            `Auto set max safe ~${safeReceive.toFixed(2)} ${symbolOf(receiveToken)}`,
+            "success"
+        );
+
+    } catch (e) {
+        console.error(
+            "buyMaxSafe error:",
+            e
+        );
+
+        showToast?.(
+            e?.message ||
+            "Gagal auto set max safe",
+            "error"
+        );
+    }
+}
+
+return {
+    togglePanel,
+    triggerScan,
+    rescan,
+    usePayToken,
+    scanCheapestPayer,
+    buyMaxSafe,
+    autoRouteBuy,
+    autoRouteReverse,
+    refreshSingleRoute,
+
+    isAutoRunning,
+    setAutoRunning,
+    lockAutoButton,
+    unlockAutoButtons,
+
+    toggleAggregatorCandidate
+};
 
 })();
