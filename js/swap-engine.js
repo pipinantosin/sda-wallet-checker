@@ -392,6 +392,37 @@ function resolveLogoPath(tokenData, isNativeToken) {
     return raw;
 }
 
+
+async function executeSwap(tokenIn, tokenOut, amountUI) {
+
+    const prevPay  = window.swapState.payToken;
+    const prevRecv = window.swapState.receiveToken;
+
+    try {
+
+        window.swapState.payToken     = tokenIn;
+        window.swapState.receiveToken = tokenOut;
+
+        const payInput = document.getElementById("payAmount");
+        if (payInput) {
+            payInput.value = Number(amountUI).toFixed(6);
+        }
+
+        window.swapConfirmState = {
+            tokenIn,
+            tokenOut,
+            amountUI: Number(amountUI).toFixed(6)
+        };
+
+        return await swapExactInput();
+
+    } finally {
+
+        window.swapState.payToken     = prevPay;
+        window.swapState.receiveToken = prevRecv;
+    }
+}
+
 // ==========================
 // MAIN SWAP
 // ==========================
@@ -573,7 +604,8 @@ document.addEventListener("DOMContentLoaded", init);
 
 return {
     swapExactInput,
-    openSwapConfirm
+    openSwapConfirm,
+    executeSwap
 };
 
 })();
