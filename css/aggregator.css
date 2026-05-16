@@ -1,5 +1,5 @@
 /* =====================================
-   AGGREGATOR PANEL
+   AGGREGATOR PANEL CLEAN FINAL UI
 ===================================== */
 
 /* TOGGLE ROW */
@@ -67,18 +67,23 @@
     margin-top: 8px;
     max-height: 320px;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* ROW */
 .agg-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: stretch;
+
     padding: 12px 14px;
     border-bottom: 1px solid #161616;
+
     cursor: pointer;
     transition: background 0.12s;
     gap: 10px;
+
+    min-width: 0;
 }
 
 .agg-row:last-child {
@@ -98,19 +103,32 @@
     background: #111f11;
 }
 
-/* LEFT */
+.agg-row.agg-liq-danger {
+    border-left: 3px solid #ff4d4f;
+    background: #1a0d0d;
+}
+
+.agg-row.agg-liq-danger:hover {
+    background: #220f0f;
+}
+
+/* LEFT SIDE */
 .agg-row-left {
+    flex: 1;
+    min-width: 0;
+
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 1;
-    min-width: 0;
+
+    padding-right: 8px;
 }
 
 .agg-path {
     font-size: 13px;
     font-weight: 600;
     color: #ddd;
+
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -122,37 +140,102 @@
     margin-top: 2px;
 }
 
-/* RIGHT */
+.agg-liq {
+    font-size: 11px;
+    margin-top: 4px;
+    color: #888;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* RIGHT SIDE (IMPORTANT FIX LAYOUT) */
 .agg-row-right {
-    text-align: right;
+    min-width: 110px;
+    max-width: 110px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+
+    gap: 6px;
+
     flex-shrink: 0;
 }
 
-.agg-out {
-    font-size: 13px;
+/* BADGES AREA (TOP RIGHT) */
+.agg-top-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+
+    width: 100%;
+}
+
+/* ACTION BUTTONS (BOTTOM RIGHT) */
+.agg-right-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+
+    width: 100%;
+}
+
+/* BUTTON BASE */
+.agg-pin-btn,
+.agg-auto-btn {
+    width: 100%;
+    height: 28px;
+
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 11px;
     font-weight: 700;
+    line-height: 1;
+
+    border: none;
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    flex-shrink: 0;
+}
+
+/* REFRESH / STAR */
+.agg-pin-btn {
+    background: #1a1a1a;
+    color: #ffcc00;
+}
+
+.agg-pin-btn:hover {
+    background: #262626;
+}
+
+/* AUTO BUTTON */
+.agg-auto-btn {
+    background: #7c3aed;
     color: #fff;
 }
 
-.agg-improve {
-    font-size: 11px;
-    margin-top: 2px;
+.agg-auto-btn:hover {
+    background: #8b5cf6;
 }
 
-.agg-header-info {
-    font-size: 12px;
-    color: #888;
-    padding: 10px 14px 6px;
-    border-bottom: 1px solid #1a1a1a;
-}
-
-.agg-tag {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
+/* TAGS */
+.agg-best-tag {
+    font-size: 9px;
+    padding: 2px 6px;
     border-radius: 4px;
-    letter-spacing: 0.3px;
+    background: #00d084;
+    color: #000;
+    font-weight: 800;
 }
 
 .agg-tag.green { background: #0d2a1a; color: #00d084; }
@@ -167,33 +250,104 @@
     font-weight: 800;
     padding: 2px 6px;
     border-radius: 4px;
-    margin-top: 4px;
-    letter-spacing: 0.5px;
 }
 
-/* LIQUIDITY WARNING */
-.agg-liq-warn {
-    font-size: 10px;
-    color: #ff4d4f;
-    margin-top: 3px;
+/* HEADER */
+.agg-header-info {
+    font-size: 12px;
+    color: #888;
+    padding: 10px 14px 6px;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+/* =====================================
+   CANDIDATE POPUP (UNCHANGED SAFE)
+===================================== */
+
+#aggCandidateModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    z-index: 10250;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+#aggCandidateModal.show {
+    display: flex;
+}
+
+.agg-candidate-popup {
+    width: min(420px,92vw);
+    max-height: 75vh;
+
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 18px;
+
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+
+.agg-candidate-popup h3 {
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 16px;
+    border-bottom: 1px solid #222;
+    color: #fff;
+    margin: 0;
+}
+
+.agg-candidate-popup-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px;
+}
+
+.agg-candidate-popup label {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 12px;
+
+    padding: 10px 12px;
+    border-radius: 10px;
+
+    cursor: pointer;
+    color: #fff;
+    font-size: 14px;
+
+    transition: .15s;
 }
 
-.agg-liq-ok {
-    font-size: 10px;
-    color: #00d084;
-    margin-top: 3px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    opacity: 0.7;
+.agg-candidate-popup label:hover {
+    background: #1a1a1a;
 }
 
-.agg-row.agg-liq-danger {
-    border-left: 3px solid #ff4d4f;
-    background: #1a0d0d;
+.agg-candidate-popup input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    accent-color: #ff7a00;
 }
 
-.agg-row.agg-liq-danger:hover { background: #220f0f; }
+.agg-candidate-popup img {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.agg-candidate-popup span {
+    flex: 1;
+}
+
+
+
+
+
+
