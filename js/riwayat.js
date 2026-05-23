@@ -33,7 +33,8 @@ async function fetchTxFromBlockscout(address, page = 1) {
         return items.map(tx => mapBlockscoutTx(tx, address)).filter(Boolean);
 
     } catch (err) {
-        console.warn("[Blockscout] fetchTx error:", err.message);
+        alert("fetchTx error: " + err.message);
+console.warn("[Blockscout] fetchTx error:", err);
         return null; // null = API gagal, fallback ke cache
     }
 }
@@ -57,7 +58,8 @@ async function fetchTokenTransfersFromBlockscout(address, page = 1) {
         return items.map(tx => mapBlockscoutTokenTransfer(tx, address));
 
     } catch (err) {
-        console.warn("[Blockscout] fetchTokenTransfers error:", err.message);
+        alert("tokenTransfer error: " + err.message);
+console.warn("[Blockscout] fetchTokenTransfers error:", err);
         return null;
     }
 }
