@@ -2,7 +2,7 @@
 // RIWAYAT.JS â€” TX HISTORY
 // Blockscout API + LocalStorage
 // =============================
-
+console.log("RIWAYAT JS LOADED");
 const BLOCKSCOUT_API = "https://ledger.chainora.io/api/v2";
 
 // =============================
@@ -64,7 +64,7 @@ async function fetchTokenTransfersFromBlockscout(address, page = 1) {
 
 
 // =============================
-// MAP BLOCKSCOUT TX â†’ FORMAT LOKAL
+// MAP BLOCKSCOUT TX > FORMAT LOKAL
 // =============================
 function mapBlockscoutTx(tx, myAddress) {
     const myAddr = myAddress?.toLowerCase();
@@ -132,7 +132,7 @@ function mapBlockscoutTx(tx, myAddress) {
 
 
 // =============================
-// MAP BLOCKSCOUT TOKEN TRANSFER â†’ FORMAT LOKAL
+// MAP BLOCKSCOUT TOKEN TRANSFER > FORMAT LOKAL
 // =============================
 function mapBlockscoutTokenTransfer(tx, myAddress) {
     const myAddr  = myAddress?.toLowerCase();
@@ -222,7 +222,7 @@ function groupSwapTokenTransfers(list, myAddress) {
             amountIn:  outTx?.value  || "0",
             amountOut: inTx?.value   || "0",
             value:     inTx?.value   || "0",
-            symbol:    (outTx?.symbol || "?") + " â†’ " + (inTx?.symbol || "?"),
+            symbol: (outTx?.symbol || "?") + " > " + (inTx?.symbol || "?"),
         });
     });
 
@@ -270,19 +270,28 @@ async function loadTxHistory(address) {
     showTxLoadingIndicator(true);
 
     try {
-        // Fetch paralel: native tx + token transfers
-        const [nativeTxs, tokenTxs] = await Promise.all([
-            fetchTxFromBlockscout(address),
-            fetchTokenTransfersFromBlockscout(address)
-        ]);
 
-        const hasResult = nativeTxs !== null || tokenTxs !== null;
+    // Fetch paralel: native tx + token transfers
+    alert("FETCH START");
 
-        if (hasResult) {
-            const remote = [
-                ...(nativeTxs  || []),
-                ...(tokenTxs   || [])
-            ];
+    const [nativeTxs, tokenTxs] = await Promise.all([
+        fetchTxFromBlockscout(address),
+        fetchTokenTransfersFromBlockscout(address)
+    ]);
+
+    alert(
+        "native: " + (nativeTxs ? nativeTxs.length : "null") +
+        " token: " + (tokenTxs ? tokenTxs.length : "null")
+    );
+
+    const hasResult = nativeTxs !== null || tokenTxs !== null;
+
+    if (hasResult) {
+
+        const remote = [
+            ...(nativeTxs || []),
+            ...(tokenTxs  || [])
+        ];
 
             // Pertahankan status read dari cache
             const readMap = new Map(cached.map(t => [t.hash, t.read]));
@@ -357,16 +366,16 @@ function showTxDetail(tx) {
     const isSwap       = tx.type === "SWAP";
 
     const symbolLine = isSwap
-        ? `${tx.inSymbol || "?"} â†’ ${tx.outSymbol || "?"}`
+        ? `${tx.inSymbol || "?"} > ${tx.outSymbol || "?"}`
         : (tx.symbol || "SDA");
 
     const valueLine = isSwap
-        ? `${tx.amountIn || 0} ${tx.inSymbol || ""} â†’ ${tx.amountOut || 0} ${tx.outSymbol || ""}`
+        ? `${tx.amountIn || 0} ${tx.inSymbol || ""} > ${tx.amountOut || 0} ${tx.outSymbol || ""}`
         : `${tx.value} ${symbolLine}`;
 
     const statusLabel = tx.status === "failed"
-        ? "âŒ Failed"
-        : "âœ… Success";
+    ? "[FAILED]"
+    : "[SUCCESS]";
 
     showConfirm(`
 Hash: ${tx.hash}
